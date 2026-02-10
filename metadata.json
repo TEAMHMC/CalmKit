@@ -1,0 +1,8 @@
+{
+  "name": "Unstoppable Calm Kit",
+  "description": "A mental wellness companion providing guided walks, breathing exercises, grounding methods, and journaling prompts designed for clarity and peace.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

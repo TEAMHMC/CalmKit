@@ -1,0 +1,71 @@
+
+import React, { useState } from 'react';
+import { Language } from '../types';
+import { translations } from '../translations';
+import { ArrowRight, RotateCcw } from 'lucide-react';
+
+interface GroundingProps {
+  onBack: () => void;
+  lang: Language;
+}
+
+const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
+  const [step, setStep] = useState(0);
+  const [done, setDone] = useState(false);
+  const t = translations[lang];
+  const steps = t.groundingSteps;
+
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-[#121212] px-8 pb-8 animate-in fade-in">
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        {!done ? (
+          <div className="w-full space-y-12 animate-in slide-in-from-right-4">
+             <div className="space-y-2">
+                <span className="text-[120px] font-black leading-none text-[#233DFF] opacity-10 tabular-nums">{steps[step].count}</span>
+                <div className="relative -mt-16">
+                   <h3 className="text-4xl font-black uppercase tracking-tighter dark:text-white font-display">{steps[step].action}</h3>
+                   <p className="text-gray-400 font-bold max-w-[200px] mx-auto mt-2 leading-tight uppercase text-xs tracking-widest">{steps[step].text}</p>
+                </div>
+             </div>
+
+             <div className="flex justify-center gap-3">
+                {steps.map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-12 bg-black dark:bg-white' : 'w-4 bg-gray-100 dark:bg-white/10'}`}></div>
+                ))}
+             </div>
+
+             <button 
+              onClick={() => step < 4 ? setStep(step + 1) : setDone(true)}
+              className="w-full bg-black dark:bg-white text-white dark:text-black py-6 rounded-[32px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95"
+             >
+                {step < 4 ? t.onboarding.next : t.labels.done} <ArrowRight size={18} />
+             </button>
+          </div>
+        ) : (
+          <div className="space-y-8 animate-in zoom-in duration-500">
+             <div className="w-24 h-24 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-full flex items-center justify-center mx-auto shadow-xl">
+                <img 
+                  src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" 
+                  className="w-12 h-12 object-contain" 
+                  alt="HMC Logo"
+                />
+             </div>
+             <div className="space-y-2">
+               <h3 className="text-3xl font-black uppercase italic dark:text-white font-display">{t.labels.youArePresent}</h3>
+               <p className="text-gray-400 font-medium uppercase text-[10px] tracking-widest">{t.labels.safetyFound}</p>
+             </div>
+             <button onClick={() => { setStep(0); setDone(false); }} className="w-full border-2 border-black dark:border-white py-4 rounded-[32px] font-black uppercase tracking-widest text-sm shadow-sm active:scale-95 dark:text-white">
+                {t.labels.repeat}
+             </button>
+          </div>
+        )}
+      </div>
+      
+      <div className="text-center pt-8 opacity-20">
+        <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.4em]">{t.labels.unstoppableGuide}</span>
+      </div>
+    </div>
+  );
+};
+
+export default Grounding;
