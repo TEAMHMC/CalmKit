@@ -54,8 +54,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </p>
       </div>
 
-      {/* Core Actions Grid — 2x2, fills remaining space */}
-      <div className="grid grid-cols-2 gap-1.5 flex-1 min-h-0" style={{gridTemplateRows: '1fr 1fr'}}>
+      {/* Core Actions Grid — 2x2, content-sized */}
+      <div className="grid grid-cols-2 gap-1.5">
         <button
           onClick={() => onSelectView('WALK')}
           className="p-2 rounded-[20px] bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-md"
