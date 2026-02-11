@@ -1,103 +1,132 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
-    <title>Unstoppable Calm Kit | Mental Wellness Companion</title>
-    <meta name="description" content="A mental wellness companion by Health Matters Clinic. Guided walks, breathing exercises, and journaling for daily strength." />
+<head>
+  <meta charset="UTF-8" />
 
-    <!-- Open Graph / Social -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Unstoppable Calm Kit" />
-    <meta property="og:description" content="Mindset resets and movement paths for daily strength." />
-    <meta property="og:image" content="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+  <!-- LOCK MOBILE VIEWPORT -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
 
-    <!-- PWA & Mobile -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="CalmKit" />
-    <meta name="theme-color" content="#233DFF" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
-    <link rel="apple-touch-icon" href="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
-    <link rel="manifest" href="/CalmKit/manifest.json" />
+  <title>Unstoppable Calm Kit | Mental Wellness Companion</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@300;400;500;600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+  <meta name="description"
+        content="A mental wellness companion by Health Matters Clinic. Guided walks, breathing exercises, and journaling for daily strength." />
 
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Unstoppable Calm Kit" />
+  <meta property="og:description" content="Mindset resets and movement paths for daily strength." />
+  <meta property="og:image"
+        content="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
+  <meta name="twitter:card" content="summary_large_image" />
 
-    <style>
-      :root {
-        --brand-blue: #233DFF;
-      }
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f8f8f8;
-        color: #111;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        -webkit-tap-highlight-color: transparent;
-      }
+  <!-- PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CalmKit" />
 
-      .dark body { background-color: #0a0a0a; color: #eee; }
+  <meta name="theme-color" content="#233DFF" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
 
-      /* Ghost Mode Map Styling */
-      .leaflet-container {
-        background: #0a0a0a !important;
-      }
+  <link rel="apple-touch-icon"
+        href="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
 
-      /* Ghost Mode Tile Filter: Obsidian, with lighter gray streets for legibility */
-      .dark-map .leaflet-tile {
-        filter: invert(100%) hue-rotate(180deg) brightness(20%) contrast(110%) saturate(0%);
-      }
+  <link rel="manifest" href="/CalmKit/manifest.json" />
 
-      /* Luminous Neon Path Effect */
-      .glowing-path {
-        filter: drop-shadow(0 0 3px #233DFF) drop-shadow(0 0 8px rgba(35, 61, 255, 0.5));
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-      html, body, #root {
-        height: 100%;
-        width: 100%;
-      }
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-      .leaflet-control-container { display: none !important; }
+  <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@300;400;500;600;700;800&family=Lato:wght@400;700&display=swap"
+        rel="stylesheet">
 
-      .scrollbar-hide::-webkit-scrollbar { display: none; }
-      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  <!-- Leaflet -->
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          crossorigin=""></script>
 
-      .btn-haptic:active { transform: scale(0.98); }
+  <!-- GLOBAL STYLES -->
+  <style>
+    :root {
+      --brand-blue: #233DFF;
+    }
 
-      .font-display { font-family: 'Questrial', 'Inter', sans-serif; }
-      .font-accent { font-family: 'Lato', 'Inter', sans-serif; }
+    html, body, #root {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
 
-      /* Animation keyframes — used throughout components */
-      @keyframes animate-in-fade { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes animate-in-slide-right { from { opacity: 0; transform: translateX(1rem); } to { opacity: 1; transform: translateX(0); } }
-      @keyframes animate-in-slide-bottom { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes animate-in-zoom { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-      @keyframes animate-in-bounce { from { opacity: 0; transform: scale(0.5); } 60% { transform: scale(1.1); } to { opacity: 1; transform: scale(1); } }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8f8f8;
+      color: #111;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
 
-      .animate-in { animation-duration: 400ms; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; }
-      .fade-in { animation-name: animate-in-fade; }
-      .slide-in-from-right-4 { animation-name: animate-in-slide-right; }
-      .slide-in-from-bottom-2 { animation-name: animate-in-slide-bottom; }
-      .zoom-in { animation-name: animate-in-zoom; }
-      .bounce-in { animation-name: animate-in-bounce; }
-    </style>
+    .dark body {
+      background-color: #0a0a0a;
+      color: #eee;
+    }
+
+    /* MAP */
+    .leaflet-container {
+      background: #0a0a0a !important;
+    }
+
+    .dark-map .leaflet-tile {
+      filter: invert(100%) hue-rotate(180deg)
+              brightness(20%) contrast(110%) saturate(0%);
+    }
+
+    .leaflet-control-container {
+      display: none !important;
+    }
+
+    /* SCROLLBARS */
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+
+    /* HAPTIC */
+    .btn-haptic:active { transform: scale(0.98); }
+
+    /* FONTS */
+    .font-display { font-family: 'Questrial','Inter',sans-serif; }
+    .font-accent { font-family: 'Lato','Inter',sans-serif; }
+
+    /* ANIMATIONS */
+    @keyframes animate-in-fade { from {opacity:0;} to {opacity:1;} }
+    @keyframes animate-in-slide-right { from {opacity:0; transform:translateX(1rem);} to {opacity:1; transform:none;} }
+    @keyframes animate-in-slide-bottom { from {opacity:0; transform:translateY(.5rem);} to {opacity:1; transform:none;} }
+    @keyframes animate-in-zoom { from {opacity:0; transform:scale(.9);} to {opacity:1; transform:scale(1);} }
+    @keyframes animate-in-bounce {
+      from {opacity:0; transform:scale(.5);}
+      60% {transform:scale(1.1);}
+      to {opacity:1; transform:scale(1);}
+    }
+
+    .animate-in { animation: 400ms cubic-bezier(.16,1,.3,1) both; }
+    .fade-in { animation-name: animate-in-fade; }
+    .slide-in-from-right-4 { animation-name: animate-in-slide-right; }
+    .slide-in-from-bottom-2 { animation-name: animate-in-slide-bottom; }
+    .zoom-in { animation-name: animate-in-zoom; }
+    .bounce-in { animation-name: animate-in-bounce; }
+  </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <!-- No JS height hack needed — App uses position:fixed which ignores document flow -->
+
+<body>
+  <div id="root"></div>
+
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
