@@ -253,10 +253,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
         <header className="relative z-[10] p-6 flex justify-between items-start">
           <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{MODES.find(m => m.id === mode)?.label || 'GUIDE'}</span>
+            <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label || 'GUIDE'}</span>
           </div>
           <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">GPS: {gpsAccuracy ? `${gpsAccuracy.toFixed(0)}m` : '---'}</span>
+            <span className="text-[10px] font-medium text-white uppercase tracking-wide">GPS: {gpsAccuracy ? `${gpsAccuracy.toFixed(0)}m` : '---'}</span>
           </div>
         </header>
 
@@ -268,8 +268,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
               { label: t.labels.time, value: `${Math.floor(sessionStats.time / 60)}:${(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}` }
             ].map((stat, i) => (
               <div key={i} className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-3xl p-4 flex flex-col items-center">
-                <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">{stat.label}</span>
-                <span className="text-xl font-black text-white tabular-nums tracking-tighter">{stat.value}</span>
+                <span className="text-[7px] font-medium text-gray-400 uppercase tracking-wide mb-1">{stat.label}</span>
+                <span className="text-xl font-bold text-white tabular-nums tracking-normal">{stat.value}</span>
               </div>
             ))}
           </div>
@@ -283,7 +283,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             </button>
             <button 
               onClick={handleStop}
-              className="flex-1 h-20 bg-[#233DFF] rounded-[32px] flex items-center justify-center text-white font-black uppercase tracking-[0.3em] text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+              className="flex-1 h-20 bg-[#233DFF] rounded-[32px] flex items-center justify-center text-white font-bold uppercase tracking-wide text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
             >
               {t.labels.done}
             </button>
@@ -299,14 +299,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         <button onClick={step === 0 ? onBack : () => setStep(step - 1)} className="p-2 -ml-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
           <ChevronLeft size={24} />
         </button>
-        <span className="font-black uppercase tracking-[0.3em] text-[10px] text-[#233DFF]">{t.nav.move}</span>
+        <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF]">{t.nav.move}</span>
       </div>
 
       {step === 0 && (
         <div className="flex-1 flex flex-col justify-between">
           <div className="space-y-1">
-            <h2 className="text-4xl font-black tracking-tighter uppercase dark:text-white font-display">{t.labels.checkIn}</h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">{t.labels.checkInSub}</p>
+            <h2 className="text-4xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
           </div>
           <div className="my-8">
             <textarea
@@ -319,7 +319,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           <button
             onClick={() => setStep(1)}
             disabled={!targetThought.trim()}
-            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-[32px] font-black uppercase tracking-[0.5em] text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
+            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-[32px] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
           >
             {t.onboarding.next} <Send size={16} />
           </button>
@@ -329,8 +329,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       {step === 1 && (
         <>
           <div className="space-y-1 mb-8">
-            <h2 className="text-4xl font-black tracking-tighter uppercase dark:text-white font-display">{t.labels.readyToBegin}</h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">{t.labels.selectMode}</p>
+            <h2 className="text-4xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 mb-10">
@@ -341,8 +341,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
                 className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between group active:scale-[0.98] ${mode === m.id ? 'border-[#233DFF] bg-[#233DFF]/5' : 'border-gray-50 dark:border-white/5 bg-gray-50 dark:bg-white/5'}`}
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className={`font-black uppercase text-sm tracking-widest ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{m.desc}</span>
+                  <span className={`font-medium uppercase text-sm tracking-wide ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
+                  <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wide mt-1">{m.desc}</span>
                 </div>
                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${mode === m.id ? 'bg-[#233DFF] text-white scale-110' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
                   <Sparkles size={18} />
@@ -353,7 +353,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
           <button 
             onClick={handleStart}
-            className="w-full h-20 bg-[#233DFF] text-white rounded-[32px] font-black uppercase tracking-[0.5em] text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
+            className="w-full h-20 bg-[#233DFF] text-white rounded-[32px] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
           >
             <Play size={20} fill="currentColor" /> {t.labels.start}
           </button>
