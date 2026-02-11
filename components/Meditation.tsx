@@ -200,7 +200,6 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
                   onClick={loadScript}
                   className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   {t.labels.beginSession}
                 </button>
               ) : (
@@ -208,7 +207,6 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
                   onClick={() => isAudioPlaying ? stopAudio() : playMeditationAudio(script)}
                   className={`w-full h-14 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl'}`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${isAudioPlaying ? 'bg-black dark:bg-white' : 'bg-white dark:bg-black'}`} />
                   {isAudioPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isAudioPlaying ? t.pauseSession : t.labels.start}
                 </button>

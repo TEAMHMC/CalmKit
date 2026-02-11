@@ -45,6 +45,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const startTimeRef = useRef<number | null>(null);
   const sponsorPlayedRef = useRef(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const timerIntervalRef = useRef<any>(null);
 
   const t = translations[lang];
 
@@ -177,16 +178,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   }, [isPlaying, userLocation, isPaused]);
 
   const startTracking = () => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setUserLocation(coords);
-        pathCoordsRef.current = [coords];
-      },
-      null,
-      { enableHighAccuracy: true, timeout: 5000 }
-    );
-
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
@@ -194,24 +185,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         const current: [number, number] = [latitude, longitude];
         setUserLocation(current);
 
-        if (accuracy > 40) return; 
+        if (accuracy > 40) return;
 
         if (lastPositionRef.current) {
           const prev = lastPositionRef.current;
           const d = L.latLng(prev[0], prev[1]).distanceTo(L.latLng(current[0], current[1]));
-          
+
           if (d > 5) {
             setSessionStats(prevStats => {
               const newDist = prevStats.distance + (d / 1609.34);
-              const newTime = prevStats.time + ((Date.now() - (startTimeRef.current || Date.now()))/1000 - prevStats.time);
-              const paceRaw = newDist > 0 ? (newTime / 60) / newDist : 0;
-              const mins = Math.floor(paceRaw);
-              const secs = Math.floor((paceRaw - mins) * 60);
-              return { 
-                distance: newDist, 
-                time: newTime,
-                pace: `${mins}:${secs.toString().padStart(2, '0')}`
-              };
+              return { ...prevStats, distance: newDist };
             });
             pathCoordsRef.current.push(current);
             lastPositionRef.current = current;
@@ -227,10 +210,41 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
   const handleStart = async () => {
     await initAudio();
+
+    // Get user's actual location BEFORE showing the map
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+      });
+      const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+      setUserLocation(coords);
+      pathCoordsRef.current = [coords];
+      lastPositionRef.current = coords;
+    } catch (e) {
+      // Will fall back to watchPosition updates
+    }
+
     setIsPlaying(true);
     setStep(2);
     isNarratingRef.current = true;
-    startTimeRef.current = Date.now();
+    const now = Date.now();
+    startTimeRef.current = now;
+
+    // Independent timer that ticks every second for time + pace
+    timerIntervalRef.current = setInterval(() => {
+      setSessionStats(prev => {
+        const elapsed = (Date.now() - now) / 1000;
+        const paceRaw = prev.distance > 0 ? (elapsed / 60) / prev.distance : 0;
+        const mins = Math.floor(paceRaw);
+        const secs = Math.floor((paceRaw - mins) * 60);
+        return {
+          ...prev,
+          time: elapsed,
+          pace: prev.distance > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00'
+        };
+      });
+    }, 1000);
+
     startTracking();
     narrationLoop();
   };
@@ -238,6 +252,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const handleStop = () => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
     }
     setIsPlaying(false);
     setIsPaused(false);
@@ -285,7 +302,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
               onClick={handleStop}
               className="flex-1 h-20 bg-[#233dff] rounded-full border border-[#233dff] flex items-center justify-center text-white font-normal text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all gap-2"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
               {t.labels.done}
             </button>
           </div>
@@ -322,7 +338,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             disabled={!targetThought.trim()}
             className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             {t.onboarding.next} <Send size={16} />
           </button>
         </div>
@@ -357,7 +372,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             onClick={handleStart}
             className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 flex-shrink-0"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-white" />
             <Play size={20} fill="currentColor" /> {t.labels.start}
           </button>
         </div>

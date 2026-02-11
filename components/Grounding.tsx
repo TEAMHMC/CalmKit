@@ -38,7 +38,6 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
               onClick={() => step < 4 ? setStep(step + 1) : setDone(true)}
               className="w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-2 shadow-lg active:scale-95"
              >
-                <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
                 {step < 4 ? t.onboarding.next : t.labels.done} <ArrowRight size={18} />
              </button>
           </div>
@@ -56,7 +55,6 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                <p className="text-gray-400 font-medium uppercase text-[10px] tracking-wide">{t.labels.safetyFound}</p>
              </div>
              <button onClick={() => { setStep(0); setDone(false); }} className="w-full bg-white dark:bg-transparent border border-[#0f0f0f] dark:border-white py-4 rounded-full font-normal text-base shadow-sm active:scale-95 text-[#1a1a1a] dark:text-white flex items-center justify-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
                 {t.labels.repeat}
              </button>
           </div>

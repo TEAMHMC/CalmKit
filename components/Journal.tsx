@@ -122,7 +122,6 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
             disabled={!response.trim()}
             className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             <Save size={18} /> {t.saveReflection}
           </button>
         </div>
