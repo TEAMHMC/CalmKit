@@ -70,9 +70,9 @@ const App: React.FC = () => {
       case 'CENTER': return <Grounding onBack={() => setView('HOME')} lang={prefs.lang} />;
       case 'ABOUT': return (
         <div className="flex-1 p-8 flex flex-col gap-6 animate-in fade-in overflow-y-auto">
-          <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.aboutTitle}</h2>
+          <h2 className="text-3xl font-black tracking-tighter uppercase dark:text-white font-display">{t.aboutTitle}</h2>
           <p className="text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{t.aboutCopy}</p>
-          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold uppercase text-[10px] tracking-wide shadow-lg">BACK</button>
+          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">BACK</button>
         </div>
       );
       default: return <Home onSelectView={setView} lang={prefs.lang} />;
@@ -93,8 +93,8 @@ const App: React.FC = () => {
                className="w-8 h-8 object-contain" 
              />
              <div className="flex flex-col">
-               <h2 className="font-medium text-[12px] uppercase tracking-normal dark:text-white leading-none">CALMKIT</h2>
-               <span className="text-[7px] font-medium uppercase tracking-wide text-[#233DFF]">UNSTOPPABLE</span>
+               <h2 className="font-black text-[12px] uppercase tracking-tighter dark:text-white leading-none">CALMKIT</h2>
+               <span className="text-[7px] font-black uppercase tracking-[0.2em] text-[#233DFF]">UNSTOPPABLE</span>
              </div>
            </div>
            
@@ -107,7 +107,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))}
-                className="w-9 h-9 bg-gray-50 dark:bg-white/5 rounded-full text-[9px] font-medium dark:text-white shadow-sm"
+                className="w-9 h-9 bg-gray-50 dark:bg-white/5 rounded-full text-[9px] font-black dark:text-white shadow-sm"
               >
                 {prefs.lang.toUpperCase()}
               </button>
@@ -141,7 +141,7 @@ const App: React.FC = () => {
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
                 {navItem.icon}
               </div>
-              <span className={`text-[8px] font-medium uppercase tracking-wide ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>
+              <span className={`text-[8px] font-black uppercase tracking-widest ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>
                 {navItem.label}
               </span>
             </button>

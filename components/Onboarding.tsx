@@ -56,7 +56,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-5xl font-normal tracking-normal leading-none dark:text-white font-display">
+          <h2 className="text-5xl font-black tracking-tighter uppercase leading-none dark:text-white font-display">
             {steps[step].title}
           </h2>
           <p className="text-sm font-medium text-gray-400 leading-relaxed px-6">
@@ -73,14 +73,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
         <div className="flex flex-col gap-5 pt-4">
           <button 
             onClick={() => isLastStep ? onComplete() : setStep(step + 1)}
-            className={`w-full h-16 rounded-[28px] font-bold uppercase tracking-wide text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
+            className={`w-full h-16 rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
           >
             {isLastStep ? t.onboarding.finish : t.onboarding.next}
             {isLastStep ? <Check size={20} /> : <ArrowRight size={20} />}
           </button>
 
           {step < steps.length - 1 && (
-            <button onClick={onComplete} className="text-[11px] font-medium uppercase tracking-wide text-gray-300 hover:text-gray-500 transition-colors">
+            <button onClick={onComplete} className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-300 hover:text-gray-500 transition-colors">
               {t.labels.skipTutorial}
             </button>
           )}

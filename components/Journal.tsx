@@ -59,14 +59,14 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
     return (
       <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-50 dark:border-white/5">
-          <span className="font-medium text-[10px] tracking-wide text-[#233DFF] uppercase">{t.labels.history}</span>
-          <button onClick={() => setShowHistory(false)} className="text-[10px] font-medium uppercase text-gray-400">{t.labels.close}</button>
+          <span className="font-black text-[10px] tracking-widest text-[#233DFF] uppercase">{t.labels.history}</span>
+          <button onClick={() => setShowHistory(false)} className="text-[10px] font-black uppercase text-gray-400">{t.labels.close}</button>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
-          {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-xs font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
+          {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-xs font-bold uppercase tracking-widest">{t.labels.noEntries}</p>}
           {entries.map(e => (
             <div key={e.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[24px] space-y-3">
-              <span className="text-[8px] font-medium text-gray-300 uppercase">{e.date}</span>
+              <span className="text-[8px] font-black text-gray-300 uppercase">{e.date}</span>
               <p className="text-[10px] font-bold italic text-gray-400">"{e.prompt}"</p>
               <p className="text-xs font-medium dark:text-white">{e.response}</p>
             </div>
@@ -80,7 +80,7 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
     <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
       <div className="px-6 py-6 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <span className="font-medium text-[9px] tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
+          <span className="font-black text-[9px] tracking-[0.3em] text-[#233DFF] uppercase">{t.nav.reflect}</span>
           <button onClick={() => setShowHistory(true)} className="text-gray-300 hover:text-black dark:hover:text-white transition-colors">
             <History size={16} />
           </button>
@@ -96,7 +96,7 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-[#233DFF] animate-pulse"></div>
-            <span className="text-[7px] font-medium uppercase tracking-wide text-gray-400">{t.labels.phaseWitnessing}</span>
+            <span className="text-[7px] font-black uppercase tracking-[0.3em] text-gray-400">{t.labels.phaseWitnessing}</span>
           </div>
         </div>
       </div>
@@ -113,14 +113,14 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
 
         <div className="relative flex-shrink-0">
           {showSuccess && (
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full text-[9px] font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
               <CheckCircle2 size={12} /> {t.labels.saved}
             </div>
           )}
           <button 
             onClick={handleSave} 
             disabled={!response.trim()} 
-            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-[24px] font-bold uppercase tracking-wide text-[11px] flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
+            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-[24px] font-black uppercase tracking-[0.3em] text-[11px] flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
           >
             <Save size={18} /> {t.saveReflection}
           </button>

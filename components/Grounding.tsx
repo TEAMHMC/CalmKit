@@ -21,10 +21,10 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
         {!done ? (
           <div className="w-full space-y-12 animate-in slide-in-from-right-4">
              <div className="space-y-2">
-                <span className="text-[120px] font-bold leading-none text-[#233DFF] opacity-10 tabular-nums">{steps[step].count}</span>
+                <span className="text-[120px] font-black leading-none text-[#233DFF] opacity-10 tabular-nums">{steps[step].count}</span>
                 <div className="relative -mt-16">
-                   <h3 className="text-4xl font-normal tracking-normal dark:text-white font-display">{steps[step].action}</h3>
-                   <p className="text-gray-400 font-medium max-w-[200px] mx-auto mt-2 leading-tight uppercase text-xs tracking-wide">{steps[step].text}</p>
+                   <h3 className="text-4xl font-black uppercase tracking-tighter dark:text-white font-display">{steps[step].action}</h3>
+                   <p className="text-gray-400 font-bold max-w-[200px] mx-auto mt-2 leading-tight uppercase text-xs tracking-widest">{steps[step].text}</p>
                 </div>
              </div>
 
@@ -36,7 +36,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
 
              <button 
               onClick={() => step < 4 ? setStep(step + 1) : setDone(true)}
-              className="w-full bg-black dark:bg-white text-white dark:text-black py-6 rounded-[32px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95"
+              className="w-full bg-black dark:bg-white text-white dark:text-black py-6 rounded-[32px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95"
              >
                 {step < 4 ? t.onboarding.next : t.labels.done} <ArrowRight size={18} />
              </button>
@@ -51,10 +51,10 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                 />
              </div>
              <div className="space-y-2">
-               <h3 className="text-3xl font-normal italic dark:text-white font-display">{t.labels.youArePresent}</h3>
-               <p className="text-gray-400 font-medium uppercase text-[10px] tracking-wide">{t.labels.safetyFound}</p>
+               <h3 className="text-3xl font-black uppercase italic dark:text-white font-display">{t.labels.youArePresent}</h3>
+               <p className="text-gray-400 font-medium uppercase text-[10px] tracking-widest">{t.labels.safetyFound}</p>
              </div>
-             <button onClick={() => { setStep(0); setDone(false); }} className="w-full border-2 border-black dark:border-white py-4 rounded-[32px] font-bold uppercase tracking-wide text-sm shadow-sm active:scale-95 dark:text-white">
+             <button onClick={() => { setStep(0); setDone(false); }} className="w-full border-2 border-black dark:border-white py-4 rounded-[32px] font-black uppercase tracking-widest text-sm shadow-sm active:scale-95 dark:text-white">
                 {t.labels.repeat}
              </button>
           </div>
@@ -62,7 +62,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
       </div>
       
       <div className="text-center pt-8 opacity-20">
-        <span className="text-[10px] font-medium uppercase text-gray-300 tracking-wide">{t.labels.unstoppableGuide}</span>
+        <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.4em]">{t.labels.unstoppableGuide}</span>
       </div>
     </div>
   );

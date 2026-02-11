@@ -65,7 +65,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     <div className="flex flex-col h-full bg-white dark:bg-[#121212] animate-in fade-in w-full overflow-hidden">
       {/* Upper Phase Indicator */}
       <div className="flex-shrink-0 flex items-center justify-between px-6 py-5 border-b border-gray-50 dark:border-white/5">
-        <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF] dark:text-blue-400">
+        <span className="font-[900] uppercase tracking-[0.4em] text-[10px] text-[#233DFF] dark:text-blue-400">
           {t.labels.boxBreathingPhase}
         </span>
         <button 
@@ -95,17 +95,17 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         {/* Textual Guidance and Primary Control */}
         <div className="flex flex-col items-center gap-5 w-full max-w-[300px] text-center">
           <div className="space-y-1">
-            <h3 className="text-4xl sm:text-5xl font-normal tracking-normal leading-none text-black dark:text-white transition-all duration-700 font-display">
+            <h3 className="text-4xl sm:text-5xl font-[900] uppercase tracking-tighter leading-none text-black dark:text-white transition-all duration-700 font-display">
               {getPhaseText()}
             </h3>
-            <p className="text-gray-400 dark:text-gray-500 font-medium text-[9px] uppercase tracking-wide">
+            <p className="text-gray-400 dark:text-gray-500 font-bold text-[9px] uppercase tracking-[0.4em]">
               {t.labels.steadyLungs}
             </p>
           </div>
 
           <button 
             onClick={() => setIsActive(!isActive)} 
-            className={`w-full h-14 sm:h-16 rounded-[28px] font-bold uppercase tracking-wide text-[10px] sm:text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-[#233DFF] text-white shadow-blue-500/20'}`}
+            className={`w-full h-14 sm:h-16 rounded-[28px] font-[900] uppercase tracking-[0.3em] text-[10px] sm:text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-[#233DFF] text-white shadow-blue-500/20'}`}
           >
             {isActive ? (
               <><Pause size={18} fill="currentColor" /> {t.pauseSession}</>

@@ -142,8 +142,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     <div className="flex-1 flex flex-col p-6 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex flex-col">
-          <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF]">{t.nav.meditate}</span>
-          <span className="text-[8px] font-medium text-gray-300 uppercase tracking-wide mt-1">{t.labels.phaseStillness}</span>
+          <span className="font-black uppercase tracking-[0.5em] text-[10px] text-[#233DFF]">{t.nav.meditate}</span>
+          <span className="text-[8px] font-bold text-gray-300 uppercase tracking-widest mt-1">{t.labels.phaseStillness}</span>
         </div>
         {script && !isLoading && (
           <button 
@@ -162,7 +162,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
                <Loader2 size={40} className="text-[#233DFF] animate-spin" />
                <div className="absolute -inset-4 border-2 border-[#233DFF]/10 rounded-full animate-ping"></div>
             </div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
           </div>
         ) : (
           <>
@@ -184,13 +184,13 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
             </div>
 
             <div className="space-y-4 px-4 flex-1 flex flex-col justify-center overflow-y-auto scrollbar-hide">
-              <h2 className="text-2xl font-normal tracking-normal dark:text-white leading-none font-display">{t.meditationHeader}</h2>
+              <h2 className="text-2xl font-[900] uppercase tracking-tighter dark:text-white leading-none font-display">{t.meditationHeader}</h2>
               {script ? (
                 <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700">
                   {script}
                 </p>
               ) : (
-                <p className="text-[10px] font-medium text-gray-300 uppercase tracking-wide leading-loose opacity-60">{t.labels.tapToStart}</p>
+                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest leading-loose opacity-60">{t.labels.tapToStart}</p>
               )}
             </div>
 
@@ -198,14 +198,14 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               {!script ? (
                 <button 
                   onClick={loadScript}
-                  className="w-full h-16 bg-[#233DFF] text-white rounded-[28px] font-bold uppercase tracking-wide text-[11px] shadow-lg active:scale-95 transition-all"
+                  className="w-full h-16 bg-[#233DFF] text-white rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] shadow-lg active:scale-95 transition-all"
                 >
                   {t.labels.beginSession}
                 </button>
               ) : (
                 <button 
                   onClick={() => isAudioPlaying ? stopAudio() : playMeditationAudio(script)}
-                  className={`w-full h-16 rounded-[28px] font-bold uppercase tracking-wide text-[11px] transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black shadow-xl'}`}
+                  className={`w-full h-16 rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black shadow-xl'}`}
                 >
                   {isAudioPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isAudioPlaying ? t.pauseSession : t.labels.start}
