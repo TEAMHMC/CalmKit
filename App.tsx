@@ -21,10 +21,9 @@ const App: React.FC = () => {
       : { lang: 'en', darkMode: false, hasSeenOnboarding: false };
   });
 
-  // ✅ Critical: lock the app height to the *real* viewport height (fixes iOS + iframes)
+  // Critical: lock the app height to the *real* viewport height (fixes iOS + iframes)
   useEffect(() => {
     const setAppHeight = () => {
-      // window.innerHeight is the most reliable for iOS address bar + iframe
       document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
 
@@ -91,7 +90,6 @@ const App: React.FC = () => {
               {t.aboutTitle}
             </h2>
 
-            {/* Keep About readable without forcing page scroll */}
             <div className="flex-1 overflow-auto scrollbar-hide">
               <p className="text-base font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                 {t.aboutCopy}
@@ -128,18 +126,14 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Shell */}
+      {/* Shell — full width on mobile, no max-width constraint */}
       <div
-        className="w-full h-full mx-auto bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5"
-        style={{
-          maxWidth: 520, // keep your "phone" feel on desktop but full width on mobile
-        }}
+        className="w-full h-full mx-auto bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden"
       >
         {/* Header */}
         <header
           className={`flex-shrink-0 px-5 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] ${immersive ? 'hidden' : ''}`}
           style={{
-            // include safe-area in the header box instead of adding extra height
             height: `calc(${headerHeight}px + env(safe-area-inset-top, 0px))`,
             paddingTop: `env(safe-area-inset-top, 0px)`,
           }}
