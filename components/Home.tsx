@@ -30,26 +30,26 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   useEffect(() => { fetchAffirmation(); }, [lang]);
 
   return (
-    <div className="w-full h-full p-3 flex flex-col gap-3 justify-center overflow-hidden">
+    <div className="w-full h-full px-5 py-6 flex flex-col gap-5 justify-center overflow-hidden">
 
       {/* Header */}
       <div className="flex-shrink-0">
-        <h1 className="text-2xl font-normal tracking-normal leading-none dark:text-white font-display">
+        <h1 className="text-3xl font-normal tracking-normal leading-none dark:text-white font-display">
           Your <span className="text-[#233DFF]">CalmKit</span>
         </h1>
-        <p className="text-gray-400 font-medium text-[10px] uppercase tracking-wide">{t.homeSubtitle}</p>
+        <p className="text-gray-400 font-medium text-xs uppercase tracking-wide mt-1">{t.homeSubtitle}</p>
       </div>
 
       {/* Affirmation Card */}
       <div
         onClick={fetchAffirmation}
-        className="bg-[#FFDE59] border border-black/5 rounded-[20px] p-3 flex flex-col justify-center space-y-1 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg flex-shrink-0"
+        className="bg-[#FFDE59] border border-black/5 rounded-3xl p-5 flex flex-col justify-center space-y-2 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg flex-shrink-0"
       >
         <div className="flex justify-between items-center relative z-10">
-          <span className="text-[9px] font-medium uppercase tracking-wide text-black/40">{t.dailyStrengthLabel}</span>
-          <RefreshCcw size={12} className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`} />
+          <span className="text-[11px] font-medium uppercase tracking-wide text-black/40">{t.dailyStrengthLabel}</span>
+          <RefreshCcw size={14} className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`} />
         </div>
-        <p className="text-lg font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
+        <p className="text-xl font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
           {loadingAff ? (
             <span className="text-black/40">...</span>
           ) : (
@@ -59,56 +59,56 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       </div>
 
       {/* Core Actions Grid */}
-      <div className="grid grid-cols-2 gap-1.5 flex-shrink-0">
+      <div className="grid grid-cols-2 gap-3 flex-shrink-0">
         <button
           onClick={() => onSelectView('WALK')}
-          className="p-2 rounded-[20px] bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-md"
+          className="p-4 rounded-3xl bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-md min-h-[100px]"
         >
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white">
-            <Move size={18} />
+          <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center text-white">
+            <Move size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[10px] tracking-normal text-white">{t.nav.move}</span>
-            <span className="text-[8px] font-medium uppercase tracking-wide text-white/50">{t.tools.walk.subtitle}</span>
+            <span className="font-medium uppercase text-xs tracking-normal text-white">{t.nav.move}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-white/50">{t.tools.walk.subtitle}</span>
           </div>
         </button>
 
         <button
           onClick={() => onSelectView('BREATHE')}
-          className="p-2 rounded-[20px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-sm"
+          className="p-4 rounded-3xl bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm min-h-[100px]"
         >
-          <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
-            <Wind size={18} />
+          <div className="w-11 h-11 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
+            <Wind size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[10px] tracking-normal dark:text-white">{t.nav.breathe}</span>
-            <span className="text-[8px] font-medium uppercase tracking-wide text-gray-400">{t.tools.breathe.subtitle}</span>
+            <span className="font-medium uppercase text-xs tracking-normal dark:text-white">{t.nav.breathe}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.tools.breathe.subtitle}</span>
           </div>
         </button>
 
         <button
           onClick={() => onSelectView('MEDITATE')}
-          className="p-2 rounded-[20px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-sm"
+          className="p-4 rounded-3xl bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm min-h-[100px]"
         >
-          <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
-            <Sparkles size={18} />
+          <div className="w-11 h-11 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
+            <Sparkles size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[10px] tracking-normal dark:text-white">{t.nav.meditate}</span>
-            <span className="text-[8px] font-medium uppercase tracking-wide text-gray-400">{t.tools.meditate.subtitle}</span>
+            <span className="font-medium uppercase text-xs tracking-normal dark:text-white">{t.nav.meditate}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.tools.meditate.subtitle}</span>
           </div>
         </button>
 
         <button
           onClick={() => onSelectView('REFLECT')}
-          className="p-2 rounded-[20px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-sm"
+          className="p-4 rounded-3xl bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm min-h-[100px]"
         >
-          <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
-            <BookOpen size={18} />
+          <div className="w-11 h-11 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
+            <BookOpen size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[10px] tracking-normal dark:text-white">{t.nav.reflect}</span>
-            <span className="text-[8px] font-medium uppercase tracking-wide text-gray-400">{t.tools.journal.subtitle}</span>
+            <span className="font-medium uppercase text-xs tracking-normal dark:text-white">{t.nav.reflect}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.tools.journal.subtitle}</span>
           </div>
         </button>
       </div>
@@ -116,18 +116,18 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       {/* Quick Center — always visible at bottom */}
       <button
         onClick={() => onSelectView('CENTER')}
-        className="flex-shrink-0 w-full bg-black dark:bg-white text-white dark:text-black rounded-[20px] border border-black dark:border-white p-2.5 flex items-center justify-between active:scale-[0.98] transition-all shadow-md"
+        className="flex-shrink-0 w-full bg-black dark:bg-white text-white dark:text-black rounded-3xl border border-black dark:border-white p-4 flex items-center justify-between active:scale-[0.98] transition-all shadow-md"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white/10 dark:bg-black/10 rounded-lg flex items-center justify-center">
-            <Zap size={16} fill="currentColor" />
+        <div className="flex items-center gap-4">
+          <div className="w-11 h-11 bg-white/10 dark:bg-black/10 rounded-xl flex items-center justify-center">
+            <Zap size={20} fill="currentColor" />
           </div>
           <div className="flex flex-col items-start text-left">
-            <span className="font-medium uppercase text-[11px] tracking-wide leading-none">{t.tools.grounding.title}</span>
-            <span className="text-[8px] font-medium uppercase tracking-wide opacity-40 mt-0.5">{t.tools.grounding.subtitle}</span>
+            <span className="font-medium uppercase text-[13px] tracking-wide leading-none">{t.tools.grounding.title}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide opacity-40 mt-0.5">{t.tools.grounding.subtitle}</span>
           </div>
         </div>
-        <RefreshCcw size={12} className="opacity-40" />
+        <RefreshCcw size={14} className="opacity-40" />
       </button>
     </div>
   );

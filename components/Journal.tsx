@@ -64,26 +64,26 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
   if (showHistory) {
     return (
       <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-50 dark:border-white/5">
-          <span className="font-medium text-[10px] tracking-wide text-[#233DFF] uppercase">{t.labels.history}</span>
-          <button onClick={() => setShowHistory(false)} className="text-[10px] font-medium uppercase text-gray-400">{t.labels.close}</button>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-white/5">
+          <span className="font-medium text-xs tracking-wide text-[#233DFF] uppercase">{t.labels.history}</span>
+          <button onClick={() => setShowHistory(false)} className="text-xs font-medium uppercase text-gray-400 px-3 py-2 rounded-full active:bg-gray-50 dark:active:bg-white/5 transition-colors">{t.labels.close}</button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
-          {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-xs font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
+          {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-sm font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
           {entries.map(e => (
-            <div key={e.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[24px] space-y-3 relative group">
+            <div key={e.id} className="p-5 bg-gray-50 dark:bg-white/5 rounded-3xl space-y-3 relative group">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-gray-300 uppercase">{e.date}</span>
+                <span className="text-[11px] font-medium text-gray-300 uppercase">{e.date}</span>
                 <button
                   onClick={() => handleDelete(e.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-300 hover:text-red-500"
+                  className="opacity-100 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-300 hover:text-red-500 transition-colors"
                   aria-label={lang === 'es' ? 'Eliminar entrada' : 'Delete entry'}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={16} />
                 </button>
               </div>
-              <p className="text-[10px] font-bold italic text-gray-400">"{e.prompt}"</p>
-              <p className="text-xs font-medium dark:text-white">{e.response}</p>
+              <p className="text-xs font-bold italic text-gray-400">"{e.prompt}"</p>
+              <p className="text-sm font-medium dark:text-white leading-relaxed">{e.response}</p>
             </div>
           ))}
         </div>
@@ -93,56 +93,56 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
-      <div className="px-4 py-4 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
+      <div className="px-5 py-5 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-[9px] tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
+            <span className="font-medium text-xs tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
             {response.trim().length > 0 && (
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title={lang === 'es' ? 'Sin guardar' : 'Unsaved'} />
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title={lang === 'es' ? 'Sin guardar' : 'Unsaved'} />
             )}
           </div>
-          <button onClick={() => setShowHistory(true)} className="text-gray-300 hover:text-black dark:hover:text-white transition-colors">
-            <History size={16} />
+          <button onClick={() => setShowHistory(true)} className="w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-black dark:hover:text-white transition-colors active:bg-gray-50 dark:active:bg-white/5">
+            <History size={20} />
           </button>
         </div>
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-4">
-            <h3 className="text-lg font-[900] italic leading-tight text-black dark:text-white tracking-tight flex-1">
+            <h3 className="text-xl font-[900] italic leading-tight text-black dark:text-white tracking-tight flex-1">
               "{prompt || '...'}"
             </h3>
-            <button onClick={fetchPrompt} disabled={isLoading} className={`flex-shrink-0 w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all ${isLoading ? 'animate-spin' : ''}`}>
-              <RefreshCcw size={14} className="text-gray-400" />
+            <button onClick={fetchPrompt} disabled={isLoading} className={`flex-shrink-0 w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all ${isLoading ? 'animate-spin' : ''}`}>
+              <RefreshCcw size={16} className="text-gray-400" />
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#233DFF] animate-pulse"></div>
-            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.phaseWitnessing}</span>
+            <div className="w-2 h-2 rounded-full bg-[#233DFF] animate-pulse"></div>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{t.labels.phaseWitnessing}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden min-h-0">
-        <div className="flex-1 flex flex-col bg-gray-50/50 dark:bg-white/5 rounded-[24px] overflow-hidden shadow-inner border border-gray-100 dark:border-white/5 min-h-0">
+      <div className="flex-1 flex flex-col p-5 gap-4 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col bg-gray-50/50 dark:bg-white/5 rounded-3xl overflow-hidden shadow-inner border border-gray-100 dark:border-white/5 min-h-0">
           <textarea
             value={response}
             onChange={(e) => setResponse(e.target.value)}
             placeholder={t.journalDesc}
-            className="w-full h-full p-4 bg-transparent focus:outline-none text-sm font-medium leading-relaxed resize-none dark:text-white placeholder:text-gray-300"
+            className="w-full h-full p-5 bg-transparent focus:outline-none text-base font-medium leading-relaxed resize-none dark:text-white placeholder:text-gray-300"
           />
         </div>
 
         <div className="relative flex-shrink-0">
           {showSuccess && (
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full text-[9px] font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
-              <CheckCircle2 size={12} /> {t.labels.saved}
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-green-500 text-white px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
+              <CheckCircle2 size={14} /> {t.labels.saved}
             </div>
           )}
           <button
             onClick={handleSave}
             disabled={!response.trim()}
-            className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
+            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
           >
-            <Save size={18} /> {t.saveReflection}
+            <Save size={20} /> {t.saveReflection}
           </button>
         </div>
       </div>
