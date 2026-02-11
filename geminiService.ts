@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Language, EchoPersona, ActivityType } from "./types";
+import { Language, EchoPersona, ActivityType, IndoorActivity } from "./types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
@@ -43,6 +43,7 @@ export const generateSegmentNarrative = async (params: {
   isIntro: boolean;
   isFirstSegment: boolean;
   isReturning?: boolean;
+  indoorActivity?: IndoorActivity;
   destinationName?: string;
   targetThought?: string;
 }) => {
@@ -54,6 +55,10 @@ export const generateSegmentNarrative = async (params: {
 
   const cbtContext = params.targetThought
     ? `The user's check-in thought: "${params.targetThought}". Gently weave awareness of this into guidance — acknowledge what they're carrying without being clinical.`
+    : "";
+
+  const indoorContext = params.indoorActivity
+    ? `INDOOR SESSION — The user is doing a ${params.indoorActivity === 'STRETCH' ? 'gentle stretching' : params.indoorActivity === 'FLOW' ? 'mindful yoga-style movement flow' : 'bodyweight sweat workout'} session indoors. Guide their BODY through specific movements: "Roll your shoulders back... Now reach your arms overhead..." Give actual movement cues, not just walking direction. Keep it accessible and safe.`
     : "";
 
   const returningContext = params.isReturning
@@ -70,6 +75,7 @@ export const generateSegmentNarrative = async (params: {
     Context: ${params.isIntro ? "Pre-Start Intro (15-20s)" : "Continuous guidance segment (60s)"}.
     ${params.destinationName ? `Target: ${params.destinationName}` : "Just Go mode — no specific destination."}.
     ${cbtContext}
+    ${indoorContext}
     ${returningContext}
     ${sponsorLine}
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Language, EchoPersona, NarrationFrequency } from '../types';
+import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity } from '../types';
 import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -40,7 +40,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
   const [gpsError, setGpsError] = useState(false);
   const [narrationFreq, setNarrationFreq] = useState<NarrationFrequency>('CONTINUOUS');
-  const [isStationary, setIsStationary] = useState(false);
+  const [sessionType, setSessionType] = useState<SessionType>('OUTDOOR');
+  const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
   const [showSummary, setShowSummary] = useState(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
 
@@ -68,6 +69,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrationFreqRef = useRef<NarrationFrequency>('CONTINUOUS');
   const startMarkerRef = useRef<any>(null);
   const isReturningRef = useRef(false);
+  const indoorActivityRef = useRef<IndoorActivity | null>(null);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
   const targetThoughtRef = useRef(targetThought);
@@ -356,6 +358,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         isIntro: startTimeRef.current === null,
         isFirstSegment: !sponsorPlayedRef.current,
         isReturning: returning,
+        indoorActivity: indoorActivityRef.current || undefined,
         destinationName: destinationNameRef.current || undefined,
         targetThought: targetThoughtRef.current || undefined
       });
@@ -400,6 +403,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             const seg = await generateSegmentNarrative({
               mode, activity: 'WALK', lang, stats,
               isIntro: false, isFirstSegment: false, isReturning: true,
+              indoorActivity: indoorActivityRef.current || undefined,
               destinationName: destinationNameRef.current || undefined,
               targetThought: targetThoughtRef.current || undefined
             });
@@ -425,6 +429,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           const seg = await generateSegmentNarrative({
             mode, activity: 'WALK', lang, stats,
             isIntro: false, isFirstSegment: false,
+            indoorActivity: indoorActivityRef.current || undefined,
             destinationName: destinationNameRef.current || undefined,
             targetThought: targetThoughtRef.current || undefined
           });
@@ -541,22 +546,24 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── Handlers ──
   const handleStart = async () => {
     await initAudio();
+    const isIndoor = sessionType === 'INDOOR';
+    indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
-    // GPS on user gesture (required by mobile Safari)
-    let hasGps = false;
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true, timeout: 10000
+    // GPS only for outdoor sessions
+    if (!isIndoor) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 10000
+          });
         });
-      });
-      const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-      setUserLocation(coords);
-      pathCoordsRef.current = [coords];
-      lastPositionRef.current = coords;
-      hasGps = true;
-    } catch (e) {
-      setIsStationary(true);
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setUserLocation(coords);
+        pathCoordsRef.current = [coords];
+        lastPositionRef.current = coords;
+      } catch (e) {
+        // GPS failed on outdoor — still continue, just no map tracking
+      }
     }
 
     await requestWakeLock();
@@ -580,8 +587,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }, 1000);
 
-    if (hasGps) startTracking();
-    // In interval mode, skip ambience — user is listening to their own music
+    if (!isIndoor && pathCoordsRef.current.length > 0) startTracking();
     if (narrationFreq === 'CONTINUOUS') createAmbience();
     narrationLoop();
   };
@@ -645,7 +651,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.sessionSummaryDesc}</p>
         </div>
         <div className="flex gap-6">
-          {!isStationary && (
+          {sessionType === 'OUTDOOR' && (
             <div className="flex flex-col items-center">
               <span className="text-3xl font-semibold tabular-nums text-[#233DFF]">{finalStats.distance.toFixed(2)}</span>
               <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.miles}</span>
@@ -682,10 +688,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   if (isPlaying) {
     return (
       <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
-        {/* Ghost Mode Map or Stationary Background */}
+        {/* Ghost Mode Map or Indoor Background */}
         <div className="flex-1 relative overflow-hidden dark-map">
-          {!isStationary && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
-          {isStationary && (
+          {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+          {sessionType === 'INDOOR' && (
             <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
               <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
                 <Activity size={48} className="text-[#233DFF]/30" />
@@ -697,7 +703,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           {/* Floating Pill HUD */}
           <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
             <div className="flex justify-center gap-2">
-              {!isStationary && (
+              {sessionType === 'OUTDOOR' && (
                 <>
                   <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
                     <Activity size={14} className="text-[#233DFF]" />
@@ -724,12 +730,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
             {/* Status indicators */}
             <div className="flex justify-center gap-2">
-              {isStationary && (
+              {sessionType === 'INDOOR' && (
                 <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-                  <span className="text-[9px] font-medium text-white/50 uppercase">{t.labels.stationaryMode}</span>
+                  <span className="text-[9px] font-medium text-white/50 uppercase">{t.labels.indoorSession} — {t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}</span>
                 </div>
               )}
-              {!isStationary && gpsAccuracy != null && gpsAccuracy > 30 && (
+              {sessionType === 'OUTDOOR' && gpsAccuracy != null && gpsAccuracy > 30 && (
                 <div className="px-3 py-1 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
                   <span className="text-[9px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
                 </div>
@@ -745,7 +751,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           {/* Bottom Controls */}
           <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+16px)] flex flex-col items-center gap-4">
             <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-              <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label}</span>
+              <span className="text-[10px] font-medium text-white uppercase tracking-wide">
+                {MODES.find(m => m.id === mode)?.label}{sessionType === 'INDOOR' ? ` · ${t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}` : ''}
+              </span>
             </div>
             <div className="flex items-center gap-6">
               <button
@@ -810,70 +818,110 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       {step === 1 && (
         <div className="flex-1 flex flex-col min-h-0">
           {/* Title */}
-          <div className="space-y-1 mb-4 flex-shrink-0">
+          <div className="space-y-1 mb-3 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
-          {/* GPS Warning */}
-          {gpsError && (
+          {/* Outdoor / Indoor Toggle */}
+          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.labels.sessionType}</span>
+            {(['OUTDOOR', 'INDOOR'] as SessionType[]).map(st => (
+              <button
+                key={st}
+                onClick={() => setSessionType(st)}
+                className={`px-3 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wide transition-all ${sessionType === st ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+              >
+                {t.labels[st.toLowerCase() as 'outdoor' | 'indoor']}
+              </button>
+            ))}
+          </div>
+
+          {/* GPS Warning (outdoor only) */}
+          {gpsError && sessionType === 'OUTDOOR' && (
             <div className="mb-3 px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. El mapa no rastreará tu camino, pero la guía de audio seguirá funcionando.' : 'Could not access GPS. Map tracking won\'t work, but audio guidance will still play.'}</p>
             </div>
           )}
 
-          {/* Destination Search */}
-          <div className="relative mb-4 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-3">
-              <Search size={16} className="text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
-                className="bg-transparent flex-1 text-sm outline-none dark:text-white placeholder:text-gray-400"
-              />
-            </div>
-            {suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
-                {suggestions.map((s: any, i: number) => (
+          {/* Outdoor: Destination Search */}
+          {sessionType === 'OUTDOOR' && (
+            <div className="relative mb-3 flex-shrink-0">
+              <div className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-3">
+                <Search size={16} className="text-gray-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
+                  className="bg-transparent flex-1 text-sm outline-none dark:text-white placeholder:text-gray-400"
+                />
+              </div>
+              {suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
+                  {suggestions.map((s: any, i: number) => (
+                    <button
+                      key={i}
+                      onClick={() => selectSuggestion(s)}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate"
+                    >
+                      {s.display_name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {destinationName && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Navigation size={12} className="text-[#233DFF]" />
+                  <span className="text-xs text-[#233DFF] font-medium truncate">{destinationName}</span>
                   <button
-                    key={i}
-                    onClick={() => selectSuggestion(s)}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate"
+                    onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
+                    className="text-gray-400 text-xs ml-auto flex-shrink-0"
                   >
-                    {s.display_name}
+                    &times;
                   </button>
-                ))}
-              </div>
-            )}
-            {destinationName && (
-              <div className="mt-2 flex items-center gap-2">
-                <Navigation size={12} className="text-[#233DFF]" />
-                <span className="text-xs text-[#233DFF] font-medium truncate">{destinationName}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Indoor: Activity Picker */}
+          {sessionType === 'INDOOR' && (
+            <div className="grid grid-cols-3 gap-2 mb-3 flex-shrink-0">
+              {([
+                { id: 'STRETCH' as IndoorActivity, label: t.labels.stretch, desc: t.labels.stretchDesc },
+                { id: 'FLOW' as IndoorActivity, label: t.labels.flow, desc: t.labels.flowDesc },
+                { id: 'SWEAT' as IndoorActivity, label: t.labels.sweat, desc: t.labels.sweatDesc },
+              ]).map(act => (
                 <button
-                  onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
-                  className="text-gray-400 text-xs ml-auto flex-shrink-0"
+                  key={act.id}
+                  onClick={() => setIndoorActivity(act.id)}
+                  className={`p-3 rounded-2xl text-center transition-all border active:scale-[0.97] ${
+                    indoorActivity === act.id
+                      ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
+                      : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
+                  }`}
                 >
-                  &times;
+                  <span className={`font-medium text-sm block ${indoorActivity === act.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{act.label}</span>
+                  <span className="text-[9px] text-gray-400 block mt-0.5">{act.desc}</span>
                 </button>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* 2x2 Mode Grid */}
-          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+          <div className="grid grid-cols-2 gap-2 flex-shrink-0">
             {MODES.map((m) => (
               <button
                 key={m.id}
                 onClick={() => setMode(m.id)}
-                className={`p-4 rounded-2xl text-left transition-all border active:scale-[0.97] ${
+                className={`p-3 rounded-2xl text-left transition-all border active:scale-[0.97] ${
                   mode === m.id
                     ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
                     : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
                 }`}
               >
-                <div className={`w-2 h-2 rounded-full mb-3 ${
+                <div className={`w-2 h-2 rounded-full mb-2 ${
                   m.tone === 'blue' ? 'bg-[#233DFF]' :
                   m.tone === 'pink' ? 'bg-pink-400' :
                   m.tone === 'orange' ? 'bg-orange-400' : 'bg-yellow-400'
@@ -885,7 +933,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
 
           {/* Narration Frequency */}
-          <div className="flex items-center gap-2 mt-4 flex-shrink-0">
+          <div className="flex items-center gap-2 mt-3 flex-shrink-0">
             <span className="text-[9px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.labels.narrationFreq}</span>
             {([
               { id: 'CONTINUOUS' as NarrationFrequency, label: t.labels.continuous },
@@ -908,10 +956,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           {/* Go Button */}
           <button
             onClick={handleStart}
-            className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal py-5 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
+            className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal py-5 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3"
           >
             <Play size={20} fill="currentColor" />
-            <span>{destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'}</span>
+            <span>{sessionType === 'INDOOR'
+              ? (lang === 'es' ? 'Comenzar' : 'Begin')
+              : destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'
+            }</span>
           </button>
         </div>
       )}

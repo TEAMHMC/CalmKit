@@ -30,7 +30,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   useEffect(() => { fetchAffirmation(); }, [lang]);
 
   return (
-    <div className="w-full h-full p-3 flex flex-col gap-1.5 overflow-hidden">
+    <div className="w-full h-full p-3 flex flex-col gap-3 justify-center overflow-hidden">
 
       {/* Header */}
       <div className="flex-shrink-0">
@@ -58,8 +58,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </p>
       </div>
 
-      {/* Core Actions Grid — 2x2, centered in available space */}
-      <div className="grid grid-cols-2 gap-1.5 flex-1 min-h-0 content-center">
+      {/* Core Actions Grid */}
+      <div className="grid grid-cols-2 gap-1.5 flex-shrink-0">
         <button
           onClick={() => onSelectView('WALK')}
           className="p-2 rounded-[20px] bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-1 active:scale-95 shadow-md"
