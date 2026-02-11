@@ -320,7 +320,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       </div>
 
       {step === 0 && (
-        <div className="flex-1 flex flex-col justify-between min-h-0">
+        <div className="flex-1 flex flex-col gap-3 min-h-0">
           <div className="space-y-1 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
@@ -350,7 +350,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 flex-1 min-h-0 mb-4">
+          <div className="grid grid-cols-1 gap-2 mb-4">
             {MODES.map((m) => (
               <button
                 key={m.id}
