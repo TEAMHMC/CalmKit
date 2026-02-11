@@ -50,7 +50,11 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
           <RefreshCcw size={12} className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`} />
         </div>
         <p className="text-lg font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
-          "{affirmation || '...'}"
+          {loadingAff ? (
+            <span className="text-black/40">...</span>
+          ) : (
+            `"${affirmation}"`
+          )}
         </p>
       </div>
 
@@ -112,7 +116,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       {/* Quick Center — always visible at bottom */}
       <button
         onClick={() => onSelectView('CENTER')}
-        className="flex-shrink-0 w-full bg-black dark:bg-white text-white dark:text-black rounded-[20px] border border-black dark:border-white p-2.5 flex items-center justify-between active:scale-98 transition-all shadow-md"
+        className="flex-shrink-0 w-full bg-black dark:bg-white text-white dark:text-black rounded-[20px] border border-black dark:border-white p-2.5 flex items-center justify-between active:scale-[0.98] transition-all shadow-md"
       >
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-white/10 dark:bg-black/10 rounded-lg flex items-center justify-center">

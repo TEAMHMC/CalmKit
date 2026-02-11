@@ -7,10 +7,12 @@ import { ArrowRight, Check, Wind, Move, BookOpen, Zap } from 'lucide-react';
 interface OnboardingProps {
   onComplete: () => void;
   lang: Language;
+  onLangChange?: (lang: Language) => void;
 }
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang: initialLang, onLangChange }) => {
   const [step, setStep] = useState(0);
+  const [lang, setLang] = useState(initialLang);
   const t = translations[lang];
 
   const steps = [
@@ -50,6 +52,18 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
 
   return (
     <div className="fixed inset-0 z-[200] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center p-4 sm:p-8 text-center animate-in fade-in overflow-hidden">
+      {/* Language toggle — always accessible */}
+      <button
+        onClick={() => {
+          const next = lang === 'en' ? 'es' : 'en';
+          setLang(next);
+          onLangChange?.(next);
+        }}
+        className="absolute top-[calc(env(safe-area-inset-top,16px)+8px)] right-4 w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400 z-[201] flex items-center justify-center"
+      >
+        {lang === 'en' ? 'ES' : 'EN'}
+      </button>
+
       <div className="max-w-sm w-full flex flex-col items-center gap-6 sm:gap-8">
         <div className={`w-24 h-24 sm:w-32 sm:h-32 ${steps[step].color} rounded-[32px] sm:rounded-[48px] flex items-center justify-center mx-auto transition-all duration-700 flex-shrink-0`}>
           {steps[step].icon}

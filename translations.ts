@@ -201,7 +201,7 @@ export const translations = {
     saveReflection: 'Guardar Reflexión',
     loadingMeditation: 'PREPARANDO TU ESPACIO...',
     meditationHeader: 'PRESENCIA GUIADA',
-    bgSound: 'ATMÓSFYRA DE FONDO',
+    bgSound: 'ATMÓSFERA DE FONDO',
     sounds: {
       NONE: 'APAGADO',
       RAIN: 'LLUVIA',

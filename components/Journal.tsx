@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Language, JournalEntry } from '../types';
 import { translations } from '../translations';
-import { RefreshCcw, Save, History, CheckCircle2 } from 'lucide-react';
+import { RefreshCcw, Save, History, CheckCircle2, Trash2 } from 'lucide-react';
 import { generateJournalPrompt } from '../geminiService';
 
 interface JournalProps {
@@ -40,6 +40,12 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
     fetchPrompt();
   }, [lang]);
 
+  const handleDelete = (id: string) => {
+    const updated = entries.filter(e => e.id !== id);
+    setEntries(updated);
+    localStorage.setItem('hmc_calm_kit_journal', JSON.stringify(updated));
+  };
+
   const handleSave = () => {
     const newEntry: JournalEntry = {
       id: Date.now().toString(),
@@ -65,8 +71,17 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
         <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
           {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-xs font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
           {entries.map(e => (
-            <div key={e.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[24px] space-y-3">
-              <span className="text-[10px] font-medium text-gray-300 uppercase">{e.date}</span>
+            <div key={e.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[24px] space-y-3 relative group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-gray-300 uppercase">{e.date}</span>
+                <button
+                  onClick={() => handleDelete(e.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-300 hover:text-red-500"
+                  aria-label={lang === 'es' ? 'Eliminar entrada' : 'Delete entry'}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
               <p className="text-[10px] font-bold italic text-gray-400">"{e.prompt}"</p>
               <p className="text-xs font-medium dark:text-white">{e.response}</p>
             </div>
@@ -80,7 +95,12 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
     <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
       <div className="px-4 py-4 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-medium text-[9px] tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-[9px] tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
+            {response.trim().length > 0 && (
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title={lang === 'es' ? 'Sin guardar' : 'Unsaved'} />
+            )}
+          </div>
           <button onClick={() => setShowHistory(true)} className="text-gray-300 hover:text-black dark:hover:text-white transition-colors">
             <History size={16} />
           </button>

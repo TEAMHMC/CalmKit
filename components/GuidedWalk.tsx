@@ -20,9 +20,10 @@ const MODES: { id: EchoPersona; label: string; desc: string; voice: string; tone
 interface MovementProps {
   onBack: () => void;
   lang: Language;
+  onImmersiveChange?: (immersive: boolean) => void;
 }
 
-const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
+const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }) => {
   // ── State ──
   const [step, setStep] = useState(0); // 0: CBT Check-in, 1: Mode + Destination
   const [targetThought, setTargetThought] = useState("");
@@ -37,6 +38,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [destinationName, setDestinationName] = useState("");
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
+  const [gpsError, setGpsError] = useState(false);
 
   // ── Refs ──
   const mapRef = useRef<any>(null);
@@ -96,11 +98,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   // Request GPS on user gesture (mobile Safari requires this)
   const requestGpsPermission = () => {
     if (navigator.geolocation) {
+      setGpsError(false);
       navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
-        () => {},
+        (pos) => { setUserLocation([pos.coords.latitude, pos.coords.longitude]); setGpsError(false); },
+        () => { setGpsError(true); },
         { enableHighAccuracy: true, timeout: 15000 }
       );
+    } else {
+      setGpsError(true);
     }
   };
 
@@ -463,7 +468,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           lastPositionRef.current = current;
         }
       },
-      null,
+      (err) => { console.warn('GPS tracking error:', err.message); },
       { enableHighAccuracy: true }
     );
   };
@@ -486,6 +491,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     } catch (e) {}
 
     await requestWakeLock();
+    onImmersiveChange?.(true);
     setIsPlaying(true);
     isNarratingRef.current = true;
     const now = Date.now();
@@ -521,6 +527,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     releaseWakeLock();
+    onImmersiveChange?.(false);
     setIsPlaying(false);
     setIsPaused(false);
     onBack();
@@ -667,6 +674,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
+          {/* GPS Warning */}
+          {gpsError && (
+            <div className="mb-3 px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. El mapa no rastreará tu camino, pero la guía de audio seguirá funcionando.' : 'Could not access GPS. Map tracking won\'t work, but audio guidance will still play.'}</p>
+            </div>
+          )}
+
           {/* Destination Search */}
           <div className="relative mb-4 flex-shrink-0">
             <div className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-3">
@@ -735,7 +749,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           {/* Go Button */}
           <button
             onClick={handleStart}
-            className="w-full rounded-2xl bg-[#233DFF] text-white font-semibold py-5 text-lg shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
+            className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal py-5 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
           >
             <Play size={20} fill="currentColor" />
             <span>{destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'}</span>

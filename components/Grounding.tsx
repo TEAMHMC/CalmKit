@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowRight, Home } from 'lucide-react';
 
 interface GroundingProps {
   onBack: () => void;
@@ -19,7 +19,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
     <div className="flex flex-col h-full bg-white dark:bg-[#121212] px-4 pb-4 animate-in fade-in overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0">
         {!done ? (
-          <div className="w-full space-y-6 animate-in slide-in-from-right-4">
+          <div key={step} className="w-full space-y-6 animate-in slide-in-from-right-4">
              <div className="space-y-2">
                 <span className="text-[72px] sm:text-[96px] font-bold leading-none text-[#233DFF] opacity-10 tabular-nums">{steps[step].count}</span>
                 <div className="relative -mt-12 sm:-mt-14">
@@ -28,7 +28,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                 </div>
              </div>
 
-             <div className="flex justify-center gap-3">
+             <div className="flex justify-center gap-3" role="progressbar" aria-valuenow={step + 1} aria-valuemin={1} aria-valuemax={5} aria-label={`Step ${step + 1} of 5`}>
                 {steps.map((_, i) => (
                   <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-12 bg-black dark:bg-white' : 'w-4 bg-gray-100 dark:bg-white/10'}`}></div>
                 ))}
@@ -56,6 +56,9 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
              </div>
              <button onClick={() => { setStep(0); setDone(false); }} className="w-full bg-white dark:bg-transparent border border-[#0f0f0f] dark:border-white py-4 rounded-full font-normal text-base shadow-sm active:scale-95 text-[#1a1a1a] dark:text-white flex items-center justify-center gap-2">
                 {t.labels.repeat}
+             </button>
+             <button onClick={onBack} className="w-full py-3 rounded-full font-normal text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center justify-center gap-2">
+                <Home size={14} /> {t.nav.home}
              </button>
           </div>
         )}

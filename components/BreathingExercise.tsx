@@ -15,6 +15,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [phase, setPhase] = useState<BreathPhase>('INHALE');
   const [timer, setTimer] = useState(4);
   const [isActive, setIsActive] = useState(false);
+  const [cycles, setCycles] = useState(0);
   const t = translations[lang];
   const wakeLockRef = useRef<any>(null);
 
@@ -42,7 +43,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
               case 'INHALE': setPhase('HOLD_FULL'); return 4;
               case 'HOLD_FULL': setPhase('EXHALE'); return 4;
               case 'EXHALE': setPhase('HOLD_EMPTY'); return 4;
-              case 'HOLD_EMPTY': setPhase('INHALE'); return 4;
+              case 'HOLD_EMPTY': setPhase('INHALE'); setCycles(c => c + 1); return 4;
             }
           }
           return prev - 1;
@@ -70,7 +71,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       case 'EXHALE':
         return { scale: 'scale-75', color: 'bg-indigo-600', ringScale: 'scale-90', opacity: 'opacity-60', shadow: 'shadow-indigo-500/30', pulse: '' };
       case 'HOLD_EMPTY':
-        return { scale: 'scale-75', color: 'bg-indigo-900', ringScale: 'scale-80', opacity: 'opacity-40', shadow: 'shadow-indigo-900/20', pulse: 'animate-pulse' };
+        return { scale: 'scale-75', color: 'bg-indigo-900', ringScale: 'scale-[0.80]', opacity: 'opacity-40', shadow: 'shadow-indigo-900/20', pulse: 'animate-pulse' };
     }
   };
 
@@ -84,7 +85,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           {t.labels.boxBreathingPhase}
         </span>
         <button 
-          onClick={() => { setIsActive(false); setTimer(4); setPhase('INHALE'); }} 
+          onClick={() => { setIsActive(false); setTimer(4); setPhase('INHALE'); setCycles(0); }} 
           className="w-9 h-9 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm active:rotate-180"
           aria-label="Reset timer"
         >
@@ -110,11 +111,13 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         {/* Textual Guidance and Primary Control */}
         <div className="flex flex-col items-center gap-4 w-full max-w-[300px] text-center">
           <div className="space-y-1">
-            <h3 className="text-3xl sm:text-4xl font-normal tracking-normal leading-none text-black dark:text-white transition-all duration-700 font-display">
+            <h3 aria-live="assertive" aria-atomic="true" className="text-3xl sm:text-4xl font-normal tracking-normal leading-none text-black dark:text-white transition-all duration-700 font-display">
               {getPhaseText()}
             </h3>
             <p className="text-gray-400 dark:text-gray-500 font-medium text-[9px] uppercase tracking-wide">
-              {t.labels.steadyLungs}
+              {isActive && cycles > 0
+                ? `${cycles} ${cycles === 1 ? (lang === 'es' ? 'CICLO' : 'CYCLE') : (lang === 'es' ? 'CICLOS' : 'CYCLES')}`
+                : t.labels.steadyLungs}
             </p>
           </div>
 

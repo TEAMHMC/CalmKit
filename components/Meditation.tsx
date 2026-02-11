@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, RefreshCcw, Volume2, Loader2, Music, Pause, Play } from 'lucide-react';
+import { Sparkles, RefreshCcw, Volume2, Loader2, Pause, Play } from 'lucide-react';
 import { Language, BackgroundSound } from '../types';
 import { translations } from '../translations';
 import { generateMeditationScript } from '../geminiService';
@@ -18,6 +18,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const [bgSound, setBgSound] = useState<BackgroundSound>('NONE');
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState(false);
 
   const t = translations[lang];
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -127,7 +128,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         
         progressIntervalRef.current = setInterval(() => {
           const current = ctx.currentTime - startTimeRef.current;
-          setProgress((current / audioBuffer.duration) * 100);
+          setProgress(Math.min((current / audioBuffer.duration) * 100, 100));
         }, 100);
 
         source.onended = () => {
@@ -142,11 +143,13 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     } catch (e) {
       console.error("Meditation failed", e);
       setIsAudioPlaying(false);
+      setError(true);
     }
   };
 
   const loadScript = async () => {
     setIsLoading(true);
+    setError(false);
     await initAudio();
     try {
       const s = await generateMeditationScript(lang);
@@ -219,6 +222,29 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               ) : (
                 <p className="text-[10px] font-medium text-gray-300 uppercase tracking-wide leading-loose opacity-60">{t.labels.tapToStart}</p>
               )}
+            </div>
+
+            {/* Error state */}
+            {error && (
+              <div className="px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  {lang === 'es' ? 'No se pudo reproducir el audio. Puedes leer la meditación arriba.' : 'Audio playback failed. You can read the meditation text above.'}
+                </p>
+              </div>
+            )}
+
+            {/* Background Sound Selector */}
+            <div className="flex items-center justify-center gap-2 flex-shrink-0 flex-wrap">
+              <span className="text-[9px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.bgSound}</span>
+              {(['NONE', 'RAIN', 'OCEAN', 'FOREST', 'ZEN'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setBgSound(s)}
+                  className={`px-3 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wide transition-all ${bgSound === s ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+                >
+                  {t.sounds[s]}
+                </button>
+              ))}
             </div>
 
             <div className="flex flex-col gap-3 w-full max-w-xs flex-shrink-0 mt-4">

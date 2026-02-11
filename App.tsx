@@ -13,6 +13,7 @@ import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info 
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('HOME');
+  const [immersive, setImmersive] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
     const saved = localStorage.getItem('hmc_calmkit_prefs');
     return saved ? JSON.parse(saved) : {
@@ -63,7 +64,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'HOME': return <Home onSelectView={setView} lang={prefs.lang} />;
-      case 'WALK': return <GuidedWalk onBack={() => setView('HOME')} lang={prefs.lang} />;
+      case 'WALK': return <GuidedWalk onBack={() => setView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} />;
       case 'BREATHE': return <BreathingExercise onBack={() => setView('HOME')} lang={prefs.lang} />;
       case 'MEDITATE': return <Meditation onBack={() => setView('HOME')} lang={prefs.lang} />;
       case 'REFLECT': return <Journal onBack={() => setView('HOME')} lang={prefs.lang} />;
@@ -81,11 +82,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex items-center justify-center w-full bg-slate-50 dark:bg-black overflow-hidden" style={{height: 'var(--app-height)'}}>
-      {!prefs.hasSeenOnboarding && <Onboarding onComplete={handleOnboardingComplete} lang={prefs.lang} />}
+      {!prefs.hasSeenOnboarding && <Onboarding onComplete={handleOnboardingComplete} lang={prefs.lang} onLangChange={(l) => setPrefs(p => ({ ...p, lang: l }))} />}
       
       <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
         
-        <header className="flex-shrink-0 px-4 h-14 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
+        <header className={`flex-shrink-0 px-4 h-14 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)] ${immersive ? 'hidden' : ''}`}>
            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('HOME')}>
              <img 
                src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" 
@@ -124,7 +125,7 @@ const App: React.FC = () => {
           {renderView()}
         </main>
 
-        <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-16 pb-[env(safe-area-inset-bottom,0px)]">
+        <nav className={`flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-16 pb-[env(safe-area-inset-bottom,0px)] ${immersive ? 'hidden' : ''}`}>
           {[
             { id: 'HOME', icon: <HomeIcon size={20} />, label: t.nav.home },
             { id: 'BREATHE', icon: <Wind size={20} />, label: t.nav.breathe },
@@ -133,9 +134,11 @@ const App: React.FC = () => {
             { id: 'REFLECT', icon: <BookOpen size={20} />, label: t.nav.reflect },
             { id: 'CENTER', icon: <Zap size={20} />, label: t.nav.center },
           ].map((navItem) => (
-            <button 
+            <button
               key={navItem.id}
-              onClick={() => setView(navItem.id as AppView)} 
+              onClick={() => setView(navItem.id as AppView)}
+              aria-current={view === navItem.id ? 'page' : undefined}
+              aria-label={navItem.label}
               className={`flex flex-col items-center gap-1 flex-1 relative ${view === navItem.id ? 'text-[#233DFF]' : 'text-gray-300'}`}
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
