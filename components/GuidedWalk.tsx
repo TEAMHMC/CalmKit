@@ -49,6 +49,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const wakeLockRef = useRef<any>(null);
   const bgNodesRef = useRef<any[]>([]);
   const bgGainRef = useRef<GainNode | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const isPausedRef = useRef(false);
 
   const t = translations[lang];
 
@@ -261,9 +263,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   };
 
   const narrationLoop = useCallback(async () => {
-    if (!isNarratingRef.current || isPaused) return;
+    if (!isNarratingRef.current || isPausedRef.current) return;
 
-    // Generate if queue is empty (first segment or pre-buffer missed)
+    // Generate if queue is empty
     if (audioBufferQueue.current.length === 0) {
       setIsBufferingAudio(true);
       const segment = await generateSegmentNarrative({
@@ -281,24 +283,29 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       setIsBufferingAudio(false);
     }
 
+    // Re-check pause after async generation (user may have paused during generation)
+    if (isPausedRef.current) return;
+
     if (audioBufferQueue.current.length > 0) {
       const buffer = audioBufferQueue.current.shift()!;
       const source = audioCtxRef.current!.createBufferSource();
       source.buffer = buffer;
       source.connect(audioCtxRef.current!.destination);
 
-      // Duck the ambient interlude while narration plays
+      // Track current source so pause can stop it
+      currentSourceRef.current = source;
+
       duckAmbience();
 
       source.onended = () => {
-        // Raise ambient back up during the gap
+        currentSourceRef.current = null;
         raiseAmbience();
         narrationLoop();
       };
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      // Pre-buffer next segment while this one plays (fire-and-forget)
+      // Pre-buffer next segment while this one plays
       if (audioBufferQueue.current.length < 2 && isNarratingRef.current) {
         (async () => {
           const seg = await generateSegmentNarrative({
@@ -312,7 +319,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     } else {
       setTimeout(narrationLoop, 1000);
     }
-  }, [mode, lang, sessionStats, isPaused, targetThought]);
+  }, [mode, lang, sessionStats, targetThought]);
 
   useEffect(() => {
     if (isPlaying && mapContainerRef.current && !mapRef.current) {
@@ -445,17 +452,25 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   };
 
   const handleStop = () => {
+    // Stop all audio
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch(e) {}
+      currentSourceRef.current = null;
+    }
+    isNarratingRef.current = false;
+    isPausedRef.current = false;
+    stopAmbience();
+
+    // Stop tracking
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
-    stopAmbience();
     releaseWakeLock();
     setIsPlaying(false);
     setIsPaused(false);
-    isNarratingRef.current = false;
     onBack();
   };
 
@@ -496,8 +511,27 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           </div>
 
           <div className="flex gap-4">
-            <button 
-              onClick={() => setIsPaused(!isPaused)}
+            <button
+              onClick={() => {
+                const newPaused = !isPaused;
+                setIsPaused(newPaused);
+                isPausedRef.current = newPaused;
+                if (newPaused) {
+                  // Immediately stop currently playing narration
+                  if (currentSourceRef.current) {
+                    try { currentSourceRef.current.stop(); } catch(e) {}
+                    currentSourceRef.current = null;
+                  }
+                  // Mute ambient
+                  if (bgGainRef.current && audioCtxRef.current) {
+                    bgGainRef.current.gain.linearRampToValueAtTime(0.02, audioCtxRef.current.currentTime + 0.3);
+                  }
+                } else {
+                  // Resume: raise ambient and restart narration
+                  raiseAmbience();
+                  narrationLoop();
+                }
+              }}
               className="w-24 h-20 bg-white/10 backdrop-blur-lg border border-white/10 rounded-[32px] flex items-center justify-center text-white active:scale-95 transition-all"
             >
               {isPaused ? <Play size={24} fill="currentColor" /> : <Pause size={24} fill="currentColor" />}
