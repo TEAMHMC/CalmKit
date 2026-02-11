@@ -47,11 +47,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const timerIntervalRef = useRef<any>(null);
   const wakeLockRef = useRef<any>(null);
+  const bgNodesRef = useRef<any[]>([]);
+  const bgGainRef = useRef<GainNode | null>(null);
 
   const t = translations[lang];
 
-  // Request GPS permission immediately so browser prompt appears right away
-  useEffect(() => {
+  // Request GPS permission on a user gesture (mobile browsers require this)
+  const requestGpsPermission = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
@@ -59,7 +61,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         { enableHighAccuracy: true, timeout: 15000 }
       );
     }
-  }, []);
+  };
 
   const requestWakeLock = async () => {
     try {
@@ -100,6 +102,133 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
   };
 
+  // ── Ambient Interlude Audio System ──
+  // Each persona gets a unique procedural soundscape that plays continuously
+  // and ducks when narration is active.
+  const createAmbience = () => {
+    const ctx = audioCtxRef.current!;
+    const nodes: any[] = [];
+
+    // Master gain for all background audio
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.12;
+    masterGain.connect(ctx.destination);
+    bgGainRef.current = masterGain;
+
+    // Generate brown noise buffer (2s, looped)
+    const bufferSize = ctx.sampleRate * 2;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    let lastOut = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      noiseData[i] = (lastOut + 0.02 * white) / 1.02;
+      lastOut = noiseData[i];
+      noiseData[i] *= 3.5;
+    }
+
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.7;
+
+    // Persona-specific ambient character
+    switch (mode) {
+      case 'HOPE': // Gentle rain + warm low pad
+        filter.frequency.value = 800;
+        (() => {
+          const pad = ctx.createOscillator();
+          pad.type = 'sine';
+          pad.frequency.value = 220;
+          const padGain = ctx.createGain();
+          padGain.gain.value = 0.025;
+          pad.connect(padGain);
+          padGain.connect(masterGain);
+          pad.start();
+          nodes.push(pad);
+        })();
+        break;
+      case 'HYPE': // Bright texture + rhythmic bass pulse
+        filter.frequency.value = 1500;
+        filter.Q.value = 0.5;
+        (() => {
+          const bass = ctx.createOscillator();
+          bass.type = 'sine';
+          bass.frequency.value = 55;
+          const bassGain = ctx.createGain();
+          bassGain.gain.value = 0.03;
+          const pulseLfo = ctx.createOscillator();
+          pulseLfo.frequency.value = 1.2; // ~72 BPM walking rhythm
+          const pulseDepth = ctx.createGain();
+          pulseDepth.gain.value = 0.03;
+          pulseLfo.connect(pulseDepth);
+          pulseDepth.connect(bassGain.gain);
+          pulseLfo.start();
+          bass.connect(bassGain);
+          bassGain.connect(masterGain);
+          bass.start();
+          nodes.push(bass, pulseLfo);
+        })();
+        break;
+      case 'BREAKTHROUGH': // Spacious zen — singing bowl drones
+        filter.frequency.value = 400;
+        filter.Q.value = 1.2;
+        [174, 261, 396].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const g = ctx.createGain();
+          g.gain.value = 0.04 - i * 0.01;
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.start();
+          nodes.push(osc);
+        });
+        break;
+      case 'STRATEGY': // Ocean waves — LFO modulates filter
+        filter.frequency.value = 600;
+        (() => {
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.frequency.value = 0.12; // slow wave rhythm
+          lfoGain.gain.value = 300;
+          lfo.connect(lfoGain);
+          lfoGain.connect(filter.frequency);
+          lfo.start();
+          nodes.push(lfo);
+        })();
+        break;
+    }
+
+    noiseSource.connect(filter);
+    filter.connect(masterGain);
+    noiseSource.start();
+    nodes.push(noiseSource);
+
+    bgNodesRef.current = nodes;
+  };
+
+  const duckAmbience = () => {
+    if (bgGainRef.current && audioCtxRef.current) {
+      bgGainRef.current.gain.linearRampToValueAtTime(0.03, audioCtxRef.current.currentTime + 0.8);
+    }
+  };
+
+  const raiseAmbience = () => {
+    if (bgGainRef.current && audioCtxRef.current) {
+      bgGainRef.current.gain.linearRampToValueAtTime(0.12, audioCtxRef.current.currentTime + 1.5);
+    }
+  };
+
+  const stopAmbience = () => {
+    bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
+    bgNodesRef.current = [];
+    bgGainRef.current = null;
+  };
+
   const speakText = async (text: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
@@ -134,15 +263,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPaused) return;
 
-    if (audioBufferQueue.current.length < 2) {
+    // Generate if queue is empty (first segment or pre-buffer missed)
+    if (audioBufferQueue.current.length === 0) {
       setIsBufferingAudio(true);
-      const isIntro = startTimeRef.current === null;
       const segment = await generateSegmentNarrative({
         mode,
         activity: 'WALK',
         lang,
         stats: sessionStats,
-        isIntro,
+        isIntro: startTimeRef.current === null,
         isFirstSegment: !sponsorPlayedRef.current,
         targetThought
       });
@@ -157,11 +286,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       const source = audioCtxRef.current!.createBufferSource();
       source.buffer = buffer;
       source.connect(audioCtxRef.current!.destination);
-      source.onended = () => narrationLoop();
+
+      // Duck the ambient interlude while narration plays
+      duckAmbience();
+
+      source.onended = () => {
+        // Raise ambient back up during the gap
+        raiseAmbience();
+        narrationLoop();
+      };
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
+
+      // Pre-buffer next segment while this one plays (fire-and-forget)
+      if (audioBufferQueue.current.length < 2 && isNarratingRef.current) {
+        (async () => {
+          const seg = await generateSegmentNarrative({
+            mode, activity: 'WALK', lang, stats: sessionStats,
+            isIntro: false, isFirstSegment: false, targetThought
+          });
+          const buf = await speakText(seg);
+          if (buf) audioBufferQueue.current.push(buf);
+        })();
+      }
     } else {
-      setTimeout(narrationLoop, 2000);
+      setTimeout(narrationLoop, 1000);
     }
   }, [mode, lang, sessionStats, isPaused, targetThought]);
 
@@ -291,6 +440,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     }, 1000);
 
     startTracking();
+    createAmbience();
     narrationLoop();
   };
 
@@ -301,6 +451,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
+    stopAmbience();
     releaseWakeLock();
     setIsPlaying(false);
     setIsPaused(false);
@@ -315,8 +466,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/90 pointer-events-none z-[1]" />
 
         <header className="relative z-[10] p-6 flex justify-between items-start">
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-            <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label || 'GUIDE'}</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+              <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label || 'GUIDE'}</span>
+            </div>
+            {isBufferingAudio && (
+              <div className="bg-[#233DFF]/60 backdrop-blur-md px-3 py-2 rounded-full animate-pulse">
+                <span className="text-[9px] font-medium text-white/80 uppercase tracking-wide">loading</span>
+              </div>
+            )}
           </div>
           <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
             <span className="text-[10px] font-medium text-white uppercase tracking-wide">GPS: {gpsAccuracy ? `${gpsAccuracy.toFixed(0)}m` : '---'}</span>
@@ -380,7 +538,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             />
           </div>
           <button
-            onClick={() => setStep(1)}
+            onClick={() => { requestGpsPermission(); setStep(1); }}
             disabled={!targetThought.trim()}
             className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
           >

@@ -25,8 +25,11 @@
 
     <style>
       :root {
-        --app-height: 100dvh;
+        --app-height: 100vh;
         --brand-blue: #233DFF;
+      }
+      @supports (height: 100dvh) {
+        :root { --app-height: 100dvh; }
       }
       body {
         font-family: 'Inter', sans-serif;
