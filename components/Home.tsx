@@ -34,10 +34,10 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       
       {/* Header Section */}
       <div className="space-y-0 flex-shrink-0">
-        <h1 className="text-3xl font-black tracking-tighter leading-none dark:text-white font-display">
+        <h1 className="text-3xl font-normal tracking-normal leading-none dark:text-white font-display">
           Your <span className="text-[#233DFF]">CalmKit</span>
         </h1>
-        <p className="text-gray-400 font-black text-[8px] uppercase tracking-[0.2em]">{t.homeSubtitle}</p>
+        <p className="text-gray-400 font-medium text-[8px] uppercase tracking-wide">{t.homeSubtitle}</p>
       </div>
 
       {/* Affirmation Card - Restored Yellow & Interaction */}
@@ -46,11 +46,11 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         className="bg-[#FFDE59] border border-black/5 rounded-[28px] p-5 min-h-[110px] sm:min-h-[130px] flex flex-col justify-center space-y-2 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg group flex-shrink-0"
       >
         <div className="flex justify-between items-center relative z-10">
-          <span className="text-[7px] font-[900] uppercase tracking-[0.3em] text-black/40">{t.dailyStrengthLabel}</span>
+          <span className="text-[7px] font-medium uppercase tracking-wide text-black/40">{t.dailyStrengthLabel}</span>
           <RefreshCcw size={12} className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`} />
         </div>
         
-        <p className="text-lg sm:text-2xl font-black italic text-black leading-tight relative z-10 tracking-tight">
+        <p className="text-2xl sm:text-3xl font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
           "{affirmation || '...'}"
         </p>
       </div>
@@ -65,8 +65,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Move size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-black uppercase text-[11px] tracking-tight text-white">{t.nav.move}</span>
-            <span className="text-[6px] font-black uppercase tracking-[0.1em] text-white/50">{t.tools.walk.subtitle}</span>
+            <span className="font-medium uppercase text-[11px] tracking-normal text-white">{t.nav.move}</span>
+            <span className="text-[6px] font-medium uppercase tracking-wide text-white/50">{t.tools.walk.subtitle}</span>
           </div>
         </button>
 
@@ -78,8 +78,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Wind size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-black uppercase text-[11px] tracking-tight dark:text-white">{t.nav.breathe}</span>
-            <span className="text-[6px] font-black uppercase tracking-[0.1em] text-gray-400">{t.tools.breathe.subtitle}</span>
+            <span className="font-medium uppercase text-[11px] tracking-normal dark:text-white">{t.nav.breathe}</span>
+            <span className="text-[6px] font-medium uppercase tracking-wide text-gray-400">{t.tools.breathe.subtitle}</span>
           </div>
         </button>
 
@@ -91,8 +91,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Sparkles size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-black uppercase text-[11px] tracking-tight dark:text-white">{t.nav.meditate}</span>
-            <span className="text-[6px] font-black uppercase tracking-[0.1em] text-gray-400">{t.tools.meditate.subtitle}</span>
+            <span className="font-medium uppercase text-[11px] tracking-normal dark:text-white">{t.nav.meditate}</span>
+            <span className="text-[6px] font-medium uppercase tracking-wide text-gray-400">{t.tools.meditate.subtitle}</span>
           </div>
         </button>
 
@@ -104,8 +104,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <BookOpen size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-black uppercase text-[11px] tracking-tight dark:text-white">{t.nav.reflect}</span>
-            <span className="text-[6px] font-black uppercase tracking-[0.1em] text-gray-400">{t.tools.journal.subtitle}</span>
+            <span className="font-medium uppercase text-[11px] tracking-normal dark:text-white">{t.nav.reflect}</span>
+            <span className="text-[6px] font-medium uppercase tracking-wide text-gray-400">{t.tools.journal.subtitle}</span>
           </div>
         </button>
 
@@ -118,8 +118,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
               <Zap size={18} fill="currentColor" />
             </div>
             <div className="flex flex-col items-start text-left">
-                <span className="font-black uppercase text-[13px] tracking-widest leading-none">{t.tools.grounding.title}</span>
-                <span className="text-[6px] font-black uppercase tracking-[0.2em] opacity-40 mt-1">{t.tools.grounding.subtitle}</span>
+                <span className="font-medium uppercase text-[13px] tracking-wide leading-none">{t.tools.grounding.title}</span>
+                <span className="text-[6px] font-medium uppercase tracking-wide opacity-40 mt-1">{t.tools.grounding.subtitle}</span>
             </div>
           </div>
           <RefreshCcw size={14} className="opacity-40" />
