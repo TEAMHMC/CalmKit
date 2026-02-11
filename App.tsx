@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppView, UserPreferences } from './types';
 import { translations } from './translations';
@@ -15,9 +16,11 @@ const App: React.FC = () => {
   const [immersive, setImmersive] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
     const saved = localStorage.getItem('hmc_calmkit_prefs');
-    return saved
-      ? JSON.parse(saved)
-      : { lang: 'en', darkMode: false, hasSeenOnboarding: false };
+    return saved ? JSON.parse(saved) : {
+      lang: 'en',
+      darkMode: false,
+      hasSeenOnboarding: false
+    };
   });
 
   useEffect(() => {
@@ -65,7 +68,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-white dark:bg-[#121212] flex flex-col overflow-hidden" style={{ height: 'var(--app-height)' }}>
+    <div className="flex items-center justify-center w-full h-screen bg-slate-50 dark:bg-black overflow-hidden">
       {!prefs.hasSeenOnboarding && (
         <Onboarding
           onComplete={() => setPrefs(p => ({ ...p, hasSeenOnboarding: true }))}
@@ -74,48 +77,50 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Header */}
-      {!immersive && (
-        <header className="flex-shrink-0 h-14 px-4 flex justify-between items-center bg-white dark:bg-[#121212]" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('HOME')}>
-            <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" alt="HMC" className="w-8 h-8 object-contain" />
-            <div>
-              <h2 className="font-medium text-[13px] uppercase dark:text-white leading-none">CALMKIT</h2>
-              <span className="text-[10px] font-medium uppercase tracking-wide text-[#233DFF]">UNSTOPPABLE</span>
+      <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
+
+        {/* Header */}
+        {!immersive && (
+          <header className="flex-shrink-0 px-6 h-20 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('HOME')}>
+              <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" alt="HMC" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col">
+                <h2 className="font-medium text-[13px] uppercase dark:text-white leading-none">CALMKIT</h2>
+                <span className="text-[10px] font-medium uppercase tracking-wide text-[#233DFF]">UNSTOPPABLE</span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('ABOUT')} className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95"><Info size={16} /></button>
-            <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} className="w-10 h-10 bg-gray-50 dark:bg-white/5 rounded-full text-[11px] font-semibold dark:text-white flex items-center justify-center active:scale-95">{prefs.lang.toUpperCase()}</button>
-            <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95">{prefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}</button>
-          </div>
-        </header>
-      )}
+            <div className="flex items-center gap-3">
+              <button onClick={() => setView('ABOUT')} className="w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95"><Info size={14} /></button>
+              <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} className="w-8 h-8 bg-gray-50 dark:bg-white/5 rounded-full text-[11px] font-semibold dark:text-white flex items-center justify-center active:scale-95">{prefs.lang.toUpperCase()}</button>
+              <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} className="w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95">{prefs.darkMode ? <Sun size={14} /> : <Moon size={14} />}</button>
+            </div>
+          </header>
+        )}
 
-      {/* Main — takes all remaining space */}
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        {renderView()}
-      </main>
+        <main className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+          {renderView()}
+        </main>
 
-      {/* Bottom Nav */}
-      {!immersive && (
-        <nav className="flex-shrink-0 h-16 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          {[
-            { id: 'HOME', icon: <HomeIcon size={20} />, label: t.nav.home },
-            { id: 'BREATHE', icon: <Wind size={20} />, label: t.nav.breathe },
-            { id: 'WALK', icon: <Move size={20} />, label: t.nav.move },
-            { id: 'MEDITATE', icon: <Sparkles size={20} />, label: t.nav.meditate },
-            { id: 'REFLECT', icon: <BookOpen size={20} />, label: t.nav.reflect },
-            { id: 'CENTER', icon: <Zap size={20} />, label: t.nav.center },
-          ].map((n) => (
-            <button key={n.id} onClick={() => setView(n.id as AppView)} aria-current={view === n.id ? 'page' : undefined} aria-label={n.label}
-              className={`flex flex-col items-center gap-0.5 flex-1 py-1 active:scale-95 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-300'}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${view === n.id ? 'bg-[#233DFF]/10' : ''}`}>{n.icon}</div>
-              <span className={`text-[9px] font-medium uppercase ${view === n.id ? 'opacity-100' : 'opacity-40'}`}>{n.label}</span>
-            </button>
-          ))}
-        </nav>
-      )}
+        {/* Bottom Nav */}
+        {!immersive && (
+          <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-20 pb-[env(safe-area-inset-bottom,0px)]">
+            {[
+              { id: 'HOME', icon: <HomeIcon size={18} />, label: t.nav.home },
+              { id: 'BREATHE', icon: <Wind size={18} />, label: t.nav.breathe },
+              { id: 'WALK', icon: <Move size={18} />, label: t.nav.move },
+              { id: 'MEDITATE', icon: <Sparkles size={18} />, label: t.nav.meditate },
+              { id: 'REFLECT', icon: <BookOpen size={18} />, label: t.nav.reflect },
+              { id: 'CENTER', icon: <Zap size={18} />, label: t.nav.center },
+            ].map((n) => (
+              <button key={n.id} onClick={() => setView(n.id as AppView)} aria-current={view === n.id ? 'page' : undefined} aria-label={n.label}
+                className={`flex flex-col items-center gap-1.5 flex-1 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-300'}`}>
+                <div className={`p-2 rounded-xl transition-all ${view === n.id ? 'bg-[#233DFF]/5' : ''}`}>{n.icon}</div>
+                <span className={`text-[9px] font-medium uppercase ${view === n.id ? 'opacity-100' : 'opacity-40'}`}>{n.label}</span>
+              </button>
+            ))}
+          </nav>
+        )}
+      </div>
     </div>
   );
 };

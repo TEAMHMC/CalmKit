@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <title>Unstoppable Calm Kit | Mental Wellness Companion</title>
     <meta name="description" content="A mental wellness companion by Health Matters Clinic. Guided walks, breathing exercises, and journaling for daily strength." />
-    
+
     <!-- Open Graph / Social -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Unstoppable Calm Kit" />
@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@300;400;500;600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-    
+
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -39,24 +39,18 @@
       }
       body {
         font-family: 'Inter', sans-serif;
-        background: linear-gradient(180deg, rgba(35, 61, 255, 0.06), white 40%);
-        color: #18181b; /* zinc-900 */
+        background-color: #f8f8f8;
+        color: #111;
         margin: 0;
         height: var(--app-height);
         width: 100vw;
         overflow: hidden;
         -webkit-tap-highlight-color: transparent;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
-      #root {
-        height: 100%;
-        width: 100%;
-      }
-      
-      .dark body { 
-        background: linear-gradient(180deg, rgba(35, 61, 255, 0.1), #09090b 40%); 
-        color: #f4f4f5; /* zinc-100 */
-      }
-      
+
+      .dark body { background-color: #0a0a0a; color: #eee; }
+
       /* Ghost Mode Map Styling */
       .leaflet-container {
         background: #0a0a0a !important;
@@ -74,10 +68,14 @@
         stroke-linejoin: round;
       }
 
-      /* main styling handled by React component classes */
-      
+      main {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
       .leaflet-control-container { display: none !important; }
-      
+
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
