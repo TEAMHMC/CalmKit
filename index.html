@@ -51,17 +51,27 @@
         color: #f4f4f5; /* zinc-100 */
       }
       
+      /* Ghost Mode Map Styling */
       .leaflet-container {
-        background: #09090b !important;
+        background: #f8f8f8 !important;
       }
-      
-      /* Glowing Neon Path & Marker */
-      .neon-marker {
-        filter: drop-shadow(0 0 8px var(--brand-blue)) drop-shadow(0 0 12px var(--brand-blue));
+      .dark .leaflet-container {
+        background: #0a0a0a !important;
       }
-      
-      .neon-line {
-        filter: drop-shadow(0 0 4px var(--brand-blue));
+
+      /* Dark map filter — inverts light tiles into dark desaturated ghost mode */
+      .dark-map .leaflet-tile {
+        filter: invert(100%) hue-rotate(180deg) brightness(40%) contrast(90%) saturate(0%);
+      }
+
+      /* Luminous Neon Marker */
+      .glowing-marker {
+        filter: drop-shadow(0 0 4px var(--brand-blue)) drop-shadow(0 0 10px rgba(35, 61, 255, 0.4));
+      }
+
+      /* Neon Path Glow */
+      .glowing-path {
+        filter: drop-shadow(0 0 4px var(--brand-blue)) drop-shadow(0 0 8px rgba(35, 61, 255, 0.3));
         stroke-dasharray: 8;
         animation: dash 1s linear infinite;
       }
@@ -70,6 +80,12 @@
         to {
           stroke-dashoffset: -16;
         }
+      }
+
+      main {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
       
       .leaflet-control-container { display: none !important; }
