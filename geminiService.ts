@@ -42,6 +42,7 @@ export const generateSegmentNarrative = async (params: {
   stats: { distance: number; time: number; pace: string };
   isIntro: boolean;
   isFirstSegment: boolean;
+  isReturning?: boolean;
   destinationName?: string;
   targetThought?: string;
 }) => {
@@ -55,6 +56,10 @@ export const generateSegmentNarrative = async (params: {
     ? `The user's check-in thought: "${params.targetThought}". Gently weave awareness of this into guidance — acknowledge what they're carrying without being clinical.`
     : "";
 
+  const returningContext = params.isReturning
+    ? `IMPORTANT: The user has been walking/running with their own music. You are checking back in after a few minutes of silence. Open with a brief, natural re-entry like "Still here with you..." or "Checking in..." or "Hey, you're still going..." — NOT "Welcome back" or "I'm back". Keep it fresh and human. Then offer a short insight or encouragement.`
+    : "";
+
   const prompt = `Generate a unique, generative movement guidance segment for a CalmKit wellness session.
     Language: ${langText}
     Voice Persona: ${spec.voice}
@@ -65,6 +70,7 @@ export const generateSegmentNarrative = async (params: {
     Context: ${params.isIntro ? "Pre-Start Intro (15-20s)" : "Continuous guidance segment (60s)"}.
     ${params.destinationName ? `Target: ${params.destinationName}` : "Just Go mode — no specific destination."}.
     ${cbtContext}
+    ${returningContext}
     ${sponsorLine}
 
     CRITICAL INSTRUCTIONS:

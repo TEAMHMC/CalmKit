@@ -165,7 +165,11 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   };
 
   useEffect(() => {
-    return () => stopAudio();
+    return () => {
+      stopAudio();
+      // Close AudioContext to prevent audio bleed when switching views
+      if (audioContextRef.current) { try { audioContextRef.current.close(); } catch(e) {} audioContextRef.current = null; }
+    };
   }, []);
 
   return (

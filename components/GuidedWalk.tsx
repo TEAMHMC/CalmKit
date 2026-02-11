@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Language, EchoPersona } from '../types';
+import { Language, EchoPersona, NarrationFrequency } from '../types';
 import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -39,6 +39,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [destinationName, setDestinationName] = useState("");
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
   const [gpsError, setGpsError] = useState(false);
+  const [narrationFreq, setNarrationFreq] = useState<NarrationFrequency>('CONTINUOUS');
+  const [isStationary, setIsStationary] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
 
   // ── Refs ──
   const mapRef = useRef<any>(null);
@@ -60,6 +64,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const isPausedRef = useRef(false);
   const debounceRef = useRef<any>(null);
+  const narrationTimeoutRef = useRef<any>(null);
+  const narrationFreqRef = useRef<NarrationFrequency>('CONTINUOUS');
+  const startMarkerRef = useRef<any>(null);
+  const isReturningRef = useRef(false);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
   const targetThoughtRef = useRef(targetThought);
@@ -70,6 +78,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { sessionStatsRef.current = sessionStats; }, [sessionStats]);
   useEffect(() => { destinationNameRef.current = destinationName; }, [destinationName]);
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
+  useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
   // Try to get location silently on mount (works if permission already granted)
   useEffect(() => {
@@ -82,15 +91,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — close AudioContext to prevent audio bleed between views
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (narrationTimeoutRef.current) clearTimeout(narrationTimeoutRef.current);
       isNarratingRef.current = false;
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
+      if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
       if (wakeLockRef.current) { wakeLockRef.current.release(); }
     };
   }, []);
@@ -327,9 +338,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
 
+    // Ensure AudioContext is active before playing
+    if (audioCtxRef.current?.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
     if (audioBufferQueue.current.length === 0) {
       setIsBufferingAudio(true);
       const stats = sessionStatsRef.current;
+      const returning = isReturningRef.current;
+      isReturningRef.current = false;
       const segment = await generateSegmentNarrative({
         mode,
         activity: 'WALK',
@@ -337,6 +355,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         stats,
         isIntro: startTimeRef.current === null,
         isFirstSegment: !sponsorPlayedRef.current,
+        isReturning: returning,
         destinationName: destinationNameRef.current || undefined,
         targetThought: targetThoughtRef.current || undefined
       });
@@ -346,7 +365,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setIsBufferingAudio(false);
     }
 
-    if (isPausedRef.current) return;
+    if (isPausedRef.current || !isNarratingRef.current) return;
 
     if (audioBufferQueue.current.length > 0) {
       const buffer = audioBufferQueue.current.shift()!;
@@ -355,18 +374,52 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       source.connect(audioCtxRef.current!.destination);
       currentSourceRef.current = source;
 
-      duckAmbience();
+      // In interval mode, only duck if ambience is active (continuous mode)
+      if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
 
       source.onended = () => {
         currentSourceRef.current = null;
-        raiseAmbience();
-        narrationLoop();
+
+        if (narrationFreqRef.current === 'CONTINUOUS') {
+          // Continuous: raise ambience and immediately loop
+          raiseAmbience();
+          narrationLoop();
+        } else {
+          // Interval mode: silence everything so user's music plays
+          stopAmbience();
+          audioCtxRef.current?.suspend();
+
+          const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
+
+          // Pre-buffer next segment 25s before the gap ends
+          const preBufferDelay = Math.max(delayMs - 25000, 5000);
+          setTimeout(async () => {
+            if (!isNarratingRef.current) return;
+            isReturningRef.current = true;
+            const stats = sessionStatsRef.current;
+            const seg = await generateSegmentNarrative({
+              mode, activity: 'WALK', lang, stats,
+              isIntro: false, isFirstSegment: false, isReturning: true,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined
+            });
+            const buf = await speakText(seg);
+            if (buf) audioBufferQueue.current.push(buf);
+          }, preBufferDelay);
+
+          // Resume narration after the interval
+          narrationTimeoutRef.current = setTimeout(async () => {
+            if (!isNarratingRef.current || isPausedRef.current) return;
+            await audioCtxRef.current?.resume();
+            narrationLoop();
+          }, delayMs);
+        }
       };
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      // Pre-buffer next segment
-      if (audioBufferQueue.current.length < 2 && isNarratingRef.current) {
+      // Pre-buffer next segment (continuous mode only — interval pre-buffers in the timeout)
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current) {
         (async () => {
           const stats = sessionStatsRef.current;
           const seg = await generateSegmentNarrative({
@@ -410,6 +463,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
 
     if (mapRef.current && userLocation) {
+      // Start pin: small green marker at the walk origin
+      if (!startMarkerRef.current && pathCoordsRef.current.length > 0) {
+        const startIcon = L.divIcon({
+          className: '',
+          html: `<div class="w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-[0_0_10px_rgba(74,222,128,0.6)]"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        startMarkerRef.current = L.marker(pathCoordsRef.current[0], { icon: startIcon }).addTo(mapRef.current);
+      }
+
       if (!markerRef.current) {
         // Pulsing neon marker via divIcon
         const icon = L.divIcon({
@@ -437,6 +501,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         mapRef.current.remove();
         mapRef.current = null;
         markerRef.current = null;
+        startMarkerRef.current = null;
         pathRef.current = null;
       }
     };
@@ -478,6 +543,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     await initAudio();
 
     // GPS on user gesture (required by mobile Safari)
+    let hasGps = false;
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -488,7 +554,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setUserLocation(coords);
       pathCoordsRef.current = [coords];
       lastPositionRef.current = coords;
-    } catch (e) {}
+      hasGps = true;
+    } catch (e) {
+      setIsStationary(true);
+    }
 
     await requestWakeLock();
     onImmersiveChange?.(true);
@@ -511,8 +580,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }, 1000);
 
-    startTracking();
-    createAmbience();
+    if (hasGps) startTracking();
+    // In interval mode, skip ambience — user is listening to their own music
+    if (narrationFreq === 'CONTINUOUS') createAmbience();
     narrationLoop();
   };
 
@@ -523,14 +593,19 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
     isNarratingRef.current = false;
     isPausedRef.current = false;
+    if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
     stopAmbience();
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    // Close AudioContext to prevent audio bleed into other views
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
     releaseWakeLock();
     onImmersiveChange?.(false);
     setIsPlaying(false);
     setIsPaused(false);
-    onBack();
+    // Show session summary instead of immediately going home
+    setFinalStats({ ...sessionStats });
+    setShowSummary(true);
   };
 
   const togglePause = () => {
@@ -542,14 +617,64 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         try { currentSourceRef.current.stop(); } catch(e) {}
         currentSourceRef.current = null;
       }
+      if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
       if (bgGainRef.current && audioCtxRef.current) {
         bgGainRef.current.gain.linearRampToValueAtTime(0.02, audioCtxRef.current.currentTime + 0.3);
       }
+      audioCtxRef.current?.suspend();
     } else {
-      raiseAmbience();
+      audioCtxRef.current?.resume();
+      if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
       narrationLoop();
     }
   };
+
+  // ══════════════════════════════════════════════
+  // RENDER: Session Summary
+  // ══════════════════════════════════════════════
+  if (showSummary) {
+    const mins = Math.floor(finalStats.time / 60);
+    const secs = Math.floor(finalStats.time % 60);
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-6">
+        <div className="w-20 h-20 bg-[#233DFF]/10 rounded-full flex items-center justify-center">
+          <Activity size={36} className="text-[#233DFF]" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-normal tracking-normal dark:text-white font-display">{t.labels.sessionSummary}</h2>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.sessionSummaryDesc}</p>
+        </div>
+        <div className="flex gap-6">
+          {!isStationary && (
+            <div className="flex flex-col items-center">
+              <span className="text-3xl font-semibold tabular-nums text-[#233DFF]">{finalStats.distance.toFixed(2)}</span>
+              <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.miles}</span>
+            </div>
+          )}
+          <div className="flex flex-col items-center">
+            <span className="text-3xl font-semibold tabular-nums dark:text-white">{mins}:{secs.toString().padStart(2, '0')}</span>
+            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.time}</span>
+          </div>
+          {!isStationary && finalStats.distance > 0 && (
+            <div className="flex flex-col items-center">
+              <span className="text-3xl font-semibold tabular-nums dark:text-white">{finalStats.pace}</span>
+              <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.avgPace}</span>
+            </div>
+          )}
+        </div>
+        <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 max-w-xs">{t.labels.wellDone}</p>
+        <div className="w-full max-w-xs space-y-3">
+          <button
+            onClick={onBack}
+            className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-lg active:scale-95 transition-all"
+          >
+            {t.labels.returnHome}
+          </button>
+          <p className="text-[10px] font-medium text-gray-300 dark:text-gray-600 uppercase tracking-wide">{t.labels.crisisLine}</p>
+        </div>
+      </div>
+    );
+  }
 
   // ══════════════════════════════════════════════
   // RENDER: Active Walk — Ghost Mode
@@ -557,24 +682,35 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   if (isPlaying) {
     return (
       <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
-        {/* Ghost Mode Map */}
+        {/* Ghost Mode Map or Stationary Background */}
         <div className="flex-1 relative overflow-hidden dark-map">
-          <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+          {!isStationary && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+          {isStationary && (
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
+              <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
+                <Activity size={48} className="text-[#233DFF]/30" />
+              </div>
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
 
           {/* Floating Pill HUD */}
           <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
             <div className="flex justify-center gap-2">
-              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
-                <Activity size={14} className="text-[#233DFF]" />
-                <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
-                <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
-              </div>
-              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
-                <Navigation size={14} className="text-[#233DFF]" />
-                <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
-                <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
-              </div>
+              {!isStationary && (
+                <>
+                  <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
+                    <Activity size={14} className="text-[#233DFF]" />
+                    <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
+                    <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
+                  </div>
+                  <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
+                    <Navigation size={14} className="text-[#233DFF]" />
+                    <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
+                    <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex justify-center">
               <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
@@ -588,7 +724,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
             {/* Status indicators */}
             <div className="flex justify-center gap-2">
-              {gpsAccuracy != null && gpsAccuracy > 30 && (
+              {isStationary && (
+                <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+                  <span className="text-[9px] font-medium text-white/50 uppercase">{t.labels.stationaryMode}</span>
+                </div>
+              )}
+              {!isStationary && gpsAccuracy != null && gpsAccuracy > 30 && (
                 <div className="px-3 py-1 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
                   <span className="text-[9px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
                 </div>
@@ -739,6 +880,24 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 }`} />
                 <span className={`font-medium text-sm block ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
                 <span className="text-[10px] text-gray-400 block">{m.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Narration Frequency */}
+          <div className="flex items-center gap-2 mt-4 flex-shrink-0">
+            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.labels.narrationFreq}</span>
+            {([
+              { id: 'CONTINUOUS' as NarrationFrequency, label: t.labels.continuous },
+              { id: 'INTERVAL_2' as NarrationFrequency, label: t.labels.every2Min },
+              { id: 'INTERVAL_5' as NarrationFrequency, label: t.labels.every5Min },
+            ]).map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setNarrationFreq(opt.id)}
+                className={`px-3 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wide transition-all ${narrationFreq === opt.id ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+              >
+                {opt.label}
               </button>
             ))}
           </div>

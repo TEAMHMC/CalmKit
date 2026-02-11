@@ -62,7 +62,18 @@ export const translations = {
       noLocationFound: 'LOCATION NOT FOUND',
       checkIn: "Let's Check In",
       checkInSub: "What thought is on your mind?",
-      thoughtPlaceholder: "e.g., 'I'm not doing enough' or 'I'm feeling overwhelmed by...'"
+      thoughtPlaceholder: "e.g., 'I'm not doing enough' or 'I'm feeling overwhelmed by...'",
+      narrationFreq: 'NARRATION',
+      continuous: 'ALWAYS',
+      every2Min: '2 MIN',
+      every5Min: '5 MIN',
+      stationaryMode: 'STATIONARY SESSION',
+      stationaryDesc: 'Audio guidance active — no GPS tracking',
+      sessionSummary: 'Session Complete',
+      sessionSummaryDesc: 'HERE IS YOUR PATH',
+      wellDone: "You showed up for yourself today.",
+      returnHome: 'Return Home',
+      crisisLine: 'In crisis? Call or text 988'
     },
     onboarding: {
       title: 'This Space Is Yours',
@@ -167,7 +178,18 @@ export const translations = {
       noLocationFound: 'NO SE ENCONTRÓ LA UBICACIÓN',
       checkIn: "Registro Inicial",
       checkInSub: "¿Qué pensamiento tienes en mente?",
-      thoughtPlaceholder: "Ej: 'No estoy haciendo lo suficiente' o 'Me siento abrumado por...'"
+      thoughtPlaceholder: "Ej: 'No estoy haciendo lo suficiente' o 'Me siento abrumado por...'",
+      narrationFreq: 'NARRACIÓN',
+      continuous: 'SIEMPRE',
+      every2Min: '2 MIN',
+      every5Min: '5 MIN',
+      stationaryMode: 'SESIÓN ESTACIONARIA',
+      stationaryDesc: 'Guía de audio activa — sin rastreo GPS',
+      sessionSummary: 'Sesión Completa',
+      sessionSummaryDesc: 'AQUÍ ESTÁ TU CAMINO',
+      wellDone: "Hoy te presentaste por ti mismo.",
+      returnHome: 'Volver al Inicio',
+      crisisLine: '¿En crisis? Llama o envía texto al 988'
     },
     onboarding: {
       title: 'Este Espacio es Tuyo',

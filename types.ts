@@ -3,6 +3,7 @@ export type AppView = 'HOME' | 'WALK' | 'BREATHE' | 'MEDITATE' | 'REFLECT' | 'CE
 export type Language = 'en' | 'es';
 export type EchoPersona = 'HYPE' | 'BREAKTHROUGH' | 'HOPE' | 'STRATEGY';
 export type ActivityType = 'WALK' | 'RUN';
+export type NarrationFrequency = 'CONTINUOUS' | 'INTERVAL_2' | 'INTERVAL_5';
 /* Type for background ambience in meditation sessions */
 export type BackgroundSound = 'NONE' | 'RAIN' | 'OCEAN' | 'FOREST' | 'ZEN';
 
