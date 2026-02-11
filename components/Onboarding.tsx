@@ -17,7 +17,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
     {
       title: t.onboarding.title,
       desc: t.onboarding.step1,
-      icon: <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" className="w-24 h-24 object-contain" alt="HMC Logo" />,
+      icon: <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" className="w-16 h-16 sm:w-20 sm:h-20 object-contain" alt="HMC Logo" />,
       color: "bg-transparent"
     },
     {
@@ -49,31 +49,31 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
   const isLastStep = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-      <div className="max-w-sm w-full space-y-12">
-        <div className={`w-36 h-36 ${steps[step].color} rounded-[48px] flex items-center justify-center mx-auto transition-all duration-700`}>
+    <div className="fixed inset-0 z-[200] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center p-4 sm:p-8 text-center animate-in fade-in overflow-hidden">
+      <div className="max-w-sm w-full flex flex-col items-center gap-6 sm:gap-8">
+        <div className={`w-24 h-24 sm:w-32 sm:h-32 ${steps[step].color} rounded-[32px] sm:rounded-[48px] flex items-center justify-center mx-auto transition-all duration-700 flex-shrink-0`}>
           {steps[step].icon}
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-5xl font-normal tracking-normal leading-none dark:text-white font-display">
+        <div className="space-y-3 flex-shrink-0">
+          <h2 className="text-3xl sm:text-4xl font-normal tracking-normal leading-none dark:text-white font-display">
             {steps[step].title}
           </h2>
-          <p className="text-sm font-medium text-gray-400 leading-relaxed px-6">
+          <p className="text-sm font-medium text-gray-400 leading-relaxed px-4">
             {steps[step].desc}
           </p>
         </div>
 
-        <div className="flex justify-center gap-2.5">
+        <div className="flex justify-center gap-2.5 flex-shrink-0">
           {steps.map((_, i) => (
             <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === step ? 'w-10 bg-[#233DFF]' : 'w-2 bg-gray-100 dark:bg-white/10'}`} />
           ))}
         </div>
 
-        <div className="flex flex-col gap-5 pt-4">
+        <div className="flex flex-col gap-4 w-full flex-shrink-0">
           <button
             onClick={() => isLastStep ? onComplete() : setStep(step + 1)}
-            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233dff]' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white'}`}
+            className={`w-full h-14 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233dff]' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white'}`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isLastStep ? 'bg-white' : 'bg-white dark:bg-black'}`} />
             {isLastStep ? t.onboarding.finish : t.onboarding.next}

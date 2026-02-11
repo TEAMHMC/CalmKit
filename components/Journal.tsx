@@ -78,14 +78,14 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
-      <div className="px-6 py-6 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-4 py-4 border-b border-gray-50 dark:border-white/5 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
           <span className="font-medium text-[9px] tracking-wide text-[#233DFF] uppercase">{t.nav.reflect}</span>
           <button onClick={() => setShowHistory(true)} className="text-gray-300 hover:text-black dark:hover:text-white transition-colors">
             <History size={16} />
           </button>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <h3 className="text-lg font-[900] italic leading-tight text-black dark:text-white tracking-tight flex-1">
               "{prompt || '...'}"
@@ -101,26 +101,26 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden min-h-0">
-        <div className="flex-1 flex flex-col bg-gray-50/50 dark:bg-white/5 rounded-[32px] overflow-hidden shadow-inner border border-gray-100 dark:border-white/5">
-          <textarea 
-            value={response} 
-            onChange={(e) => setResponse(e.target.value)} 
-            placeholder={t.journalDesc} 
-            className="w-full h-full p-6 bg-transparent focus:outline-none text-sm font-medium leading-relaxed resize-none dark:text-white placeholder:text-gray-300" 
+      <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col bg-gray-50/50 dark:bg-white/5 rounded-[24px] overflow-hidden shadow-inner border border-gray-100 dark:border-white/5 min-h-0">
+          <textarea
+            value={response}
+            onChange={(e) => setResponse(e.target.value)}
+            placeholder={t.journalDesc}
+            className="w-full h-full p-4 bg-transparent focus:outline-none text-sm font-medium leading-relaxed resize-none dark:text-white placeholder:text-gray-300"
           />
         </div>
 
         <div className="relative flex-shrink-0">
           {showSuccess && (
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full text-[9px] font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-full text-[9px] font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
               <CheckCircle2 size={12} /> {t.labels.saved}
             </div>
           )}
           <button
             onClick={handleSave}
             disabled={!response.trim()}
-            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
+            className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             <Save size={18} /> {t.saveReflection}

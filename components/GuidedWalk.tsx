@@ -295,8 +295,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-6 animate-in fade-in overflow-y-auto bg-white dark:bg-[#121212]">
-      <div className="flex items-center gap-2 mb-8">
+    <div className="flex-1 flex flex-col p-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <button onClick={step === 0 ? onBack : () => setStep(step - 1)} className="p-2 -ml-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
           <ChevronLeft size={24} />
         </button>
@@ -304,23 +304,23 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       </div>
 
       {step === 0 && (
-        <div className="flex-1 flex flex-col justify-between">
-          <div className="space-y-1">
-            <h2 className="text-4xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
+        <div className="flex-1 flex flex-col justify-between min-h-0">
+          <div className="space-y-1 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
           </div>
-          <div className="my-8">
+          <div className="my-4 flex-1 min-h-0">
             <textarea
               value={targetThought}
               onChange={(e) => setTargetThought(e.target.value)}
               placeholder={t.labels.thoughtPlaceholder}
-              className="w-full h-32 p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-sm"
+              className="w-full h-full min-h-[80px] max-h-[160px] p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-sm resize-none"
             />
           </div>
           <button
             onClick={() => setStep(1)}
             disabled={!targetThought.trim()}
-            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
+            className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             {t.onboarding.next} <Send size={16} />
@@ -329,25 +329,25 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       )}
 
       {step === 1 && (
-        <>
-          <div className="space-y-1 mb-8">
-            <h2 className="text-4xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="space-y-1 mb-4 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 mb-10">
+          <div className="grid grid-cols-1 gap-2 flex-1 min-h-0 mb-4">
             {MODES.map((m) => (
               <button
                 key={m.id}
                 onClick={() => setMode(m.id)}
-                className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between group active:scale-[0.98] ${mode === m.id ? 'border-[#233DFF] bg-[#233DFF]/5' : 'border-gray-50 dark:border-white/5 bg-gray-50 dark:bg-white/5'}`}
+                className={`px-4 py-3 rounded-2xl border-2 transition-all flex items-center justify-between group active:scale-[0.98] ${mode === m.id ? 'border-[#233DFF] bg-[#233DFF]/5' : 'border-gray-50 dark:border-white/5 bg-gray-50 dark:bg-white/5'}`}
               >
                 <div className="flex flex-col items-start text-left">
                   <span className={`font-medium uppercase text-sm tracking-wide ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-1">{m.desc}</span>
+                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{m.desc}</span>
                 </div>
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${mode === m.id ? 'bg-[#233DFF] text-white scale-110' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
-                  <Sparkles size={18} />
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${mode === m.id ? 'bg-[#233DFF] text-white scale-110' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
+                  <Sparkles size={16} />
                 </div>
               </button>
             ))}
@@ -355,12 +355,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
           <button
             onClick={handleStart}
-            className="w-full h-20 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
+            className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 flex-shrink-0"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white" />
             <Play size={20} fill="currentColor" /> {t.labels.start}
           </button>
-        </>
+        </div>
       )}
     </div>
   );

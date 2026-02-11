@@ -139,15 +139,15 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col p-6 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+    <div className="flex-1 flex flex-col p-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div className="flex flex-col">
           <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF]">{t.nav.meditate}</span>
           <span className="text-[10px] font-medium text-gray-300 uppercase tracking-wide mt-1">{t.labels.phaseStillness}</span>
         </div>
         {script && !isLoading && (
-          <button 
-            onClick={loadScript} 
+          <button
+            onClick={loadScript}
             className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all shadow-sm"
           >
             <RefreshCcw size={16} className="text-gray-400" />
@@ -155,38 +155,38 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-between text-center py-4 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-between text-center py-2 overflow-hidden min-h-0">
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-8 animate-in fade-in zoom-in">
-            <div className="w-24 h-24 bg-gray-50 dark:bg-white/5 rounded-[40px] flex items-center justify-center relative shadow-inner">
-               <Loader2 size={40} className="text-[#233DFF] animate-spin" />
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in">
+            <div className="w-20 h-20 bg-gray-50 dark:bg-white/5 rounded-[32px] flex items-center justify-center relative shadow-inner">
+               <Loader2 size={36} className="text-[#233DFF] animate-spin" />
                <div className="absolute -inset-4 border-2 border-[#233DFF]/10 rounded-full animate-ping"></div>
             </div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
           </div>
         ) : (
           <>
-            <div className="w-32 h-32 bg-[#233DFF]/5 rounded-[48px] flex items-center justify-center relative group flex-shrink-0">
-              <div className={`absolute inset-0 bg-[#233DFF]/10 rounded-[48px] transition-all duration-[2500ms] ${isAudioPlaying ? 'animate-ping' : ''}`}></div>
-              <Sparkles size={48} className={`text-[#233DFF] transition-all duration-700 ${isAudioPlaying ? 'scale-110 rotate-6' : 'scale-100'}`} />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#233DFF]/5 rounded-[32px] flex items-center justify-center relative group flex-shrink-0">
+              <div className={`absolute inset-0 bg-[#233DFF]/10 rounded-[32px] transition-all duration-[2500ms] ${isAudioPlaying ? 'animate-ping' : ''}`}></div>
+              <Sparkles size={36} className={`text-[#233DFF] transition-all duration-700 ${isAudioPlaying ? 'scale-110 rotate-6' : 'scale-100'}`} />
               {isAudioPlaying && (
-                <div className="absolute -bottom-2 -right-2 bg-[#233DFF] text-white p-2 rounded-full shadow-2xl animate-in bounce-in">
-                  <Volume2 size={16} className="animate-pulse" />
+                <div className="absolute -bottom-2 -right-2 bg-[#233DFF] text-white p-1.5 rounded-full shadow-2xl animate-in bounce-in">
+                  <Volume2 size={14} className="animate-pulse" />
                 </div>
               )}
             </div>
 
-            <div className="w-full max-w-[180px] h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden my-4">
-              <div 
-                className="h-full bg-[#233DFF] transition-all duration-100 ease-linear" 
+            <div className="w-full max-w-[180px] h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden my-3">
+              <div
+                className="h-full bg-[#233DFF] transition-all duration-100 ease-linear"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="space-y-4 px-4 flex-1 flex flex-col justify-center overflow-y-auto scrollbar-hide">
-              <h2 className="text-2xl font-normal tracking-normal dark:text-white leading-none font-display">{t.meditationHeader}</h2>
+            <div className="space-y-2 px-4 flex-1 flex flex-col justify-center overflow-hidden min-h-0">
+              <h2 className="text-xl sm:text-2xl font-normal tracking-normal dark:text-white leading-none font-display flex-shrink-0">{t.meditationHeader}</h2>
               {script ? (
-                <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700">
+                <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700 overflow-hidden">
                   {script}
                 </p>
               ) : (
@@ -194,11 +194,11 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               )}
             </div>
 
-            <div className="flex flex-col gap-4 w-full max-w-xs flex-shrink-0 mt-6">
+            <div className="flex flex-col gap-3 w-full max-w-xs flex-shrink-0 mt-4">
               {!script ? (
                 <button
                   onClick={loadScript}
-                  className="w-full h-16 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   {t.labels.beginSession}
@@ -206,7 +206,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               ) : (
                 <button
                   onClick={() => isAudioPlaying ? stopAudio() : playMeditationAudio(script)}
-                  className={`w-full h-16 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl'}`}
+                  className={`w-full h-14 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl'}`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isAudioPlaying ? 'bg-black dark:bg-white' : 'bg-white dark:bg-black'}`} />
                   {isAudioPlaying ? <Pause size={16} /> : <Play size={16} />}

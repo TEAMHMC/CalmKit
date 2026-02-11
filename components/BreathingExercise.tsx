@@ -64,7 +64,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#121212] animate-in fade-in w-full overflow-hidden">
       {/* Upper Phase Indicator */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 py-5 border-b border-gray-50 dark:border-white/5">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-white/5">
         <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF] dark:text-blue-400">
           {t.labels.boxBreathingPhase}
         </span>
@@ -78,10 +78,10 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       </div>
 
       {/* Responsive Visual Center */}
-      <div className="flex-1 flex flex-col items-center justify-center py-4 px-6 min-h-0">
-        
+      <div className="flex-1 flex flex-col items-center justify-center py-2 px-4 min-h-0">
+
         {/* Breathing Orb Container */}
-        <div className="relative w-full max-w-[220px] sm:max-w-[280px] aspect-square flex items-center justify-center mb-10">
+        <div className="relative w-full max-w-[180px] sm:max-w-[240px] aspect-square flex items-center justify-center mb-6">
            <div className={`absolute inset-0 border-2 border-[#233DFF]/10 rounded-full transition-all duration-[4000ms] ease-in-out transform-gpu ${v.ringScale}`}></div>
            <div className={`absolute inset-0 border border-dashed border-[#233DFF]/20 rounded-full transition-all duration-[3000ms] animate-[spin_30s_linear_infinite] transform-gpu ${v.scale}`}></div>
            
@@ -93,9 +93,9 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         </div>
 
         {/* Textual Guidance and Primary Control */}
-        <div className="flex flex-col items-center gap-5 w-full max-w-[300px] text-center">
+        <div className="flex flex-col items-center gap-4 w-full max-w-[300px] text-center">
           <div className="space-y-1">
-            <h3 className="text-4xl sm:text-5xl font-normal tracking-normal leading-none text-black dark:text-white transition-all duration-700 font-display">
+            <h3 className="text-3xl sm:text-4xl font-normal tracking-normal leading-none text-black dark:text-white transition-all duration-700 font-display">
               {getPhaseText()}
             </h3>
             <p className="text-gray-400 dark:text-gray-500 font-medium text-[9px] uppercase tracking-wide">

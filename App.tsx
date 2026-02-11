@@ -85,7 +85,7 @@ const App: React.FC = () => {
       
       <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
         
-        <header className="flex-shrink-0 px-6 h-20 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
+        <header className="flex-shrink-0 px-4 h-14 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('HOME')}>
              <img 
                src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" 
@@ -124,7 +124,7 @@ const App: React.FC = () => {
           {renderView()}
         </main>
 
-        <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-22 pb-[env(safe-area-inset-bottom,0px)]">
+        <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-16 pb-[env(safe-area-inset-bottom,0px)]">
           {[
             { id: 'HOME', icon: <HomeIcon size={20} />, label: t.nav.home },
             { id: 'BREATHE', icon: <Wind size={20} />, label: t.nav.breathe },
@@ -138,7 +138,7 @@ const App: React.FC = () => {
               onClick={() => setView(navItem.id as AppView)} 
               className={`flex flex-col items-center gap-1 flex-1 relative ${view === navItem.id ? 'text-[#233DFF]' : 'text-gray-300'}`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
                 {navItem.icon}
               </div>
               <span className={`text-[9px] font-medium uppercase tracking-wide ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>

@@ -30,7 +30,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   useEffect(() => { fetchAffirmation(); }, [lang]);
 
   return (
-    <div className="w-full h-full p-4 flex flex-col gap-3 overflow-hidden">
+    <div className="w-full h-full p-3 flex flex-col gap-2 overflow-hidden">
       
       {/* Header Section */}
       <div className="space-y-0 flex-shrink-0">
@@ -43,14 +43,14 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       {/* Affirmation Card - Restored Yellow & Interaction */}
       <div 
         onClick={fetchAffirmation}
-        className="bg-[#FFDE59] border border-black/5 rounded-[28px] p-5 min-h-[110px] sm:min-h-[130px] flex flex-col justify-center space-y-2 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg group flex-shrink-0"
+        className="bg-[#FFDE59] border border-black/5 rounded-[28px] p-4 min-h-[90px] sm:min-h-[110px] flex flex-col justify-center space-y-1.5 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg group flex-shrink-0"
       >
         <div className="flex justify-between items-center relative z-10">
           <span className="text-[9px] font-medium uppercase tracking-wide text-black/40">{t.dailyStrengthLabel}</span>
           <RefreshCcw size={12} className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`} />
         </div>
         
-        <p className="text-2xl sm:text-3xl font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
+        <p className="text-xl sm:text-2xl font-bold italic text-black leading-snug relative z-10 tracking-normal font-display">
           "{affirmation || '...'}"
         </p>
       </div>
