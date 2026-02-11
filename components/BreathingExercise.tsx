@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
 import { RotateCcw, Play, Pause } from 'lucide-react';
+import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock } from '../audioManager';
 
 interface BreathingExerciseProps {
   onBack: () => void;
@@ -17,20 +18,17 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [isActive, setIsActive] = useState(false);
   const [cycles, setCycles] = useState(0);
   const t = translations[lang];
-  const wakeLockRef = useRef<any>(null);
 
   // Keep screen awake during active breathing session
   useEffect(() => {
-    const manage = async () => {
-      if (isActive && 'wakeLock' in navigator) {
-        try { wakeLockRef.current = await (navigator as any).wakeLock.request('screen'); } catch(e) {}
-      } else if (wakeLockRef.current) {
-        wakeLockRef.current.release();
-        wakeLockRef.current = null;
-      }
-    };
-    manage();
-    return () => { wakeLockRef.current?.release(); wakeLockRef.current = null; };
+    if (isActive) {
+      startKeepAlive();
+      requestWakeLock();
+    } else {
+      stopKeepAlive();
+      releaseWakeLock();
+    }
+    return () => { stopKeepAlive(); releaseWakeLock(); };
   }, [isActive]);
 
   useEffect(() => {

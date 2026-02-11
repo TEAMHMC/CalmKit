@@ -5,6 +5,7 @@ import { Language, BackgroundSound } from '../types';
 import { translations } from '../translations';
 import { generateMeditationScript } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, fullCleanup } from '../audioManager';
 
 interface MeditationProps {
   onBack: () => void;
@@ -26,30 +27,6 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const bgGainRef = useRef<GainNode | null>(null);
   const startTimeRef = useRef<number>(0);
   const progressIntervalRef = useRef<any>(null);
-  const wakeLockRef = useRef<any>(null);
-
-  const requestWakeLock = async () => {
-    try {
-      if ('wakeLock' in navigator) {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-      }
-    } catch (e) {}
-  };
-
-  // Keep screen on and resume audio when app regains focus
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (isAudioPlaying && document.visibilityState === 'visible') {
-        try { if ('wakeLock' in navigator) wakeLockRef.current = await (navigator as any).wakeLock.request('screen'); } catch(e) {}
-        if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      wakeLockRef.current?.release();
-    };
-  }, [isAudioPlaying]);
 
   const decode = (base64: string) => {
     const binaryString = atob(base64);
@@ -74,13 +51,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   };
 
   const initAudio = async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-    }
-    return audioContextRef.current;
+    const ctx = await getAudioContext(24000);
+    audioContextRef.current = ctx;
+    return ctx;
   };
 
   const stopAudio = () => {
@@ -91,8 +64,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
-    wakeLockRef.current?.release();
-    wakeLockRef.current = null;
+    stopKeepAlive();
+    releaseWakeLock();
     setIsAudioPlaying(false);
     setProgress(0);
   };
@@ -102,6 +75,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     try {
       const ctx = await initAudio();
       setIsAudioPlaying(true);
+      startKeepAlive();
       await requestWakeLock();
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -167,8 +141,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   useEffect(() => {
     return () => {
       stopAudio();
-      // Close AudioContext to prevent audio bleed when switching views
-      if (audioContextRef.current) { try { audioContextRef.current.close(); } catch(e) {} audioContextRef.current = null; }
+      fullCleanup();
+      audioContextRef.current = null;
     };
   }, []);
 

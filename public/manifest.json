@@ -1,0 +1,19 @@
+{
+  "name": "Unstoppable CalmKit",
+  "short_name": "CalmKit",
+  "description": "Mental wellness companion by Health Matters Clinic",
+  "start_url": "/CalmKit/",
+  "scope": "/CalmKit/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#233DFF",
+  "icons": [
+    {
+      "src": "https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

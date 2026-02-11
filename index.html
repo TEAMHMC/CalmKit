@@ -21,6 +21,7 @@
     <meta name="theme-color" content="#233DFF" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
+    <link rel="manifest" href="/CalmKit/manifest.json" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,11 +43,11 @@
         background-color: #f8f8f8;
         color: #111;
         margin: 0;
+        padding: 0;
         height: var(--app-height);
         width: 100vw;
         overflow: hidden;
         -webkit-tap-highlight-color: transparent;
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
 
       .dark body { background-color: #0a0a0a; color: #eee; }
@@ -68,6 +69,9 @@
         stroke-linejoin: round;
       }
 
+      html, #root {
+        height: 100%;
+      }
       main {
         height: 100%;
         display: flex;

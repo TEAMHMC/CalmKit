@@ -5,8 +5,9 @@ import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
 import {
-  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send
+  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2
 } from 'lucide-react';
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup } from '../audioManager';
 
 declare const L: any;
 
@@ -39,6 +40,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [destinationName, setDestinationName] = useState("");
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
   const [gpsError, setGpsError] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [narrationFreq, setNarrationFreq] = useState<NarrationFrequency>('CONTINUOUS');
   const [sessionType, setSessionType] = useState<SessionType>('OUTDOOR');
   const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
@@ -59,7 +61,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const sponsorPlayedRef = useRef(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const timerIntervalRef = useRef<any>(null);
-  const wakeLockRef = useRef<any>(null);
   const bgNodesRef = useRef<any[]>([]);
   const bgGainRef = useRef<GainNode | null>(null);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -82,13 +83,23 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
-  // Try to get location silently on mount (works if permission already granted)
+  // Try to get location on mount with high accuracy
   useEffect(() => {
     if (navigator.geolocation) {
+      setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
-        () => {},
-        { enableHighAccuracy: false, timeout: 5000 }
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setGpsAccuracy(pos.coords.accuracy);
+          setGpsLoading(false);
+          setGpsError(false);
+        },
+        (err) => {
+          console.warn('Initial GPS failed:', err.message);
+          setGpsLoading(false);
+          // Don't set error yet — user hasn't explicitly requested GPS
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
     }
   }, []);
@@ -103,60 +114,45 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       isNarratingRef.current = false;
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
-      if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
-      if (wakeLockRef.current) { wakeLockRef.current.release(); }
+      fullCleanup();
+      audioCtxRef.current = null;
     };
   }, []);
 
   // Request GPS on user gesture (mobile Safari requires this)
-  const requestGpsPermission = () => {
-    if (navigator.geolocation) {
+  const requestGpsPermission = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setGpsError(true);
+        setGpsLoading(false);
+        resolve(false);
+        return;
+      }
       setGpsError(false);
+      setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
-        (pos) => { setUserLocation([pos.coords.latitude, pos.coords.longitude]); setGpsError(false); },
-        () => { setGpsError(true); },
-        { enableHighAccuracy: true, timeout: 15000 }
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setGpsAccuracy(pos.coords.accuracy);
+          setGpsError(false);
+          setGpsLoading(false);
+          resolve(true);
+        },
+        (err) => {
+          console.warn('GPS permission request failed:', err.code, err.message);
+          setGpsError(true);
+          setGpsLoading(false);
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
-    } else {
-      setGpsError(true);
-    }
+    });
   };
 
-  // ── Wake Lock ──
-  const requestWakeLock = async () => {
-    try {
-      if ('wakeLock' in navigator) {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-      }
-    } catch (e) {}
-  };
-
-  const releaseWakeLock = () => {
-    if (wakeLockRef.current) {
-      wakeLockRef.current.release();
-      wakeLockRef.current = null;
-    }
-  };
-
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (isPlaying && document.visibilityState === 'visible') {
-        await requestWakeLock();
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume();
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isPlaying]);
-
-  // ── Audio ──
+  // ── Audio (shared manager) ──
   const initAudio = async () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    }
-    if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
+    const ctx = await getAudioContext(24000);
+    audioCtxRef.current = ctx;
   };
 
   // ── Ambient Interlude System ──
@@ -566,7 +562,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
     }
 
-    await requestWakeLock();
+    startKeepAlive();
+    await sharedRequestWakeLock();
     onImmersiveChange?.(true);
     setIsPlaying(true);
     isNarratingRef.current = true;
@@ -603,9 +600,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     stopAmbience();
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    // Close AudioContext to prevent audio bleed into other views
-    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
-    releaseWakeLock();
+    // Close shared AudioContext to prevent audio bleed into other views
+    fullCleanup();
+    audioCtxRef.current = null;
     onImmersiveChange?.(false);
     setIsPlaying(false);
     setIsPaused(false);
@@ -804,12 +801,36 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               className="w-full h-full p-5 bg-gray-50 dark:bg-white/5 rounded-3xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-base resize-none dark:text-white placeholder:text-gray-400"
             />
           </div>
+          {/* GPS Status Indicator */}
+          {gpsLoading && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl flex-shrink-0">
+              <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
+              <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
+            </div>
+          )}
+          {!gpsLoading && userLocation && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl flex-shrink-0">
+              <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'Ubicación GPS obtenida' : 'GPS location acquired'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
+            </div>
+          )}
+          {!gpsLoading && gpsError && (
+            <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS.' : 'Could not access GPS.'}</p>
+              <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
+            </div>
+          )}
+
           <button
-            onClick={() => { requestGpsPermission(); setStep(1); }}
-            disabled={!targetThought.trim()}
+            onClick={async () => {
+              if (!userLocation) await requestGpsPermission();
+              setStep(1);
+            }}
+            disabled={!targetThought.trim() || gpsLoading}
             className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
           >
-            {t.onboarding.next} <Send size={18} />
+            {gpsLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {gpsLoading ? (lang === 'es' ? 'Localizando...' : 'Locating...') : t.onboarding.next}
           </button>
         </div>
       )}
@@ -839,10 +860,23 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ))}
             </div>
 
-            {/* GPS Warning (outdoor only) */}
-            {gpsError && sessionType === 'OUTDOOR' && (
-              <div className="px-5 py-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. El mapa no rastreará tu camino, pero la guía de audio seguirá funcionando.' : 'Could not access GPS. Map tracking won\'t work, but audio guidance will still play.'}</p>
+            {/* GPS Status (outdoor only) */}
+            {sessionType === 'OUTDOOR' && gpsLoading && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl">
+                <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
+              </div>
+            )}
+            {sessionType === 'OUTDOOR' && !gpsLoading && userLocation && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl">
+                <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'GPS listo' : 'GPS ready'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
+              </div>
+            )}
+            {sessionType === 'OUTDOOR' && !gpsLoading && gpsError && (
+              <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. Audio seguirá funcionando.' : 'Could not access GPS. Audio guidance will still play.'}</p>
+                <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95 flex-shrink-0 ml-2">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
               </div>
             )}
 
