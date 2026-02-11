@@ -34,8 +34,6 @@
 
     <style>
       :root {
-        /* This will be set dynamically by the script below */
-        --app-height: 100vh;
         --brand-blue: #233DFF;
       }
       body {
@@ -44,8 +42,6 @@
         color: #111;
         margin: 0;
         padding: 0;
-        height: var(--app-height);
-        width: 100vw;
         overflow: hidden;
         -webkit-tap-highlight-color: transparent;
       }
@@ -69,8 +65,9 @@
         stroke-linejoin: round;
       }
 
-      html, #root {
+      html, body, #root {
         height: 100%;
+        width: 100%;
       }
 
       .leaflet-control-container { display: none !important; }
@@ -100,16 +97,7 @@
 </head>
   <body>
     <div id="root"></div>
-    <script>
-      // This script ensures the app height is always the true inner height of the window,
-      // avoiding issues with mobile browser UI (like the address bar).
-      const setAppHeight = () => {
-        const doc = document.documentElement;
-        doc.style.setProperty('--app-height', `${window.innerHeight}px`);
-      };
-      window.addEventListener('resize', setAppHeight);
-      setAppHeight(); // Set on initial load
-    </script>
+    <!-- No JS height hack needed — App uses position:fixed which ignores document flow -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

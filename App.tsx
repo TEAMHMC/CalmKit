@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<AppView>('HOME');
   const [immersive, setImmersive] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [showIOSInstall, setShowIOSInstall] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
     const saved = localStorage.getItem('hmc_calmkit_prefs');
     return saved ? JSON.parse(saved) : {
@@ -47,14 +47,13 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
   }, [prefs]);
 
-  // Capture install prompt (Android/Chrome) or detect iOS
+  // Install prompt: works on Android Chrome; on iOS always show the button
   useEffect(() => {
-    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
-    // Detect iOS Safari (no beforeinstallprompt support)
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    // Always show install button (iOS needs manual share, Android gets native prompt)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
-    if (isIOS && !isStandalone) setShowIOSInstall(true);
+    if (!isStandalone) setShowInstall(true);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
@@ -62,18 +61,16 @@ const App: React.FC = () => {
     if (installPrompt) {
       installPrompt.prompt();
       const result = await installPrompt.userChoice;
-      if (result.outcome === 'accepted') setInstallPrompt(null);
-    } else if (showIOSInstall) {
-      // Show iOS instructions inline
+      if (result.outcome === 'accepted') { setInstallPrompt(null); setShowInstall(false); }
+    } else {
       alert(prefs.lang === 'es'
-        ? 'Toca el botón Compartir (□↑) abajo y luego "Agregar a Inicio"'
+        ? 'Toca el botón Compartir (□↑) abajo y luego "Agregar a pantalla de inicio"'
         : 'Tap the Share button (□↑) below, then "Add to Home Screen"');
     }
   };
 
   const t = translations[prefs.lang];
 
-  // Safe view switch: kill all audio before mounting a new view
   const safeSetView = useCallback((newView: AppView) => {
     fullCleanup();
     setImmersive(false);
@@ -102,7 +99,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center w-full bg-slate-50 dark:bg-black overflow-hidden" style={{ height: 'var(--app-height, 100vh)' }}>
+    <>
       {!prefs.hasSeenOnboarding && (
         <Onboarding
           onComplete={() => setPrefs(p => ({ ...p, hasSeenOnboarding: true }))}
@@ -111,11 +108,17 @@ const App: React.FC = () => {
         />
       )}
 
-      <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
-
+      {/* position:fixed locks this to the actual viewport — cannot overflow */}
+      <div
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        className="flex flex-col bg-white dark:bg-[#121212] overflow-hidden"
+      >
         {/* Header */}
         {!immersive && (
-          <header className="flex-shrink-0 px-5 h-14 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
+          <header
+            className="flex-shrink-0 px-5 flex justify-between items-center z-[110] bg-white dark:bg-[#121212]"
+            style={{ height: 56, paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          >
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => safeSetView('HOME')}>
               <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" alt="HMC" className="w-8 h-8 object-contain" />
               <div className="flex flex-col">
@@ -124,7 +127,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {(installPrompt || showIOSInstall) && (
+              {showInstall && (
                 <button onClick={handleInstall} className="w-8 h-8 rounded-full bg-[#233DFF] flex items-center justify-center text-white active:scale-95 shadow-md"><Download size={14} /></button>
               )}
               <button onClick={() => safeSetView('ABOUT')} className="w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95"><Info size={14} /></button>
@@ -134,13 +137,17 @@ const App: React.FC = () => {
           </header>
         )}
 
-        <main className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+        {/* Main content — flex-1 + min-h-0 takes exactly the remaining space */}
+        <main style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
           {renderView()}
         </main>
 
         {/* Bottom Nav */}
         {!immersive && (
-          <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-14 pb-[env(safe-area-inset-bottom,0px)]">
+          <nav
+            className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center"
+            style={{ height: 56, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
             {[
               { id: 'HOME', icon: <HomeIcon size={18} />, label: t.nav.home },
               { id: 'BREATHE', icon: <Wind size={18} />, label: t.nav.breathe },
@@ -158,7 +165,7 @@ const App: React.FC = () => {
           </nav>
         )}
       </div>
-    </div>
+    </>
   );
 };
 
