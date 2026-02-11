@@ -2,15 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Language, EchoPersona, ActivityType } from "./types";
 
-let _ai: GoogleGenAI | null = null;
-function getAI(): GoogleGenAI {
-  if (!_ai) {
-    const key = process.env.API_KEY;
-    if (!key) throw new Error("Gemini API key not configured");
-    _ai = new GoogleGenAI({ apiKey: key });
-  }
-  return _ai;
-}
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 const PERSONA_CBT_PROMPTS = {
   HYPE: "You are a Behavioral Activation coach. Your goal is to build momentum and challenge thoughts of inability. Focus on the physical feeling of moving and celebrate the action itself. Use energetic, encouraging language. Technique: Behavioral Activation.",
@@ -52,7 +44,7 @@ export const generateSegmentNarrative = async (params: {
   `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: params.isIntro ? introPrompt : mainPrompt,
       config: { temperature: 0.85 }
@@ -70,7 +62,7 @@ export const findNearbyWalkableDestination = async (lat: number, lng: number, ca
 };
 
 export const generateAffirmation = async (lang: Language) => {
-  const response = await getAI().models.generateContent({
+  const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `One short affirmation in ${lang === 'es' ? 'Spanish' : 'English'}.`,
     config: { temperature: 1.0 }
@@ -82,7 +74,7 @@ export const generateJournalPrompt = async (lang: Language) => {
   const langText = lang === 'es' ? 'Spanish' : 'English';
   const prompt = `Generate a single, deep, introspective journal prompt for self-reflection in ${langText}. One sentence only. No Markdown.`;
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { temperature: 0.9 }
@@ -97,7 +89,7 @@ export const generateMeditationScript = async (lang: Language) => {
   const langText = lang === 'es' ? 'Spanish' : 'English';
   const prompt = `Generate a short (2-3 sentences) guided meditation script focused on presence and grounding in ${langText}. No Markdown.`;
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: { temperature: 0.7 }
