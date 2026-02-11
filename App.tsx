@@ -9,12 +9,14 @@ import Journal from './components/Journal';
 import Grounding from './components/Grounding';
 import Meditation from './components/Meditation';
 import Onboarding from './components/Onboarding';
-import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info } from 'lucide-react';
+import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download } from 'lucide-react';
 import { fullCleanup } from './audioManager';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('HOME');
   const [immersive, setImmersive] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showIOSInstall, setShowIOSInstall] = useState(false);
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
     const saved = localStorage.getItem('hmc_calmkit_prefs');
     return saved ? JSON.parse(saved) : {
@@ -44,6 +46,30 @@ const App: React.FC = () => {
     if (prefs.darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [prefs]);
+
+  // Capture install prompt (Android/Chrome) or detect iOS
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    // Detect iOS Safari (no beforeinstallprompt support)
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    if (isIOS && !isStandalone) setShowIOSInstall(true);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const result = await installPrompt.userChoice;
+      if (result.outcome === 'accepted') setInstallPrompt(null);
+    } else if (showIOSInstall) {
+      // Show iOS instructions inline
+      alert(prefs.lang === 'es'
+        ? 'Toca el botón Compartir (□↑) abajo y luego "Agregar a Inicio"'
+        : 'Tap the Share button (□↑) below, then "Add to Home Screen"');
+    }
+  };
 
   const t = translations[prefs.lang];
 
@@ -98,6 +124,9 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {(installPrompt || showIOSInstall) && (
+                <button onClick={handleInstall} className="w-8 h-8 rounded-full bg-[#233DFF] flex items-center justify-center text-white active:scale-95 shadow-md"><Download size={14} /></button>
+              )}
               <button onClick={() => safeSetView('ABOUT')} className="w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95"><Info size={14} /></button>
               <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} className="w-8 h-8 bg-gray-50 dark:bg-white/5 rounded-full text-[11px] font-semibold dark:text-white flex items-center justify-center active:scale-95">{prefs.lang.toUpperCase()}</button>
               <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} className="w-8 h-8 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 active:scale-95">{prefs.darkMode ? <Sun size={14} /> : <Moon size={14} />}</button>
