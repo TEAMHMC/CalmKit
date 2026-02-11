@@ -25,6 +25,30 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const bgGainRef = useRef<GainNode | null>(null);
   const startTimeRef = useRef<number>(0);
   const progressIntervalRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch (e) {}
+  };
+
+  // Keep screen on and resume audio when app regains focus
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (isAudioPlaying && document.visibilityState === 'visible') {
+        try { if ('wakeLock' in navigator) wakeLockRef.current = await (navigator as any).wakeLock.request('screen'); } catch(e) {}
+        if (audioContextRef.current?.state === 'suspended') await audioContextRef.current.resume();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      wakeLockRef.current?.release();
+    };
+  }, [isAudioPlaying]);
 
   const decode = (base64: string) => {
     const binaryString = atob(base64);
@@ -66,6 +90,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
+    wakeLockRef.current?.release();
+    wakeLockRef.current = null;
     setIsAudioPlaying(false);
     setProgress(0);
   };
@@ -75,7 +101,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     try {
       const ctx = await initAudio();
       setIsAudioPlaying(true);
-      
+      await requestWakeLock();
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",

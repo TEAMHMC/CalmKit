@@ -46,8 +46,52 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const sponsorPlayedRef = useRef(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const timerIntervalRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const t = translations[lang];
+
+  // Request GPS permission immediately so browser prompt appears right away
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
+  }, []);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch (e) {}
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
+    }
+  };
+
+  // Keep screen on and resume audio when app regains focus
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (isPlaying && document.visibilityState === 'visible') {
+        await requestWakeLock();
+        if (audioCtxRef.current?.state === 'suspended') {
+          await audioCtxRef.current.resume();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isPlaying]);
 
   const initAudio = async () => {
     if (!audioCtxRef.current) {
@@ -224,6 +268,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       // Will fall back to watchPosition updates
     }
 
+    await requestWakeLock();
     setIsPlaying(true);
     setStep(2);
     isNarratingRef.current = true;
@@ -256,6 +301,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
+    releaseWakeLock();
     setIsPlaying(false);
     setIsPaused(false);
     isNarratingRef.current = false;
@@ -320,17 +366,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       </div>
 
       {step === 0 && (
-        <div className="flex-1 flex flex-col gap-3 min-h-0">
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="space-y-1 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
           </div>
-          <div className="my-4 flex-1 min-h-0">
+          <div className="flex-1 min-h-0 my-3">
             <textarea
               value={targetThought}
               onChange={(e) => setTargetThought(e.target.value)}
               placeholder={t.labels.thoughtPlaceholder}
-              className="w-full h-full min-h-[80px] max-h-[160px] p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-sm resize-none"
+              className="w-full h-full p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-sm resize-none"
             />
           </div>
           <button
@@ -350,7 +396,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 mb-4">
+          <div className="grid grid-cols-1 gap-2 flex-1 min-h-0 overflow-auto content-start mb-3">
             {MODES.map((m) => (
               <button
                 key={m.id}

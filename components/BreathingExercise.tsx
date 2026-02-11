@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
 import { RotateCcw, Play, Pause } from 'lucide-react';
@@ -16,6 +16,21 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [timer, setTimer] = useState(4);
   const [isActive, setIsActive] = useState(false);
   const t = translations[lang];
+  const wakeLockRef = useRef<any>(null);
+
+  // Keep screen awake during active breathing session
+  useEffect(() => {
+    const manage = async () => {
+      if (isActive && 'wakeLock' in navigator) {
+        try { wakeLockRef.current = await (navigator as any).wakeLock.request('screen'); } catch(e) {}
+      } else if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    };
+    manage();
+    return () => { wakeLockRef.current?.release(); wakeLockRef.current = null; };
+  }, [isActive]);
 
   useEffect(() => {
     let interval: any;

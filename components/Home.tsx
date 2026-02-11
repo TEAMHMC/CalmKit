@@ -55,11 +55,11 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </p>
       </div>
 
-      {/* Core Actions Grid - fills remaining space, rows centered */}
-      <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 auto-rows-min content-center pb-1">
+      {/* Core Actions Grid */}
+      <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 pb-1" style={{gridTemplateRows: '1fr 1fr auto'}}>
         <button
           onClick={() => onSelectView('WALK')}
-          className="p-3 rounded-[28px] bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-md group"
+          className="p-3 rounded-[28px] bg-[#233DFF] border border-[#233DFF] flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-md group h-full"
         >
           <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
             <Move size={20} />
@@ -72,7 +72,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
 
         <button 
           onClick={() => onSelectView('BREATHE')}
-          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/80 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95"
+          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm h-full"
         >
           <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
             <Wind size={20} />
@@ -83,9 +83,9 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
           </div>
         </button>
 
-        <button 
+        <button
           onClick={() => onSelectView('MEDITATE')}
-          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/80 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95"
+          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm h-full"
         >
           <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
             <Sparkles size={20} />
@@ -96,9 +96,9 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
           </div>
         </button>
 
-        <button 
+        <button
           onClick={() => onSelectView('REFLECT')}
-          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/80 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95"
+          className="p-3 rounded-[28px] bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 flex flex-col items-center justify-center text-center gap-2 active:scale-95 shadow-sm h-full"
         >
           <div className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-[#233DFF]">
             <BookOpen size={20} />

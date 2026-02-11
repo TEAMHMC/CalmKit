@@ -80,7 +80,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center w-full h-screen bg-slate-50 dark:bg-black overflow-hidden">
+    <div className="flex items-center justify-center w-full bg-slate-50 dark:bg-black overflow-hidden" style={{height: '100dvh'}}>
       {!prefs.hasSeenOnboarding && <Onboarding onComplete={handleOnboardingComplete} lang={prefs.lang} />}
       
       <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
