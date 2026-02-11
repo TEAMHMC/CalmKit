@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <title>Unstoppable Calm Kit | Mental Wellness Companion</title>
     <meta name="description" content="A mental wellness companion by Health Matters Clinic. Guided walks, breathing exercises, and journaling for daily strength." />
     
@@ -33,11 +33,9 @@
 
     <style>
       :root {
+        /* This will be set dynamically by the script below */
         --app-height: 100vh;
         --brand-blue: #233DFF;
-      }
-      @supports (height: 100dvh) {
-        :root { --app-height: 100dvh; }
       }
       body {
         font-family: 'Inter', sans-serif;
@@ -76,11 +74,7 @@
         stroke-linejoin: round;
       }
 
-      main {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
+      /* main styling handled by React component classes */
       
       .leaflet-control-container { display: none !important; }
       
@@ -109,6 +103,16 @@
 </head>
   <body>
     <div id="root"></div>
+    <script>
+      // This script ensures the app height is always the true inner height of the window,
+      // avoiding issues with mobile browser UI (like the address bar).
+      const setAppHeight = () => {
+        const doc = document.documentElement;
+        doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+      };
+      window.addEventListener('resize', setAppHeight);
+      setAppHeight(); // Set on initial load
+    </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

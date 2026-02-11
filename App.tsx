@@ -21,19 +21,6 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    const setAppHeight = () => {
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-    };
-    setAppHeight();
-    window.addEventListener('resize', setAppHeight);
-    window.addEventListener('orientationchange', setAppHeight);
-    return () => {
-      window.removeEventListener('resize', setAppHeight);
-      window.removeEventListener('orientationchange', setAppHeight);
-    };
-  }, []);
-
-  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const persona = params.get('persona');
     const lang = params.get('lang');
