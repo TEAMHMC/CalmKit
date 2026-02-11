@@ -143,7 +143,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex flex-col">
           <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF]">{t.nav.meditate}</span>
-          <span className="text-[8px] font-medium text-gray-300 uppercase tracking-wide mt-1">{t.labels.phaseStillness}</span>
+          <span className="text-[10px] font-medium text-gray-300 uppercase tracking-wide mt-1">{t.labels.phaseStillness}</span>
         </div>
         {script && !isLoading && (
           <button 
@@ -196,17 +196,19 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
 
             <div className="flex flex-col gap-4 w-full max-w-xs flex-shrink-0 mt-6">
               {!script ? (
-                <button 
+                <button
                   onClick={loadScript}
-                  className="w-full h-16 bg-[#233DFF] text-white rounded-[28px] font-bold uppercase tracking-wide text-[11px] shadow-lg active:scale-95 transition-all"
+                  className="w-full h-16 bg-[#233DFF] text-white rounded-full border border-[#233DFF] font-bold uppercase tracking-wide text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   {t.labels.beginSession}
                 </button>
               ) : (
-                <button 
+                <button
                   onClick={() => isAudioPlaying ? stopAudio() : playMeditationAudio(script)}
-                  className={`w-full h-16 rounded-[28px] font-bold uppercase tracking-wide text-[11px] transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black shadow-xl'}`}
+                  className={`w-full h-16 rounded-full font-bold uppercase tracking-wide text-xs transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-white dark:bg-white/10 text-black dark:text-white border border-black/80 dark:border-white/20' : 'bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white shadow-xl'}`}
                 >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAudioPlaying ? 'bg-black dark:bg-white' : 'bg-white dark:bg-black'}`} />
                   {isAudioPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isAudioPlaying ? t.pauseSession : t.labels.start}
                 </button>

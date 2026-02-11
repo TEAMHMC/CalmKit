@@ -72,7 +72,7 @@ const App: React.FC = () => {
         <div className="flex-1 p-8 flex flex-col gap-6 animate-in fade-in overflow-y-auto">
           <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.aboutTitle}</h2>
           <p className="text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{t.aboutCopy}</p>
-          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold uppercase text-[10px] tracking-wide shadow-lg">BACK</button>
+          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-black dark:border-white font-bold uppercase text-xs tracking-wide shadow-lg flex items-center justify-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />BACK</button>
         </div>
       );
       default: return <Home onSelectView={setView} lang={prefs.lang} />;
@@ -94,7 +94,7 @@ const App: React.FC = () => {
              />
              <div className="flex flex-col">
                <h2 className="font-medium text-[12px] uppercase tracking-normal dark:text-white leading-none">CALMKIT</h2>
-               <span className="text-[7px] font-medium uppercase tracking-wide text-[#233DFF]">UNSTOPPABLE</span>
+               <span className="text-[9px] font-medium uppercase tracking-wide text-[#233DFF]">UNSTOPPABLE</span>
              </div>
            </div>
            
@@ -141,7 +141,7 @@ const App: React.FC = () => {
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
                 {navItem.icon}
               </div>
-              <span className={`text-[8px] font-medium uppercase tracking-wide ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>
+              <span className={`text-[9px] font-medium uppercase tracking-wide ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>
                 {navItem.label}
               </span>
             </button>

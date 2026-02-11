@@ -34,10 +34,11 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                 ))}
              </div>
 
-             <button 
+             <button
               onClick={() => step < 4 ? setStep(step + 1) : setDone(true)}
-              className="w-full bg-black dark:bg-white text-white dark:text-black py-6 rounded-[32px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95"
+              className="w-full bg-black dark:bg-white text-white dark:text-black py-6 rounded-full border border-black dark:border-white font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95"
              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
                 {step < 4 ? t.onboarding.next : t.labels.done} <ArrowRight size={18} />
              </button>
           </div>
@@ -54,7 +55,8 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                <h3 className="text-3xl font-normal italic dark:text-white font-display">{t.labels.youArePresent}</h3>
                <p className="text-gray-400 font-medium uppercase text-[10px] tracking-wide">{t.labels.safetyFound}</p>
              </div>
-             <button onClick={() => { setStep(0); setDone(false); }} className="w-full border-2 border-black dark:border-white py-4 rounded-[32px] font-bold uppercase tracking-wide text-sm shadow-sm active:scale-95 dark:text-white">
+             <button onClick={() => { setStep(0); setDone(false); }} className="w-full bg-white dark:bg-transparent border border-black dark:border-white py-4 rounded-full font-bold uppercase tracking-wide text-xs shadow-sm active:scale-95 dark:text-white flex items-center justify-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white" />
                 {t.labels.repeat}
              </button>
           </div>

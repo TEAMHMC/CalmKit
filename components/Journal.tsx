@@ -66,7 +66,7 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
           {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-xs font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
           {entries.map(e => (
             <div key={e.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[24px] space-y-3">
-              <span className="text-[8px] font-medium text-gray-300 uppercase">{e.date}</span>
+              <span className="text-[10px] font-medium text-gray-300 uppercase">{e.date}</span>
               <p className="text-[10px] font-bold italic text-gray-400">"{e.prompt}"</p>
               <p className="text-xs font-medium dark:text-white">{e.response}</p>
             </div>
@@ -96,7 +96,7 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-[#233DFF] animate-pulse"></div>
-            <span className="text-[7px] font-medium uppercase tracking-wide text-gray-400">{t.labels.phaseWitnessing}</span>
+            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">{t.labels.phaseWitnessing}</span>
           </div>
         </div>
       </div>
@@ -117,11 +117,12 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
               <CheckCircle2 size={12} /> {t.labels.saved}
             </div>
           )}
-          <button 
-            onClick={handleSave} 
-            disabled={!response.trim()} 
-            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-[24px] font-bold uppercase tracking-wide text-[11px] flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
+          <button
+            onClick={handleSave}
+            disabled={!response.trim()}
+            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-black dark:border-white font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-3 disabled:opacity-20 transition-all active:scale-95 shadow-xl"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             <Save size={18} /> {t.saveReflection}
           </button>
         </div>

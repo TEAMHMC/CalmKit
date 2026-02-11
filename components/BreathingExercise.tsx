@@ -103,10 +103,11 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
             </p>
           </div>
 
-          <button 
-            onClick={() => setIsActive(!isActive)} 
-            className={`w-full h-14 sm:h-16 rounded-[28px] font-bold uppercase tracking-wide text-[10px] sm:text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-[#233DFF] text-white shadow-blue-500/20'}`}
+          <button
+            onClick={() => setIsActive(!isActive)}
+            className={`w-full h-14 sm:h-16 rounded-full font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-black dark:text-white border border-black/80 dark:border-white/20' : 'bg-[#233DFF] text-white border border-[#233DFF] shadow-blue-500/20'}`}
           >
+            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-black dark:bg-white' : 'bg-white'}`} />
             {isActive ? (
               <><Pause size={18} fill="currentColor" /> {t.pauseSession}</>
             ) : (

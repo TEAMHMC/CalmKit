@@ -71,10 +71,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
         </div>
 
         <div className="flex flex-col gap-5 pt-4">
-          <button 
+          <button
             onClick={() => isLastStep ? onComplete() : setStep(step + 1)}
-            className={`w-full h-16 rounded-[28px] font-bold uppercase tracking-wide text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
+            className={`w-full h-16 rounded-full font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233DFF]' : 'bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white'}`}
           >
+            <span className={`w-1.5 h-1.5 rounded-full ${isLastStep ? 'bg-white' : 'bg-white dark:bg-black'}`} />
             {isLastStep ? t.onboarding.finish : t.onboarding.next}
             {isLastStep ? <Check size={20} /> : <ArrowRight size={20} />}
           </button>

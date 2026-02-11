@@ -268,7 +268,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
               { label: t.labels.time, value: `${Math.floor(sessionStats.time / 60)}:${(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}` }
             ].map((stat, i) => (
               <div key={i} className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-3xl p-4 flex flex-col items-center">
-                <span className="text-[7px] font-medium text-gray-400 uppercase tracking-wide mb-1">{stat.label}</span>
+                <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wide mb-1">{stat.label}</span>
                 <span className="text-xl font-bold text-white tabular-nums tracking-normal">{stat.value}</span>
               </div>
             ))}
@@ -281,10 +281,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             >
               {isPaused ? <Play size={24} fill="currentColor" /> : <Pause size={24} fill="currentColor" />}
             </button>
-            <button 
+            <button
               onClick={handleStop}
-              className="flex-1 h-20 bg-[#233DFF] rounded-[32px] flex items-center justify-center text-white font-bold uppercase tracking-wide text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+              className="flex-1 h-20 bg-[#233DFF] rounded-full border border-[#233DFF] flex items-center justify-center text-white font-bold uppercase tracking-wide text-xs shadow-xl shadow-blue-500/20 active:scale-95 transition-all gap-2"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
               {t.labels.done}
             </button>
           </div>
@@ -319,8 +320,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           <button
             onClick={() => setStep(1)}
             disabled={!targetThought.trim()}
-            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-[32px] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
+            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-full border border-black dark:border-white font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             {t.onboarding.next} <Send size={16} />
           </button>
         </div>
@@ -342,7 +344,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
               >
                 <div className="flex flex-col items-start text-left">
                   <span className={`font-medium uppercase text-sm tracking-wide ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-                  <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wide mt-1">{m.desc}</span>
+                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-1">{m.desc}</span>
                 </div>
                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${mode === m.id ? 'bg-[#233DFF] text-white scale-110' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
                   <Sparkles size={18} />
@@ -351,10 +353,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             ))}
           </div>
 
-          <button 
+          <button
             onClick={handleStart}
-            className="w-full h-20 bg-[#233DFF] text-white rounded-[32px] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
+            className="w-full h-20 bg-[#233DFF] text-white rounded-full border border-[#233DFF] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-white" />
             <Play size={20} fill="currentColor" /> {t.labels.start}
           </button>
         </>
