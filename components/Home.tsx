@@ -35,7 +35,10 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   }, [lang]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 px-4 pt-4 pb-3 gap-3 overflow-hidden">
+    <div
+      className="flex flex-col h-full min-h-0 px-4 pt-4 pb-3 overflow-hidden"
+      style={{ gap: 'clamp(8px, 2vh, 16px)' }}
+    >
 
       {/* Header */}
       <div className="flex-shrink-0">
@@ -47,7 +50,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </p>
       </div>
 
-      {/* Affirmation Card — compact */}
+      {/* Affirmation Card */}
       <div
         onClick={fetchAffirmation}
         className="flex-shrink-0 bg-[#FFDE59] border border-black/5 rounded-2xl px-4 py-3 flex flex-col justify-center relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer shadow-lg"
@@ -70,9 +73,14 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </p>
       </div>
 
-      {/* Core Actions Grid — fills available space */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2.5">
-
+      {/* Core Actions Grid — grows to fill space but capped so cards stay compact */}
+      <div
+        className="flex-1 min-h-0 grid grid-cols-2 gap-2.5"
+        style={{
+          gridTemplateRows: '1fr 1fr',
+          maxHeight: '280px',
+        }}
+      >
         {/* MOVE */}
         <button
           onClick={() => onSelectView('WALK')}
@@ -82,12 +90,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Move size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[11px] text-white">
-              {t.nav.move}
-            </span>
-            <span className="text-[9px] font-medium uppercase text-white/50">
-              {t.tools.walk.subtitle}
-            </span>
+            <span className="font-medium uppercase text-[11px] text-white">{t.nav.move}</span>
+            <span className="text-[9px] font-medium uppercase text-white/50">{t.tools.walk.subtitle}</span>
           </div>
         </button>
 
@@ -100,12 +104,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Wind size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[11px] dark:text-white">
-              {t.nav.breathe}
-            </span>
-            <span className="text-[9px] font-medium uppercase text-gray-400">
-              {t.tools.breathe.subtitle}
-            </span>
+            <span className="font-medium uppercase text-[11px] dark:text-white">{t.nav.breathe}</span>
+            <span className="text-[9px] font-medium uppercase text-gray-400">{t.tools.breathe.subtitle}</span>
           </div>
         </button>
 
@@ -118,12 +118,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Sparkles size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[11px] dark:text-white">
-              {t.nav.meditate}
-            </span>
-            <span className="text-[9px] font-medium uppercase text-gray-400">
-              {t.tools.meditate.subtitle}
-            </span>
+            <span className="font-medium uppercase text-[11px] dark:text-white">{t.nav.meditate}</span>
+            <span className="text-[9px] font-medium uppercase text-gray-400">{t.tools.meditate.subtitle}</span>
           </div>
         </button>
 
@@ -136,17 +132,13 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <BookOpen size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="font-medium uppercase text-[11px] dark:text-white">
-              {t.nav.reflect}
-            </span>
-            <span className="text-[9px] font-medium uppercase text-gray-400">
-              {t.tools.journal.subtitle}
-            </span>
+            <span className="font-medium uppercase text-[11px] dark:text-white">{t.nav.reflect}</span>
+            <span className="text-[9px] font-medium uppercase text-gray-400">{t.tools.journal.subtitle}</span>
           </div>
         </button>
       </div>
 
-      {/* QUICK CENTER — pinned to bottom */}
+      {/* QUICK CENTER */}
       <button
         onClick={() => onSelectView('CENTER')}
         className="flex-shrink-0 w-full bg-black dark:bg-white text-white dark:text-black rounded-2xl border border-black dark:border-white p-3 flex items-center justify-between active:scale-[0.98] transition-all shadow-md"
@@ -156,12 +148,8 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
             <Zap size={18} fill="currentColor" />
           </div>
           <div className="flex flex-col items-start text-left">
-            <span className="font-medium uppercase text-[12px] tracking-wide leading-none">
-              {t.tools.grounding.title}
-            </span>
-            <span className="text-[9px] font-medium uppercase opacity-40 mt-0.5">
-              {t.tools.grounding.subtitle}
-            </span>
+            <span className="font-medium uppercase text-[12px] tracking-wide leading-none">{t.tools.grounding.title}</span>
+            <span className="text-[9px] font-medium uppercase opacity-40 mt-0.5">{t.tools.grounding.subtitle}</span>
           </div>
         </div>
         <RefreshCcw size={12} className="opacity-40" />

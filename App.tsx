@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppView, UserPreferences } from './types';
 import { translations } from './translations';
@@ -21,16 +20,14 @@ const App: React.FC = () => {
       : { lang: 'en', darkMode: false, hasSeenOnboarding: false };
   });
 
-  // Critical: lock the app height to the *real* viewport height (fixes iOS + iframes)
+  // Lock app height to real viewport height (fixes iOS + iframes)
   useEffect(() => {
     const setAppHeight = () => {
       document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
-
     setAppHeight();
     window.addEventListener('resize', setAppHeight);
     window.addEventListener('orientationchange', setAppHeight);
-
     return () => {
       window.removeEventListener('resize', setAppHeight);
       window.removeEventListener('orientationchange', setAppHeight);
@@ -89,13 +86,11 @@ const App: React.FC = () => {
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">
               {t.aboutTitle}
             </h2>
-
             <div className="flex-1 overflow-auto scrollbar-hide">
               <p className="text-base font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                 {t.aboutCopy}
               </p>
             </div>
-
             <button
               onClick={() => setView('HOME')}
               className="h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
@@ -109,13 +104,12 @@ const App: React.FC = () => {
     }
   };
 
-  // Safe area values used in shell sizing
   const headerHeight = immersive ? 0 : 64;
   const navHeight = immersive ? 0 : 80;
 
   return (
     <div
-      className="w-full overflow-hidden bg-slate-50 dark:bg-black"
+      className="w-full overflow-hidden bg-slate-50 dark:bg-black flex items-center justify-center"
       style={{ height: 'var(--app-height)' }}
     >
       {!prefs.hasSeenOnboarding && (
@@ -126,9 +120,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Shell — full width on mobile, no max-width constraint */}
+      {/* Shell — capped at 520px wide AND 920px tall so it never balloons on desktop */}
       <div
-        className="w-full h-full mx-auto bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden"
+        className="w-full h-full mx-auto bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5"
+        style={{
+          maxWidth: 520,
+          maxHeight: 920,
+        }}
       >
         {/* Header */}
         <header
@@ -161,14 +159,12 @@ const App: React.FC = () => {
             >
               <Info size={18} />
             </button>
-
             <button
               onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))}
               className="w-10 h-10 bg-gray-50 dark:bg-white/5 rounded-full text-[11px] font-semibold dark:text-white shadow-sm flex items-center justify-center active:scale-95 transition-transform"
             >
               {prefs.lang.toUpperCase()}
             </button>
-
             <button
               onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}
               className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 shadow-sm active:scale-95 transition-transform"
