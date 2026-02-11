@@ -4,11 +4,35 @@ import { Language, EchoPersona, ActivityType } from "./types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-const PERSONA_PROMPTS = {
-  HYPE: "high-energy coach, punchy, motivating, focus on drive and power.",
-  BREAKTHROUGH: "direct, honest, pattern-interrupting, investigative and clear.",
-  HOPE: "warm, reassuring, focused on safety and grounding.",
-  STRATEGY: "calm, practical, logic-driven, focused on the next immediate step."
+/**
+ * Behavioral UX Architecture — Persona Specifications
+ * Each mode maps to a distinct voice, cadence, emotional posture, and rule set.
+ */
+const modeSpecifications = {
+  HYPE: {
+    voice: "Masculine (Zephyr)",
+    cadence: "Staccato, punchy verbs, high rhythmic pressure.",
+    posture: "Rhythmic, commanding, and energizing activation.",
+    rules: "Use short motivational bursts. DO NOT use mode name 'Hype'. Focus on momentum. Pace: Medium to Fast."
+  },
+  BREAKTHROUGH: {
+    voice: "Feminine (Puck)",
+    cadence: "Resonant, medium pace, emotionally intelligent emphasis.",
+    posture: "Direct, firm, and investigative clarity.",
+    rules: "Use clarifying questions and truth statements. DO NOT use mode name 'Breakthrough'. Focus on reframing patterns. Pace: Medium."
+  },
+  HOPE: {
+    voice: "Feminine (Kore)",
+    cadence: "Legato, flowing sentences, slow-to-medium pace.",
+    posture: "Warm, steady, and emotionally holding reassurance.",
+    rules: "Use soft affirmations and grounding statements. DO NOT use mode name 'Hope'. Focus on safety and presence. Pace: Slow."
+  },
+  STRATEGY: {
+    voice: "Masculine (Charon)",
+    cadence: "Measured, composed, steady pacing.",
+    posture: "Calm, confident, and grounded practical guidance.",
+    rules: "Use structured guidance and practical framing. DO NOT use mode name 'Strategy'. Focus on organization and perspective. Pace: Medium."
+  }
 };
 
 export const generateSegmentNarrative = async (params: {
@@ -19,30 +43,47 @@ export const generateSegmentNarrative = async (params: {
   isIntro: boolean;
   isFirstSegment: boolean;
   destinationName?: string;
+  targetThought?: string;
 }) => {
+  const spec = modeSpecifications[params.mode];
   const langText = params.lang === 'es' ? 'Spanish' : 'English';
-  const sponsorLine = params.isFirstSegment ? "Include this EXACT line naturally: 'This guided walk is supported by L.A. Care Health Plan.'" : "";
+  const sponsorLine = params.isFirstSegment
+    ? "Integrate NATURALLY: 'This space is supported by partners who believe in access to care for everyone.'"
+    : "";
 
-  const prompt = `Act as a wellness guide. Generate a 1-minute spoken movement segment.
+  const cbtContext = params.targetThought
+    ? `The user's check-in thought: "${params.targetThought}". Gently weave awareness of this into guidance — acknowledge what they're carrying without being clinical.`
+    : "";
+
+  const prompt = `Generate a unique, generative movement guidance segment for a CalmKit wellness session.
     Language: ${langText}
-    Style: ${PERSONA_PROMPTS[params.mode]}
+    Voice Persona: ${spec.voice}
+    Cadence: ${spec.cadence}
+    Emotional Posture: ${spec.posture}
+    Rules: ${spec.rules}
     Current Stats: ${params.stats.distance.toFixed(2)} miles, ${Math.floor(params.stats.time/60)} mins elapsed, Pace: ${params.stats.pace}.
-    Context: ${params.isIntro ? "Intro (8-12s)" : "Continuous guidance (60s)"}.
-    ${params.destinationName ? `Target: ${params.destinationName}` : "Just Go mode"}.
+    Context: ${params.isIntro ? "Pre-Start Intro (15-20s)" : "Continuous guidance segment (60s)"}.
+    ${params.destinationName ? `Target: ${params.destinationName}` : "Just Go mode — no specific destination."}.
+    ${cbtContext}
     ${sponsorLine}
 
-    STRICT RULES:
+    CRITICAL INSTRUCTIONS:
     1. 6th-grade level. No jargon.
-    2. Speak to their CURRENT physical state based on stats.
-    3. If distance is low, encourage the start. If high, acknowledge the work.
-    4. Format as raw text only. No Markdown.
+    2. NEVER identify yourself by name. Do not say "I am Hope" or "Let's start the Hype."
+    3. NO FIXED PHRASES. Every segment must feel unique. Avoid clichés like "Welcome back" or "Let's get started."
+    4. NO CLINICAL LANGUAGE. No therapy, no diagnosis, no medical advice.
+    5. NO PERFORMANCE METRICS. Focus on cognitive and emotional presence, not speed or calories.
+    6. CADENCE ADHERENCE: Write to match the specified cadence (Staccato for Hype, Legato for Hope, etc.).
+    7. Speak to their CURRENT physical state based on stats.
+    8. If distance is low, encourage the beginning. If high, acknowledge what they've built.
+    9. Format as raw spoken text only. No Markdown.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: { temperature: 0.8 }
+      config: { temperature: 1.0 }
     });
     return response.text || "";
   } catch (e) {

@@ -5,7 +5,7 @@ import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
 import {
-  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock
+  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send
 } from 'lucide-react';
 
 declare const L: any;
@@ -24,6 +24,8 @@ interface MovementProps {
 
 const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   // ── State ──
+  const [step, setStep] = useState(0); // 0: CBT Check-in, 1: Mode + Destination
+  const [targetThought, setTargetThought] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [mode, setMode] = useState<EchoPersona>('HOPE');
@@ -58,12 +60,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const debounceRef = useRef<any>(null);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
+  const targetThoughtRef = useRef(targetThought);
 
   const t = translations[lang];
 
   // Keep refs in sync
   useEffect(() => { sessionStatsRef.current = sessionStats; }, [sessionStats]);
   useEffect(() => { destinationNameRef.current = destinationName; }, [destinationName]);
+  useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
 
   // Try to get location silently on mount (works if permission already granted)
   useEffect(() => {
@@ -89,6 +93,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     };
   }, []);
 
+  // Request GPS on user gesture (mobile Safari requires this)
+  const requestGpsPermission = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
+  };
+
   // ── Wake Lock ──
   const requestWakeLock = async () => {
     try {
@@ -105,7 +120,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     }
   };
 
-  // Re-acquire wake lock + resume audio on visibility change
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (isPlaying && document.visibilityState === 'visible') {
@@ -249,9 +263,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
   // ── TTS via Gemini ──
   const speakText = async (text: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const genai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
-    const response = await ai.models.generateContent({
+    const response = await genai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
       config: {
@@ -318,7 +332,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         stats,
         isIntro: startTimeRef.current === null,
         isFirstSegment: !sponsorPlayedRef.current,
-        destinationName: destinationNameRef.current || undefined
+        destinationName: destinationNameRef.current || undefined,
+        targetThought: targetThoughtRef.current || undefined
       });
       if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
       const buffer = await speakText(segment);
@@ -345,14 +360,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      // Pre-buffer next segment while current plays
+      // Pre-buffer next segment
       if (audioBufferQueue.current.length < 2 && isNarratingRef.current) {
         (async () => {
           const stats = sessionStatsRef.current;
           const seg = await generateSegmentNarrative({
             mode, activity: 'WALK', lang, stats,
             isIntro: false, isFirstSegment: false,
-            destinationName: destinationNameRef.current || undefined
+            destinationName: destinationNameRef.current || undefined,
+            targetThought: targetThoughtRef.current || undefined
           });
           const buf = await speakText(seg);
           if (buf) audioBufferQueue.current.push(buf);
@@ -375,35 +391,35 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         doubleClickZoom: true
       }).setView(userLocation || [34.05, -118.24], 17);
 
-      // Light tiles + CSS filter = ghost mode dark desaturated map
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapRef.current);
+      // Standard OSM tiles — CSS .dark-map filter converts to ghost mode
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
+
+      // Neon polyline for walked path
+      pathRef.current = L.polyline([], {
+        color: '#233DFF',
+        weight: 8,
+        opacity: 0.95,
+        lineJoin: 'round',
+        className: 'glowing-path'
+      }).addTo(mapRef.current);
     }
 
     if (mapRef.current && userLocation) {
       if (!markerRef.current) {
-        markerRef.current = L.circleMarker(userLocation, {
-          radius: 12,
-          color: '#fff',
-          fillColor: '#233DFF',
-          fillOpacity: 1,
-          weight: 4,
-          className: 'glowing-marker'
-        }).addTo(mapRef.current);
+        // Pulsing neon marker via divIcon
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+        markerRef.current = L.marker(userLocation, { icon }).addTo(mapRef.current);
       } else {
         markerRef.current.setLatLng(userLocation);
       }
 
-      if (pathCoordsRef.current.length > 1) {
-        if (!pathRef.current) {
-          pathRef.current = L.polyline(pathCoordsRef.current, {
-            color: '#233DFF',
-            weight: 5,
-            opacity: 0.9,
-            className: 'glowing-path'
-          }).addTo(mapRef.current);
-        } else {
-          pathRef.current.setLatLngs(pathCoordsRef.current);
-        }
+      if (pathCoordsRef.current.length > 1 && pathRef.current) {
+        pathRef.current.setLatLngs(pathCoordsRef.current);
       }
 
       if (!isPaused) {
@@ -533,75 +549,71 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   // ══════════════════════════════════════════════
   if (isPlaying) {
     return (
-      <div className="flex-1 flex flex-col bg-black overflow-hidden relative">
-        {/* Ghost Mode Map — dark-map CSS filter inverts light tiles */}
-        <div ref={mapContainerRef} className="absolute inset-0 z-0 dark-map" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
+      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
+        {/* Ghost Mode Map */}
+        <div className="flex-1 relative overflow-hidden dark-map">
+          <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
 
-        {/* Floating Pill HUD */}
-        <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
-          <div className="flex justify-center gap-2">
-            {/* Distance */}
-            <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
-              <Activity size={14} className="text-[#233DFF]" />
-              <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
-              <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
-            </div>
-            {/* Pace */}
-            <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
-              <Navigation size={14} className="text-[#233DFF]" />
-              <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
-              <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
-            </div>
-          </div>
-          {/* Time */}
-          <div className="flex justify-center">
-            <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
-              <Clock size={14} className="text-[#233DFF]" />
-              <span className="text-xl font-semibold tracking-tight text-white tabular-nums">
-                {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
-              </span>
-              <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.time}</span>
-            </div>
-          </div>
-
-          {/* Status indicators */}
-          <div className="flex justify-center gap-2">
-            {gpsAccuracy != null && gpsAccuracy > 30 && (
-              <div className="px-3 py-1 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
-                <span className="text-[9px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
+          {/* Floating Pill HUD */}
+          <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
+            <div className="flex justify-center gap-2">
+              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
+                <Activity size={14} className="text-[#233DFF]" />
+                <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
+                <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
               </div>
-            )}
-            {isBufferingAudio && (
-              <div className="px-3 py-1 rounded-full bg-[#233DFF]/30 backdrop-blur-md border border-[#233DFF]/40 animate-pulse">
-                <span className="text-[9px] font-medium text-white/70 uppercase">loading</span>
+              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
+                <Navigation size={14} className="text-[#233DFF]" />
+                <span className="text-xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
+                <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+            <div className="flex justify-center">
+              <div className="px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-2xl">
+                <Clock size={14} className="text-[#233DFF]" />
+                <span className="text-xl font-semibold tracking-tight text-white tabular-nums">
+                  {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
+                </span>
+                <span className="text-[10px] font-medium text-white/60 uppercase tracking-widest">{t.labels.time}</span>
+              </div>
+            </div>
 
-        {/* Bottom Controls */}
-        <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+16px)] flex flex-col items-center gap-4">
-          {/* Mode badge */}
-          <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-            <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label}</span>
+            {/* Status indicators */}
+            <div className="flex justify-center gap-2">
+              {gpsAccuracy != null && gpsAccuracy > 30 && (
+                <div className="px-3 py-1 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
+                  <span className="text-[9px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
+                </div>
+              )}
+              {isBufferingAudio && (
+                <div className="px-3 py-1 rounded-full bg-[#233DFF]/30 backdrop-blur-md border border-[#233DFF]/40 animate-pulse">
+                  <span className="text-[9px] font-medium text-white/70 uppercase">loading</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Play/Pause + Stop */}
-          <div className="flex items-center gap-6">
-            <button
-              onClick={handleStop}
-              className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center text-white/60 active:scale-95 transition-all"
-            >
-              <X size={20} />
-            </button>
-            <button
-              onClick={togglePause}
-              className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
-            >
-              {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} fill="currentColor" />}
-            </button>
-            <div className="w-14 h-14" />
+          {/* Bottom Controls */}
+          <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+16px)] flex flex-col items-center gap-4">
+            <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+              <span className="text-[10px] font-medium text-white uppercase tracking-wide">{MODES.find(m => m.id === mode)?.label}</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={handleStop}
+                className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center text-white/60 active:scale-95 transition-all"
+              >
+                <X size={20} />
+              </button>
+              <button
+                onClick={togglePause}
+                className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
+              >
+                {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} fill="currentColor" />}
+              </button>
+              <div className="w-14 h-14" />
+            </div>
           </div>
         </div>
       </div>
@@ -609,94 +621,127 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   }
 
   // ══════════════════════════════════════════════
-  // RENDER: Setup Screen — White / Light
+  // RENDER: Setup — Step 0 (CBT Check-in) & Step 1 (Mode + Destination)
   // ══════════════════════════════════════════════
   return (
     <div className="flex-1 flex flex-col p-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
+        <button onClick={step === 0 ? onBack : () => setStep(0)} className="p-2 -ml-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
           <ChevronLeft size={24} />
         </button>
         <span className="font-medium uppercase tracking-wide text-[10px] text-[#233DFF]">{t.nav.move}</span>
       </div>
 
-      {/* Title */}
-      <div className="space-y-1 mb-4 flex-shrink-0">
-        <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
-        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
-      </div>
-
-      {/* Destination Search */}
-      <div className="relative mb-4 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-3">
-          <Search size={16} className="text-gray-400 flex-shrink-0" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
-            className="bg-transparent flex-1 text-sm outline-none dark:text-white placeholder:text-gray-400"
-          />
+      {/* ── Step 0: CBT Check-in ── */}
+      {step === 0 && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="space-y-1 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
+          </div>
+          <div className="flex-1 min-h-0 my-3">
+            <textarea
+              value={targetThought}
+              onChange={(e) => setTargetThought(e.target.value)}
+              placeholder={t.labels.thoughtPlaceholder}
+              className="w-full h-full p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-sm resize-none dark:text-white placeholder:text-gray-400"
+            />
+          </div>
+          <button
+            onClick={() => { requestGpsPermission(); setStep(1); }}
+            disabled={!targetThought.trim()}
+            className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
+          >
+            {t.onboarding.next} <Send size={16} />
+          </button>
         </div>
-        {suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
-            {suggestions.map((s: any, i: number) => (
+      )}
+
+      {/* ── Step 1: Mode + Destination ── */}
+      {step === 1 && (
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Title */}
+          <div className="space-y-1 mb-4 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
+          </div>
+
+          {/* Destination Search */}
+          <div className="relative mb-4 flex-shrink-0">
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-3">
+              <Search size={16} className="text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
+                className="bg-transparent flex-1 text-sm outline-none dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+            {suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
+                {suggestions.map((s: any, i: number) => (
+                  <button
+                    key={i}
+                    onClick={() => selectSuggestion(s)}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate"
+                  >
+                    {s.display_name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {destinationName && (
+              <div className="mt-2 flex items-center gap-2">
+                <Navigation size={12} className="text-[#233DFF]" />
+                <span className="text-xs text-[#233DFF] font-medium truncate">{destinationName}</span>
+                <button
+                  onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
+                  className="text-gray-400 text-xs ml-auto flex-shrink-0"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 2x2 Mode Grid */}
+          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+            {MODES.map((m) => (
               <button
-                key={i}
-                onClick={() => selectSuggestion(s)}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate"
+                key={m.id}
+                onClick={() => setMode(m.id)}
+                className={`p-4 rounded-2xl text-left transition-all border active:scale-[0.97] ${
+                  mode === m.id
+                    ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
+                    : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
+                }`}
               >
-                {s.display_name}
+                <div className={`w-2 h-2 rounded-full mb-3 ${
+                  m.tone === 'blue' ? 'bg-[#233DFF]' :
+                  m.tone === 'pink' ? 'bg-pink-400' :
+                  m.tone === 'orange' ? 'bg-orange-400' : 'bg-yellow-400'
+                }`} />
+                <span className={`font-medium text-sm block ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
+                <span className="text-[10px] text-gray-400 block">{m.desc}</span>
               </button>
             ))}
           </div>
-        )}
-        {destinationName && (
-          <div className="mt-2 flex items-center gap-2">
-            <Navigation size={12} className="text-[#233DFF]" />
-            <span className="text-xs text-[#233DFF] font-medium truncate">{destinationName}</span>
-            <button
-              onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
-              className="text-gray-400 text-xs ml-auto flex-shrink-0"
-            >
-              &times;
-            </button>
-          </div>
-        )}
-      </div>
 
-      {/* 2x2 Mode Grid */}
-      <div className="grid grid-cols-2 gap-3 flex-1 min-h-0 content-center">
-        {MODES.map((m) => (
+          {/* Spacer pushes button to bottom */}
+          <div className="flex-1" />
+
+          {/* Go Button */}
           <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className={`p-4 rounded-2xl text-left transition-all border active:scale-[0.97] ${
-              mode === m.id
-                ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
-                : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
-            }`}
+            onClick={handleStart}
+            className="w-full rounded-2xl bg-[#233DFF] text-white font-semibold py-5 text-lg shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
           >
-            <div className={`w-2 h-2 rounded-full mb-3 ${
-              m.tone === 'blue' ? 'bg-[#233DFF]' :
-              m.tone === 'pink' ? 'bg-pink-400' :
-              m.tone === 'orange' ? 'bg-orange-400' : 'bg-yellow-400'
-            }`} />
-            <span className={`font-medium text-sm block ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-            <span className="text-[10px] text-gray-400 block">{m.desc}</span>
+            <Play size={20} fill="currentColor" />
+            <span>{destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'}</span>
           </button>
-        ))}
-      </div>
-
-      {/* Go Button */}
-      <button
-        onClick={handleStart}
-        className="w-full rounded-2xl bg-[#233DFF] text-white font-semibold py-5 text-lg shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
-      >
-        <Play size={20} fill="currentColor" />
-        <span>{destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'}</span>
-      </button>
+        </div>
+      )}
     </div>
   );
 };

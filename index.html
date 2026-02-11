@@ -53,33 +53,19 @@
       
       /* Ghost Mode Map Styling */
       .leaflet-container {
-        background: #f8f8f8 !important;
-      }
-      .dark .leaflet-container {
         background: #0a0a0a !important;
       }
 
-      /* Dark map filter — inverts light tiles into dark desaturated ghost mode */
+      /* Ghost Mode Tile Filter: Obsidian, with lighter gray streets for legibility */
       .dark-map .leaflet-tile {
-        filter: invert(100%) hue-rotate(180deg) brightness(40%) contrast(90%) saturate(0%);
+        filter: invert(100%) hue-rotate(180deg) brightness(20%) contrast(110%) saturate(0%);
       }
 
-      /* Luminous Neon Marker */
-      .glowing-marker {
-        filter: drop-shadow(0 0 4px var(--brand-blue)) drop-shadow(0 0 10px rgba(35, 61, 255, 0.4));
-      }
-
-      /* Neon Path Glow */
+      /* Luminous Neon Path Effect */
       .glowing-path {
-        filter: drop-shadow(0 0 4px var(--brand-blue)) drop-shadow(0 0 8px rgba(35, 61, 255, 0.3));
-        stroke-dasharray: 8;
-        animation: dash 1s linear infinite;
-      }
-
-      @keyframes dash {
-        to {
-          stroke-dashoffset: -16;
-        }
+        filter: drop-shadow(0 0 3px #233DFF) drop-shadow(0 0 8px rgba(35, 61, 255, 0.5));
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       main {
