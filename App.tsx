@@ -72,7 +72,7 @@ const App: React.FC = () => {
         <div className="flex-1 p-8 flex flex-col gap-6 animate-in fade-in overflow-y-auto">
           <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.aboutTitle}</h2>
           <p className="text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{t.aboutCopy}</p>
-          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-black dark:border-white font-bold uppercase text-xs tracking-wide shadow-lg flex items-center justify-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />BACK</button>
+          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-lg flex items-center justify-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />Back</button>
         </div>
       );
       default: return <Home onSelectView={setView} lang={prefs.lang} />;

@@ -283,7 +283,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
             </button>
             <button
               onClick={handleStop}
-              className="flex-1 h-20 bg-[#233DFF] rounded-full border border-[#233DFF] flex items-center justify-center text-white font-bold uppercase tracking-wide text-xs shadow-xl shadow-blue-500/20 active:scale-95 transition-all gap-2"
+              className="flex-1 h-20 bg-[#233dff] rounded-full border border-[#233dff] flex items-center justify-center text-white font-normal text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all gap-2"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-white" />
               {t.labels.done}
@@ -320,7 +320,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
           <button
             onClick={() => setStep(1)}
             disabled={!targetThought.trim()}
-            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-full border border-black dark:border-white font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
+            className="w-full h-20 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />
             {t.onboarding.next} <Send size={16} />
@@ -355,7 +355,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
 
           <button
             onClick={handleStart}
-            className="w-full h-20 bg-[#233DFF] text-white rounded-full border border-[#233DFF] font-bold uppercase tracking-wide text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
+            className="w-full h-20 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-white" />
             <Play size={20} fill="currentColor" /> {t.labels.start}

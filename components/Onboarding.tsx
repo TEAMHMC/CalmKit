@@ -73,7 +73,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
         <div className="flex flex-col gap-5 pt-4">
           <button
             onClick={() => isLastStep ? onComplete() : setStep(step + 1)}
-            className={`w-full h-16 rounded-full font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233DFF]' : 'bg-black dark:bg-white text-white dark:text-black border border-black dark:border-white'}`}
+            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233dff]' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white'}`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isLastStep ? 'bg-white' : 'bg-white dark:bg-black'}`} />
             {isLastStep ? t.onboarding.finish : t.onboarding.next}
@@ -81,7 +81,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
           </button>
 
           {step < steps.length - 1 && (
-            <button onClick={onComplete} className="text-[11px] font-medium uppercase tracking-wide text-gray-300 hover:text-gray-500 transition-colors">
+            <button onClick={onComplete} className="text-base font-normal text-gray-300 hover:text-gray-500 transition-colors">
               {t.labels.skipTutorial}
             </button>
           )}
