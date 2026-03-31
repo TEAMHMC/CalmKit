@@ -289,6 +289,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         stats: sessionStats,
         isIntro,
         isFirstSegment: !sponsorPlayedRef.current,
+        destinationName: selectedDestination?.name,
+        userLat: userLocation?.[0],
+        userLng: userLocation?.[1],
       });
       if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
       const buffer = await speakText(segment);
@@ -300,7 +303,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       const buffer = audioBufferQueue.current.shift()!;
       const source = audioCtxRef.current!.createBufferSource();
       source.buffer = buffer;
-      source.connect(audioCtxRef.current!.destination);
+      // Audio ducking: boost narration volume, creates contrast with background music
+      const gainNode = audioCtxRef.current!.createGain();
+      gainNode.gain.value = 1.3; // Narration louder than normal
+      source.connect(gainNode);
+      gainNode.connect(audioCtxRef.current!.destination);
       source.onended = () => narrationLoop();
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
@@ -451,12 +458,37 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
     narrationLoop();
   };
 
-  const handleStop = () => {
-    setIsPlaying(false);
-    setIsPaused(false);
+  const handleStop = async () => {
     isNarratingRef.current = false;
     stopTracking();
     stopTimer();
+
+    // Generate and speak ending message
+    try {
+      const { generateEndingMessage } = await import('../geminiService');
+      const endMsg = await generateEndingMessage({ mode, lang, stats: sessionStats });
+      const buffer = await speakText(endMsg);
+      if (buffer && audioCtxRef.current) {
+        const source = audioCtxRef.current.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtxRef.current.destination);
+        source.onended = () => {
+          setIsPlaying(false);
+          setIsPaused(false);
+          startTimeRef.current = null;
+          pausedElapsedRef.current = 0;
+          onBack();
+        };
+        source.start(0);
+        return; // Wait for ending message to finish before going back
+      }
+    } catch (e) {
+      console.warn('Ending message failed:', e);
+    }
+
+    // Fallback if ending message fails
+    setIsPlaying(false);
+    setIsPaused(false);
     startTimeRef.current = null;
     pausedElapsedRef.current = 0;
     onBack();
