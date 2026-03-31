@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
-import { AppView, Language, UserPreferences } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AppView, UserPreferences } from './types';
 import { translations } from './translations';
 import Home from './components/Home';
 import GuidedWalk from './components/GuidedWalk';
@@ -9,10 +8,18 @@ import Journal from './components/Journal';
 import Grounding from './components/Grounding';
 import Meditation from './components/Meditation';
 import Onboarding from './components/Onboarding';
-import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info } from 'lucide-react';
+import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download } from 'lucide-react';
+import { fullCleanup } from './audioManager';
+import NoSleep from "nosleep.js";
+
+const noSleep = new NoSleep();
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('HOME');
+  const [immersive, setImmersive] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstall, setShowInstall] = useState(false);
+
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
     const saved = localStorage.getItem('hmc_calmkit_prefs');
     return saved ? JSON.parse(saved) : {
@@ -22,107 +29,206 @@ const App: React.FC = () => {
     };
   });
 
+  /* ------------------------------
+     ENABLE KEEP AWAKE (WEB ONLY)
+  --------------------------------*/
+  useEffect(() => {
+    const enable = () => {
+      try { noSleep.enable(); } catch {}
+      document.removeEventListener("click", enable);
+    };
+    document.addEventListener("click", enable);
+  }, []);
+
+  /* ------------------------------
+     URL PARAM HANDLING
+  --------------------------------*/
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const persona = params.get('persona');
+    const lang = params.get('lang');
+    const phq = params.get('phq');
+    const gad = params.get('gad');
+
+    if (lang === 'en' || lang === 'es') setPrefs(p => ({ ...p, lang }));
+    if (persona) {
+      const valid = ['HOPE', 'HYPE', 'BREAKTHROUGH', 'STRATEGY'];
+      if (valid.includes(persona.toUpperCase())) setView('WALK');
+    }
+    if (phq) sessionStorage.setItem('calmkit_phq', phq);
+    if (gad) sessionStorage.setItem('calmkit_gad', gad);
+  }, []);
+
+  /* ------------------------------
+     SAVE PREFS + DARK MODE
+  --------------------------------*/
   useEffect(() => {
     localStorage.setItem('hmc_calmkit_prefs', JSON.stringify(prefs));
     if (prefs.darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [prefs]);
 
-  const t = translations[prefs.lang];
+  /* ------------------------------
+     PWA INSTALL
+  --------------------------------*/
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstall(true);
+    };
 
-  const handleOnboardingComplete = () => {
-    setPrefs(p => ({ ...p, hasSeenOnboarding: true }));
-  };
+    window.addEventListener('beforeinstallprompt', handler);
 
-  const renderView = () => {
-    switch (view) {
-      case 'HOME': return <Home onSelectView={setView} lang={prefs.lang} />;
-      case 'WALK': return <GuidedWalk onBack={() => setView('HOME')} lang={prefs.lang} />;
-      case 'BREATHE': return <BreathingExercise onBack={() => setView('HOME')} lang={prefs.lang} />;
-      case 'MEDITATE': return <Meditation onBack={() => setView('HOME')} lang={prefs.lang} />;
-      case 'REFLECT': return <Journal onBack={() => setView('HOME')} lang={prefs.lang} />;
-      case 'CENTER': return <Grounding onBack={() => setView('HOME')} lang={prefs.lang} />;
-      case 'ABOUT': return (
-        <div className="flex-1 p-8 flex flex-col gap-6 animate-in fade-in overflow-y-auto">
-          <h2 className="text-3xl font-black tracking-tighter uppercase dark:text-white">{t.aboutTitle}</h2>
-          <p className="text-sm font-medium leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{t.aboutCopy}</p>
-          <button onClick={() => setView('HOME')} className="mt-4 h-14 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">BACK</button>
-        </div>
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as any).standalone;
+
+    if (!isStandalone) setShowInstall(true);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const result = await installPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        setInstallPrompt(null);
+        setShowInstall(false);
+      }
+    } else {
+      alert(
+        prefs.lang === 'es'
+          ? 'Toca Compartir (□↑) y luego "Agregar a pantalla de inicio"'
+          : 'Tap Share (□↑) then "Add to Home Screen"'
       );
-      default: return <Home onSelectView={setView} lang={prefs.lang} />;
     }
   };
 
-  return (
-    <div className="flex items-center justify-center w-full h-screen bg-slate-50 dark:bg-black overflow-hidden">
-      {!prefs.hasSeenOnboarding && <Onboarding onComplete={handleOnboardingComplete} lang={prefs.lang} />}
-      
-      <div className="w-full h-full max-w-lg bg-white dark:bg-[#121212] flex flex-col relative overflow-hidden border-x border-gray-100 dark:border-white/5">
-        
-        <header className="flex-shrink-0 px-6 h-20 flex justify-between items-center z-[110] bg-white dark:bg-[#121212] pt-[env(safe-area-inset-top,0px)]">
-           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('HOME')}>
-             <img 
-               src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" 
-               alt="HMC" 
-               className="w-8 h-8 object-contain" 
-             />
-             <div className="flex flex-col">
-               <h2 className="font-black text-[12px] uppercase tracking-tighter dark:text-white leading-none">CALMKIT</h2>
-               <span className="text-[7px] font-black uppercase tracking-[0.2em] text-[#233DFF]">UNSTOPPABLE</span>
-             </div>
-           </div>
-           
-           <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setView('ABOUT')}
-                className="w-9 h-9 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 shadow-sm"
-              >
-                <Info size={16} />
-              </button>
-              <button 
-                onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))}
-                className="w-9 h-9 bg-gray-50 dark:bg-white/5 rounded-full text-[9px] font-black dark:text-white shadow-sm"
-              >
-                {prefs.lang.toUpperCase()}
-              </button>
-              <button 
-                onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}
-                className="w-9 h-9 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-gray-400 shadow-sm"
-              >
-                {prefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-           </div>
-        </header>
+  const t = translations[prefs.lang];
 
-        <main className="flex-1 overflow-hidden relative flex flex-col min-h-0">
-          {renderView()}
-        </main>
+  /* ------------------------------
+     SAFE VIEW SWITCH
+  --------------------------------*/
+  const safeSetView = useCallback((newView: AppView) => {
+    fullCleanup();
+    setImmersive(false);
+    setView(newView);
+  }, []);
 
-        <nav className="flex-shrink-0 border-t border-gray-50 dark:border-white/5 bg-white dark:bg-[#121212] flex justify-around items-center h-22 pb-[env(safe-area-inset-bottom,0px)]">
-          {[
-            { id: 'HOME', icon: <HomeIcon size={20} />, label: t.nav.home },
-            { id: 'BREATHE', icon: <Wind size={20} />, label: t.nav.breathe },
-            { id: 'WALK', icon: <Move size={20} />, label: t.nav.move },
-            { id: 'MEDITATE', icon: <Sparkles size={20} />, label: t.nav.meditate },
-            { id: 'REFLECT', icon: <BookOpen size={20} />, label: t.nav.reflect },
-            { id: 'CENTER', icon: <Zap size={20} />, label: t.nav.center },
-          ].map((navItem) => (
-            <button 
-              key={navItem.id}
-              onClick={() => setView(navItem.id as AppView)} 
-              className={`flex flex-col items-center gap-1 flex-1 relative ${view === navItem.id ? 'text-[#233DFF]' : 'text-gray-300'}`}
-            >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${view === navItem.id ? 'bg-[#233DFF]/10 scale-110 shadow-sm' : ''}`}>
-                {navItem.icon}
-              </div>
-              <span className={`text-[8px] font-black uppercase tracking-widest ${view === navItem.id ? 'opacity-100' : 'opacity-40'}`}>
-                {navItem.label}
-              </span>
+  /* ------------------------------
+     RENDER VIEW
+  --------------------------------*/
+  const renderView = () => {
+    switch (view) {
+      case 'HOME': return <Home onSelectView={safeSetView} lang={prefs.lang} />;
+      case 'WALK': return <GuidedWalk onBack={() => safeSetView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} />;
+      case 'BREATHE': return <BreathingExercise onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
+      case 'MEDITATE': return <Meditation onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
+      case 'REFLECT': return <Journal onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
+      case 'CENTER': return <Grounding onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
+      case 'ABOUT':
+        return (
+          <div className="flex-1 px-5 py-6 flex flex-col gap-5 overflow-hidden">
+            <h2 className="text-3xl font-normal dark:text-white">{t.aboutTitle}</h2>
+            <div className="flex-1 overflow-auto">
+              <p className="text-base leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                {t.aboutCopy}
+              </p>
+            </div>
+            <button
+              onClick={() => safeSetView('HOME')}
+              className="h-14 bg-black dark:bg-white text-white dark:text-black rounded-full">
+              Back
             </button>
-          ))}
-        </nav>
+          </div>
+        );
+      default:
+        return <Home onSelectView={safeSetView} lang={prefs.lang} />;
+    }
+  };
+
+  /* ------------------------------
+     APP SHELL
+  --------------------------------*/
+  return (
+    <>
+      {!prefs.hasSeenOnboarding && (
+        <Onboarding
+          onComplete={() => setPrefs(p => ({ ...p, hasSeenOnboarding: true }))}
+          lang={prefs.lang}
+          onLangChange={(l) => setPrefs(p => ({ ...p, lang: l }))}
+        />
+      )}
+
+      {/* PHONE-SIZED VIEWPORT LOCK */}
+      <div className="fixed inset-0 flex justify-center bg-white dark:bg-[#121212]">
+        <div className="w-full max-w-[430px] flex flex-col overflow-hidden">
+
+          {/* HEADER */}
+          {!immersive && (
+            <header
+              className="flex-shrink-0 px-5 flex justify-between items-center bg-white dark:bg-[#121212]"
+              style={{ height: 56, paddingTop: 'env(safe-area-inset-top)' }}
+            >
+              <div onClick={() => safeSetView('HOME')} className="flex items-center gap-3">
+                <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png"
+                  className="w-8 h-8" />
+                <div>
+                  <h2 className="text-xs uppercase dark:text-white">CALMKIT</h2>
+                  <span className="text-[10px] text-[#233DFF]">UNSTOPPABLE</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {showInstall &&
+                  <button onClick={handleInstall}><Download size={14} /></button>}
+                <button onClick={() => safeSetView('ABOUT')}><Info size={14} /></button>
+                <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))}>
+                  {prefs.lang.toUpperCase()}
+                </button>
+                <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}>
+                  {prefs.darkMode ? <Sun size={14} /> : <Moon size={14} />}
+                </button>
+              </div>
+            </header>
+          )}
+
+          {/* MAIN */}
+          <main className="flex-1 min-h-0 overflow-hidden">
+            {renderView()}
+          </main>
+
+          {/* BOTTOM NAV */}
+          {!immersive && (
+            <nav
+              className="flex-shrink-0 flex justify-around border-t"
+              style={{ height: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
+              {[
+                { id: 'HOME', icon: <HomeIcon size={18} />, label: t.nav.home },
+                { id: 'BREATHE', icon: <Wind size={18} />, label: t.nav.breathe },
+                { id: 'WALK', icon: <Move size={18} />, label: t.nav.move },
+                { id: 'MEDITATE', icon: <Sparkles size={18} />, label: t.nav.meditate },
+                { id: 'REFLECT', icon: <BookOpen size={18} />, label: t.nav.reflect },
+                { id: 'CENTER', icon: <Zap size={18} />, label: t.nav.center },
+              ].map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => safeSetView(n.id as AppView)}
+                  className={`flex flex-col items-center flex-1 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-400'}`}
+                >
+                  {n.icon}
+                  <span className="text-[9px]">{n.label}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

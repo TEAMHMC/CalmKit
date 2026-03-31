@@ -7,17 +7,19 @@ import { ArrowRight, Check, Wind, Move, BookOpen, Zap } from 'lucide-react';
 interface OnboardingProps {
   onComplete: () => void;
   lang: Language;
+  onLangChange?: (lang: Language) => void;
 }
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang: initialLang, onLangChange }) => {
   const [step, setStep] = useState(0);
+  const [lang, setLang] = useState(initialLang);
   const t = translations[lang];
 
   const steps = [
     {
       title: t.onboarding.title,
       desc: t.onboarding.step1,
-      icon: <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" className="w-24 h-24 object-contain" alt="HMC Logo" />,
+      icon: <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" className="w-16 h-16 sm:w-20 sm:h-20 object-contain" alt="HMC Logo" />,
       color: "bg-transparent"
     },
     {
@@ -49,38 +51,50 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang }) => {
   const isLastStep = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-      <div className="max-w-sm w-full space-y-12">
-        <div className={`w-36 h-36 ${steps[step].color} rounded-[48px] flex items-center justify-center mx-auto transition-all duration-700`}>
+    <div className="fixed inset-0 z-[200] bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center px-6 py-8 text-center animate-in fade-in overflow-hidden">
+      {/* Language toggle — always accessible */}
+      <button
+        onClick={() => {
+          const next = lang === 'en' ? 'es' : 'en';
+          setLang(next);
+          onLangChange?.(next);
+        }}
+        className="absolute top-[calc(env(safe-area-inset-top,16px)+8px)] right-5 w-11 h-11 bg-gray-100 dark:bg-white/10 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 z-[201] flex items-center justify-center active:scale-95 transition-transform"
+      >
+        {lang === 'en' ? 'ES' : 'EN'}
+      </button>
+
+      <div className="max-w-sm w-full flex flex-col items-center gap-8">
+        <div className={`w-28 h-28 sm:w-32 sm:h-32 ${steps[step].color} rounded-[36px] sm:rounded-[48px] flex items-center justify-center mx-auto transition-all duration-700 flex-shrink-0`}>
           {steps[step].icon}
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-5xl font-black tracking-tighter uppercase leading-none dark:text-white">
+        <div className="space-y-4 flex-shrink-0">
+          <h2 className="text-4xl font-normal tracking-normal leading-none dark:text-white font-display">
             {steps[step].title}
           </h2>
-          <p className="text-sm font-medium text-gray-400 leading-relaxed px-6">
+          <p className="text-base font-medium text-gray-400 leading-relaxed px-2">
             {steps[step].desc}
           </p>
         </div>
 
-        <div className="flex justify-center gap-2.5">
+        <div className="flex justify-center gap-3 flex-shrink-0">
           {steps.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === step ? 'w-10 bg-[#233DFF]' : 'w-2 bg-gray-100 dark:bg-white/10'}`} />
+            <div key={i} className={`h-2 rounded-full transition-all duration-300 ${i === step ? 'w-12 bg-[#233DFF]' : 'w-2.5 bg-gray-100 dark:bg-white/10'}`} />
           ))}
         </div>
 
-        <div className="flex flex-col gap-5 pt-4">
-          <button 
+        <div className="flex flex-col gap-4 w-full flex-shrink-0">
+          <button
             onClick={() => isLastStep ? onComplete() : setStep(step + 1)}
-            className={`w-full h-16 rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
+            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isLastStep ? 'bg-[#233DFF] text-white border border-[#233dff]' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white'}`}
           >
             {isLastStep ? t.onboarding.finish : t.onboarding.next}
             {isLastStep ? <Check size={20} /> : <ArrowRight size={20} />}
           </button>
 
           {step < steps.length - 1 && (
-            <button onClick={onComplete} className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-300 hover:text-gray-500 transition-colors">
+            <button onClick={onComplete} className="text-base font-normal text-gray-300 hover:text-gray-500 transition-colors h-12 flex items-center justify-center">
               {t.labels.skipTutorial}
             </button>
           )}

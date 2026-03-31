@@ -1,59 +1,56 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Language, EchoPersona } from '../types';
+import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity } from '../types';
 import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
 import {
-  Pause, X, Play, ChevronLeft, Sparkles, Navigation, MapPin
+  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2
 } from 'lucide-react';
-import {
-  initGoogleMaps,
-  getWalkingDirections,
-  findNearbyWalkableDestinations,
-  formatStepForVoice,
-  WalkingRoute,
-  WalkingStep,
-  NearbyDestination
-} from '../services/mapsService';
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup } from '../audioManager';
 
 declare const L: any;
-declare const google: any;
 
-const MODES: { id: EchoPersona; label: string; desc: string; voice: string; tone: 'blue' | 'orange' | 'yellow' | 'pink' }[] = [
-  { id: 'HOPE', label: 'Hope', desc: 'Safety & Grounding', voice: 'Kore', tone: 'blue' },
-  { id: 'HYPE', label: 'Hype', desc: 'Energy & Momentum', voice: 'Zephyr', tone: 'pink' },
-  { id: 'BREAKTHROUGH', label: 'Breakthrough', desc: 'Truth & Clarity', voice: 'Puck', tone: 'orange' },
-  { id: 'STRATEGY', label: 'Strategy', desc: 'Practical Direction', voice: 'Charon', tone: 'yellow' },
+const MODES: { id: EchoPersona; label: string; desc: string; voice: string; tone: string }[] = [
+  { id: 'HOPE', label: 'Hope', desc: 'Safety & Self-Compassion', voice: 'Kore', tone: 'blue' },
+  { id: 'HYPE', label: 'Hype', desc: 'Momentum & Action', voice: 'Zephyr', tone: 'pink' },
+  { id: 'BREAKTHROUGH', label: 'Breakthrough', desc: 'Clarity & Perspective', voice: 'Puck', tone: 'orange' },
+  { id: 'STRATEGY', label: 'Strategy', desc: 'Problem-Solving & Control', voice: 'Charon', tone: 'yellow' },
 ];
 
 interface MovementProps {
   onBack: () => void;
   lang: Language;
+  onImmersiveChange?: (immersive: boolean) => void;
 }
 
-const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
+const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }) => {
+  // ── State ──
+  const [step, setStep] = useState(0); // 0: CBT Check-in, 1: Mode + Destination
+  const [targetThought, setTargetThought] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [mode, setMode] = useState<EchoPersona>('HOPE');
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [sessionStats, setSessionStats] = useState({ distance: 0, time: 0, pace: "0:00" });
   const [isBufferingAudio, setIsBufferingAudio] = useState(false);
-  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [destinationName, setDestinationName] = useState("");
+  const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
+  const [gpsError, setGpsError] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [narrationFreq, setNarrationFreq] = useState<NarrationFrequency>('CONTINUOUS');
+  const [sessionType, setSessionType] = useState<SessionType>('OUTDOOR');
+  const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
+  const [showSummary, setShowSummary] = useState(false);
+  const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
 
-  // Navigation state
-  const [walkMode, setWalkMode] = useState<'free' | 'destination'>('free');
-  const [nearbyDestinations, setNearbyDestinations] = useState<NearbyDestination[]>([]);
-  const [selectedDestination, setSelectedDestination] = useState<NearbyDestination | null>(null);
-  const [currentRoute, setCurrentRoute] = useState<WalkingRoute | null>(null);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
-
+  // ── Refs ──
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const pathRef = useRef<any>(null);
-  const routeLayerRef = useRef<any>(null);
-  const destinationMarkerRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const lastPositionRef = useRef<[number, number] | null>(null);
@@ -61,190 +58,228 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
   const audioBufferQueue = useRef<AudioBuffer[]>([]);
   const isNarratingRef = useRef(false);
   const startTimeRef = useRef<number | null>(null);
-  const pausedElapsedRef = useRef<number>(0);
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const totalDistanceRef = useRef<number>(0);
   const sponsorPlayedRef = useRef(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<any>(null);
+  const timerIntervalRef = useRef<any>(null);
+  const bgNodesRef = useRef<any[]>([]);
+  const bgGainRef = useRef<GainNode | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const isPausedRef = useRef(false);
+  const debounceRef = useRef<any>(null);
+  const narrationTimeoutRef = useRef<any>(null);
+  const narrationFreqRef = useRef<NarrationFrequency>('CONTINUOUS');
+  const startMarkerRef = useRef<any>(null);
+  const isReturningRef = useRef(false);
+  const indoorActivityRef = useRef<IndoorActivity | null>(null);
+  const sessionStatsRef = useRef(sessionStats);
+  const destinationNameRef = useRef(destinationName);
+  const targetThoughtRef = useRef(targetThought);
 
   const t = translations[lang];
 
-  // Haversine distance between two GPS coordinates in meters
-  const haversineDistance = (
-    [lat1, lon1]: [number, number],
-    [lat2, lon2]: [number, number]
-  ): number => {
-    const R = 6371000; // Earth radius in meters
-    const toRad = (deg: number) => (deg * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
+  // Keep refs in sync
+  useEffect(() => { sessionStatsRef.current = sessionStats; }, [sessionStats]);
+  useEffect(() => { destinationNameRef.current = destinationName; }, [destinationName]);
+  useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
+  useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
-  // Format pace as "min:sec" per mile
-  const formatPace = (elapsedSeconds: number, distanceMiles: number): string => {
-    if (distanceMiles < 0.001) return "0:00";
-    const paceSeconds = elapsedSeconds / distanceMiles;
-    const mins = Math.floor(paceSeconds / 60);
-    const secs = Math.floor(paceSeconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Get current elapsed time in seconds, accounting for pauses
-  const getElapsedSeconds = (): number => {
-    if (!startTimeRef.current) return 0;
-    if (isPaused) return pausedElapsedRef.current;
-    return pausedElapsedRef.current + (Date.now() - startTimeRef.current) / 1000;
-  };
-
-  // Start a 1-second interval timer to update time & pace continuously
-  const startTimer = () => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    timerIntervalRef.current = setInterval(() => {
-      const elapsed = getElapsedSeconds();
-      const dist = totalDistanceRef.current;
-      setSessionStats({
-        distance: dist,
-        time: Math.floor(elapsed),
-        pace: formatPace(elapsed, dist),
-      });
-    }, 1000);
-  };
-
-  const stopTimer = () => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-  };
-
-  const initAudio = async () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    }
-    if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
-  };
-
-  // Load nearby walkable destinations
-  const loadNearbyDestinations = async (lat: number, lng: number) => {
-    setIsLoadingDestinations(true);
-    try {
-      const destinations = await findNearbyWalkableDestinations(lat, lng, 2000, 'park');
-      setNearbyDestinations(destinations);
-    } catch (e) {
-      console.error('Failed to load destinations:', e);
-    }
-    setIsLoadingDestinations(false);
-  };
-
-  // Select a destination and get walking directions
-  const selectDestination = async (dest: NearbyDestination) => {
-    if (!userLocation) return;
-    setSelectedDestination(dest);
-
-    const route = await getWalkingDirections(
-      { lat: userLocation[0], lng: userLocation[1] },
-      { lat: dest.lat, lng: dest.lng }
-    );
-
-    if (route) {
-      setCurrentRoute(route);
-      setCurrentStepIndex(0);
-      displayRouteOnMap(route, dest);
-    }
-  };
-
-  // Display route polyline and destination marker on Leaflet map
-  const displayRouteOnMap = (route: WalkingRoute, dest: NearbyDestination) => {
-    if (!mapRef.current) return;
-
-    // Remove existing route layer
-    if (routeLayerRef.current) {
-      mapRef.current.removeLayer(routeLayerRef.current);
-    }
-    if (destinationMarkerRef.current) {
-      mapRef.current.removeLayer(destinationMarkerRef.current);
-    }
-
-    // Decode polyline and add to map
-    if (route.polyline && google?.maps?.geometry?.encoding) {
-      const decodedPath = google.maps.geometry.encoding.decodePath(route.polyline);
-      const latLngs = decodedPath.map((p: any) => [p.lat(), p.lng()]);
-
-      routeLayerRef.current = L.polyline(latLngs, {
-        color: '#22c55e',
-        weight: 6,
-        opacity: 0.8,
-        dashArray: '10, 10'
-      }).addTo(mapRef.current);
-    }
-
-    // Add destination marker
-    destinationMarkerRef.current = L.marker([dest.lat, dest.lng], {
-      icon: L.divIcon({
-        className: 'destination-marker',
-        html: `<div style="background:#22c55e;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      })
-    }).addTo(mapRef.current);
-
-    // Fit bounds to show route
-    mapRef.current.fitBounds([
-      [route.bounds.south, route.bounds.west],
-      [route.bounds.north, route.bounds.east]
-    ], { padding: [50, 50] });
-  };
-
-  // Check if user is near a waypoint and advance navigation
-  const checkNavigationProgress = (currentLat: number, currentLng: number) => {
-    if (!currentRoute || walkMode !== 'destination') return;
-
-    const currentStep = currentRoute.steps[currentStepIndex];
-    if (!currentStep) return;
-
-    // Calculate distance to current step's end point
-    const distToStep = L.latLng(currentLat, currentLng).distanceTo(
-      L.latLng(currentStep.endLocation.lat, currentStep.endLocation.lng)
-    );
-
-    // If within 20 meters, advance to next step
-    if (distToStep < 20 && currentStepIndex < currentRoute.steps.length - 1) {
-      setCurrentStepIndex(prev => prev + 1);
-      // Queue voice instruction for next step
-      const nextStep = currentRoute.steps[currentStepIndex + 1];
-      if (nextStep) {
-        const voiceInstruction = formatStepForVoice(nextStep, lang);
-        speakText(voiceInstruction).then(buffer => {
-          if (buffer) audioBufferQueue.current.unshift(buffer);
-        });
-      }
-    }
-
-    // Check if arrived at destination
-    if (selectedDestination) {
-      const distToDest = L.latLng(currentLat, currentLng).distanceTo(
-        L.latLng(selectedDestination.lat, selectedDestination.lng)
+  // Try to get location on mount with high accuracy
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setGpsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setGpsAccuracy(pos.coords.accuracy);
+          setGpsLoading(false);
+          setGpsError(false);
+        },
+        (err) => {
+          console.warn('Initial GPS failed:', err.message);
+          setGpsLoading(false);
+          // Don't set error yet — user hasn't explicitly requested GPS
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
-      if (distToDest < 30) {
-        // Arrived!
-        const arrivalMsg = lang === 'es'
-          ? `¡Llegaste a ${selectedDestination.name}! Excelente caminata.`
-          : `You've arrived at ${selectedDestination.name}! Great walk.`;
-        speakText(arrivalMsg);
+    }
+  }, []);
+
+  // Cleanup on unmount — close AudioContext to prevent audio bleed between views
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (narrationTimeoutRef.current) clearTimeout(narrationTimeoutRef.current);
+      isNarratingRef.current = false;
+      if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
+      bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
+      fullCleanup();
+      audioCtxRef.current = null;
+    };
+  }, []);
+
+  // Request GPS on user gesture (mobile Safari requires this)
+  const requestGpsPermission = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setGpsError(true);
+        setGpsLoading(false);
+        resolve(false);
+        return;
       }
+      setGpsError(false);
+      setGpsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setGpsAccuracy(pos.coords.accuracy);
+          setGpsError(false);
+          setGpsLoading(false);
+          resolve(true);
+        },
+        (err) => {
+          console.warn('GPS permission request failed:', err.code, err.message);
+          setGpsError(true);
+          setGpsLoading(false);
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
+  };
+
+  // ── Audio (shared manager) ──
+  const initAudio = async () => {
+    const ctx = await getAudioContext(24000);
+    audioCtxRef.current = ctx;
+  };
+
+  // ── Ambient Interlude System ──
+  const createAmbience = () => {
+    const ctx = audioCtxRef.current!;
+    const nodes: any[] = [];
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.12;
+    masterGain.connect(ctx.destination);
+    bgGainRef.current = masterGain;
+
+    const bufferSize = ctx.sampleRate * 2;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    let lastOut = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      noiseData[i] = (lastOut + 0.02 * white) / 1.02;
+      lastOut = noiseData[i];
+      noiseData[i] *= 3.5;
+    }
+
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.7;
+
+    switch (mode) {
+      case 'HOPE':
+        filter.frequency.value = 800;
+        (() => {
+          const pad = ctx.createOscillator();
+          pad.type = 'sine';
+          pad.frequency.value = 220;
+          const padGain = ctx.createGain();
+          padGain.gain.value = 0.025;
+          pad.connect(padGain);
+          padGain.connect(masterGain);
+          pad.start();
+          nodes.push(pad);
+        })();
+        break;
+      case 'HYPE':
+        filter.frequency.value = 1500;
+        filter.Q.value = 0.5;
+        (() => {
+          const bass = ctx.createOscillator();
+          bass.type = 'sine';
+          bass.frequency.value = 55;
+          const bassGain = ctx.createGain();
+          bassGain.gain.value = 0.03;
+          const pulseLfo = ctx.createOscillator();
+          pulseLfo.frequency.value = 1.2;
+          const pulseDepth = ctx.createGain();
+          pulseDepth.gain.value = 0.03;
+          pulseLfo.connect(pulseDepth);
+          pulseDepth.connect(bassGain.gain);
+          pulseLfo.start();
+          bass.connect(bassGain);
+          bassGain.connect(masterGain);
+          bass.start();
+          nodes.push(bass, pulseLfo);
+        })();
+        break;
+      case 'BREAKTHROUGH':
+        filter.frequency.value = 400;
+        filter.Q.value = 1.2;
+        [174, 261, 396].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const g = ctx.createGain();
+          g.gain.value = 0.04 - i * 0.01;
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.start();
+          nodes.push(osc);
+        });
+        break;
+      case 'STRATEGY':
+        filter.frequency.value = 600;
+        (() => {
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.frequency.value = 0.12;
+          lfoGain.gain.value = 300;
+          lfo.connect(lfoGain);
+          lfoGain.connect(filter.frequency);
+          lfo.start();
+          nodes.push(lfo);
+        })();
+        break;
+    }
+
+    noiseSource.connect(filter);
+    filter.connect(masterGain);
+    noiseSource.start();
+    nodes.push(noiseSource);
+    bgNodesRef.current = nodes;
+  };
+
+  const duckAmbience = () => {
+    if (bgGainRef.current && audioCtxRef.current) {
+      bgGainRef.current.gain.linearRampToValueAtTime(0.03, audioCtxRef.current.currentTime + 0.8);
     }
   };
 
+  const raiseAmbience = () => {
+    if (bgGainRef.current && audioCtxRef.current) {
+      bgGainRef.current.gain.linearRampToValueAtTime(0.12, audioCtxRef.current.currentTime + 1.5);
+    }
+  };
+
+  const stopAmbience = () => {
+    bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
+    bgNodesRef.current = [];
+    bgGainRef.current = null;
+  };
+
+  // ── TTS via Gemini ──
   const speakText = async (text: string) => {
-    // Initialize GoogleGenAI inside the function as per guidelines
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const genai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
-    const response = await ai.models.generateContent({
+    const response = await genai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
       config: {
@@ -252,46 +287,76 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
     });
-    
-    // Extract audio data from the response
     const base64 = response.candidates?.[0]?.content?.parts[0]?.inlineData?.data;
     if (!base64) return null;
-    
-    // Custom decode function to handle base64 to binary
+
     const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    
-    // Custom audio buffer decoding for raw PCM data
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
     const int16 = new Int16Array(bytes.buffer);
-    const frameCount = int16.length;
-    const buffer = audioCtxRef.current!.createBuffer(1, frameCount, 24000);
+    const buffer = audioCtxRef.current!.createBuffer(1, int16.length, 24000);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < frameCount; i++) {
-      data[i] = int16[i] / 32768.0;
-    }
+    for (let i = 0; i < int16.length; i++) data[i] = int16[i] / 32768.0;
     return buffer;
   };
 
-  const narrationLoop = useCallback(async () => {
-    if (!isNarratingRef.current || isPaused) return;
+  // ── Nominatim Destination Search ──
+  const fetchSuggestions = async (q: string) => {
+    if (q.length < 3) { setSuggestions([]); return; }
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`;
+    if (userLocation) {
+      const [lat, lon] = userLocation;
+      url += `&lat=${lat}&lon=${lon}&viewbox=${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}&bounded=0`;
+    }
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      setSuggestions(data);
+    } catch (e) {
+      setSuggestions([]);
+    }
+  };
 
-    if (audioBufferQueue.current.length < 2) {
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 600);
+  };
+
+  const selectSuggestion = (s: any) => {
+    const name = s.display_name.split(',')[0];
+    setDestinationName(name);
+    setDestinationCoords([parseFloat(s.lat), parseFloat(s.lon)]);
+    setSearchQuery(name);
+    setSuggestions([]);
+  };
+
+  // ── Narration Loop ──
+  const narrationLoop = useCallback(async () => {
+    if (!isNarratingRef.current || isPausedRef.current) return;
+
+    // Ensure AudioContext is active before playing
+    if (audioCtxRef.current?.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
+    if (audioBufferQueue.current.length === 0) {
       setIsBufferingAudio(true);
-      const isIntro = startTimeRef.current === null;
+      const stats = sessionStatsRef.current;
+      const returning = isReturningRef.current;
+      isReturningRef.current = false;
       const segment = await generateSegmentNarrative({
         mode,
         activity: 'WALK',
         lang,
-        stats: sessionStats,
-        isIntro,
+        stats,
+        isIntro: startTimeRef.current === null,
         isFirstSegment: !sponsorPlayedRef.current,
-        destinationName: selectedDestination?.name,
-        userLat: userLocation?.[0],
-        userLng: userLocation?.[1],
+        isReturning: returning,
+        indoorActivity: indoorActivityRef.current || undefined,
+        destinationName: destinationNameRef.current || undefined,
+        targetThought: targetThoughtRef.current || undefined
       });
       if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
       const buffer = await speakText(segment);
@@ -299,23 +364,81 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
       setIsBufferingAudio(false);
     }
 
+    if (isPausedRef.current || !isNarratingRef.current) return;
+
     if (audioBufferQueue.current.length > 0) {
       const buffer = audioBufferQueue.current.shift()!;
       const source = audioCtxRef.current!.createBufferSource();
       source.buffer = buffer;
-      // Audio ducking: boost narration volume, creates contrast with background music
-      const gainNode = audioCtxRef.current!.createGain();
-      gainNode.gain.value = 1.3; // Narration louder than normal
-      source.connect(gainNode);
-      gainNode.connect(audioCtxRef.current!.destination);
-      source.onended = () => narrationLoop();
+      source.connect(audioCtxRef.current!.destination);
+      currentSourceRef.current = source;
+
+      // In interval mode, only duck if ambience is active (continuous mode)
+      if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
+
+      source.onended = () => {
+        currentSourceRef.current = null;
+
+        if (narrationFreqRef.current === 'CONTINUOUS') {
+          // Continuous: raise ambience and immediately loop
+          raiseAmbience();
+          narrationLoop();
+        } else {
+          // Interval mode: silence everything so user's music plays
+          stopAmbience();
+          audioCtxRef.current?.suspend();
+
+          const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
+
+          // Pre-buffer next segment 25s before the gap ends
+          const preBufferDelay = Math.max(delayMs - 25000, 5000);
+          setTimeout(async () => {
+            if (!isNarratingRef.current) return;
+            isReturningRef.current = true;
+            const stats = sessionStatsRef.current;
+            const seg = await generateSegmentNarrative({
+              mode, activity: 'WALK', lang, stats,
+              isIntro: false, isFirstSegment: false, isReturning: true,
+              indoorActivity: indoorActivityRef.current || undefined,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined
+            });
+            const buf = await speakText(seg);
+            if (buf) audioBufferQueue.current.push(buf);
+          }, preBufferDelay);
+
+          // Resume narration after the interval
+          narrationTimeoutRef.current = setTimeout(async () => {
+            if (!isNarratingRef.current || isPausedRef.current) return;
+            await audioCtxRef.current?.resume();
+            narrationLoop();
+          }, delayMs);
+        }
+      };
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
-    } else {
-      setTimeout(narrationLoop, 2000);
-    }
-  }, [mode, lang, sessionStats, isPaused]);
 
+      // Pre-buffer next segment (continuous mode only — interval pre-buffers in the timeout)
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current) {
+        (async () => {
+          const stats = sessionStatsRef.current;
+          const seg = await generateSegmentNarrative({
+            mode, activity: 'WALK', lang, stats,
+            isIntro: false, isFirstSegment: false,
+            indoorActivity: indoorActivityRef.current || undefined,
+            destinationName: destinationNameRef.current || undefined,
+            targetThought: targetThoughtRef.current || undefined
+          });
+          const buf = await speakText(seg);
+          if (buf) audioBufferQueue.current.push(buf);
+        })();
+      }
+    } else {
+      setTimeout(narrationLoop, 1000);
+    }
+  }, [mode, lang]);
+
+  // ── Map (Ghost Mode) ──
   useEffect(() => {
     if (isPlaying && mapContainerRef.current && !mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
@@ -327,38 +450,49 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         doubleClickZoom: true
       }).setView(userLocation || [34.05, -118.24], 17);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapRef.current);
-      L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
+      // Standard OSM tiles — CSS .dark-map filter converts to ghost mode
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
+
+      // Neon polyline for walked path
+      pathRef.current = L.polyline([], {
+        color: '#233DFF',
+        weight: 8,
+        opacity: 0.95,
+        lineJoin: 'round',
+        className: 'glowing-path'
+      }).addTo(mapRef.current);
     }
 
     if (mapRef.current && userLocation) {
+      // Start pin: small green marker at the walk origin
+      if (!startMarkerRef.current && pathCoordsRef.current.length > 0) {
+        const startIcon = L.divIcon({
+          className: '',
+          html: `<div class="w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-[0_0_10px_rgba(74,222,128,0.6)]"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        startMarkerRef.current = L.marker(pathCoordsRef.current[0], { icon: startIcon }).addTo(mapRef.current);
+      }
+
       if (!markerRef.current) {
-        markerRef.current = L.circleMarker(userLocation, {
-          radius: 12,
-          color: '#fff',
-          fillColor: '#233DFF',
-          fillOpacity: 1,
-          weight: 4,
-          className: 'neon-marker'
-        }).addTo(mapRef.current);
+        // Pulsing neon marker via divIcon
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+        markerRef.current = L.marker(userLocation, { icon }).addTo(mapRef.current);
       } else {
         markerRef.current.setLatLng(userLocation);
       }
 
-      if (pathCoordsRef.current.length > 1) {
-        if (!pathRef.current) {
-          pathRef.current = L.polyline(pathCoordsRef.current, {
-            color: '#233DFF',
-            weight: 5,
-            opacity: 0.8,
-            className: 'neon-line'
-          }).addTo(mapRef.current);
-        } else {
-          pathRef.current.setLatLngs(pathCoordsRef.current);
-        }
+      if (pathCoordsRef.current.length > 1 && pathRef.current) {
+        pathRef.current.setLatLngs(pathCoordsRef.current);
       }
 
-      if (!isPaused && mapRef.current) {
+      if (!isPaused) {
         mapRef.current.panTo(userLocation, { animate: true });
       }
     }
@@ -368,31 +502,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         mapRef.current.remove();
         mapRef.current = null;
         markerRef.current = null;
+        startMarkerRef.current = null;
         pathRef.current = null;
       }
     };
   }, [isPlaying, userLocation, isPaused]);
 
-  // Cleanup timer and GPS on unmount
-  useEffect(() => {
-    return () => {
-      stopTimer();
-      stopTracking();
-    };
-  }, []);
-
+  // ── GPS Tracking ──
   const startTracking = () => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setUserLocation(coords);
-        lastPositionRef.current = coords;
-        pathCoordsRef.current = [coords];
-      },
-      null,
-      { enableHighAccuracy: true, timeout: 5000 }
-    );
-
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
@@ -400,338 +517,491 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang }) => {
         const current: [number, number] = [latitude, longitude];
         setUserLocation(current);
 
-        // Ignore low-accuracy readings
         if (accuracy > 40) return;
 
         if (lastPositionRef.current) {
           const prev = lastPositionRef.current;
-          const d = haversineDistance(prev, current);
-
-          // Filter GPS jitter — only count movement > 3 meters
-          if (d > 3) {
-            totalDistanceRef.current += d / 1609.34; // meters to miles
+          const d = L.latLng(prev[0], prev[1]).distanceTo(L.latLng(current[0], current[1]));
+          if (d > 5) {
+            setSessionStats(prevStats => ({
+              ...prevStats,
+              distance: prevStats.distance + (d / 1609.34)
+            }));
             pathCoordsRef.current.push(current);
             lastPositionRef.current = current;
-
-            // Immediately update stats so map effect picks up new path
-            const elapsed = getElapsedSeconds();
-            setSessionStats({
-              distance: totalDistanceRef.current,
-              time: Math.floor(elapsed),
-              pace: formatPace(elapsed, totalDistanceRef.current),
-            });
-
-            // Check navigation progress for turn-by-turn
-            checkNavigationProgress(latitude, longitude);
           }
         } else {
           lastPositionRef.current = current;
-          pathCoordsRef.current = [current];
         }
       },
-      (err) => console.warn('GPS watch error:', err),
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+      (err) => { console.warn('GPS tracking error:', err.message); },
+      { enableHighAccuracy: true }
     );
   };
 
-  const stopTracking = () => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-  };
-
+  // ── Handlers ──
   const handleStart = async () => {
     await initAudio();
-    // Reset session state
-    totalDistanceRef.current = 0;
-    pausedElapsedRef.current = 0;
-    pathCoordsRef.current = [];
-    lastPositionRef.current = null;
-    setSessionStats({ distance: 0, time: 0, pace: "0:00" });
+    const isIndoor = sessionType === 'INDOOR';
+    indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
+    // GPS only for outdoor sessions
+    if (!isIndoor) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 10000
+          });
+        });
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setUserLocation(coords);
+        pathCoordsRef.current = [coords];
+        lastPositionRef.current = coords;
+      } catch (e) {
+        // GPS failed on outdoor — still continue, just no map tracking
+      }
+    }
+
+    startKeepAlive();
+    await sharedRequestWakeLock();
+    onImmersiveChange?.(true);
     setIsPlaying(true);
     isNarratingRef.current = true;
-    startTimeRef.current = Date.now();
-    startTracking();
-    startTimer();
+    const now = Date.now();
+    startTimeRef.current = now;
+
+    timerIntervalRef.current = setInterval(() => {
+      setSessionStats(prev => {
+        const elapsed = (Date.now() - now) / 1000;
+        const paceRaw = prev.distance > 0 ? (elapsed / 60) / prev.distance : 0;
+        const mins = Math.floor(paceRaw);
+        const secs = Math.floor((paceRaw - mins) * 60);
+        return {
+          ...prev,
+          time: elapsed,
+          pace: prev.distance > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00'
+        };
+      });
+    }, 1000);
+
+    if (!isIndoor && pathCoordsRef.current.length > 0) startTracking();
+    if (narrationFreq === 'CONTINUOUS') createAmbience();
     narrationLoop();
   };
 
-  const handleStop = async () => {
-    isNarratingRef.current = false;
-    stopTracking();
-    stopTimer();
-
-    // Generate and speak ending message
-    try {
-      const { generateEndingMessage } = await import('../geminiService');
-      const endMsg = await generateEndingMessage({ mode, lang, stats: sessionStats });
-      const buffer = await speakText(endMsg);
-      if (buffer && audioCtxRef.current) {
-        const source = audioCtxRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtxRef.current.destination);
-        source.onended = () => {
-          setIsPlaying(false);
-          setIsPaused(false);
-          startTimeRef.current = null;
-          pausedElapsedRef.current = 0;
-          onBack();
-        };
-        source.start(0);
-        return; // Wait for ending message to finish before going back
-      }
-    } catch (e) {
-      console.warn('Ending message failed:', e);
+  const handleStop = () => {
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch(e) {}
+      currentSourceRef.current = null;
     }
-
-    // Fallback if ending message fails
+    isNarratingRef.current = false;
+    isPausedRef.current = false;
+    if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
+    stopAmbience();
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    // Close shared AudioContext to prevent audio bleed into other views
+    fullCleanup();
+    audioCtxRef.current = null;
+    onImmersiveChange?.(false);
     setIsPlaying(false);
     setIsPaused(false);
-    startTimeRef.current = null;
-    pausedElapsedRef.current = 0;
-    onBack();
+    // Show session summary instead of immediately going home
+    setFinalStats({ ...sessionStats });
+    setShowSummary(true);
   };
 
-  const handlePause = () => {
-    if (isPaused) {
-      // RESUME: restart GPS and timer from where we left off
-      startTimeRef.current = Date.now();
-      startTracking();
-      startTimer();
-      isNarratingRef.current = true;
-      setIsPaused(false);
-      narrationLoop();
+  const togglePause = () => {
+    const newPaused = !isPaused;
+    setIsPaused(newPaused);
+    isPausedRef.current = newPaused;
+    if (newPaused) {
+      if (currentSourceRef.current) {
+        try { currentSourceRef.current.stop(); } catch(e) {}
+        currentSourceRef.current = null;
+      }
+      if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
+      if (bgGainRef.current && audioCtxRef.current) {
+        bgGainRef.current.gain.linearRampToValueAtTime(0.02, audioCtxRef.current.currentTime + 0.3);
+      }
+      audioCtxRef.current?.suspend();
     } else {
-      // PAUSE: freeze elapsed time, stop GPS, stop timer
-      pausedElapsedRef.current = getElapsedSeconds();
-      startTimeRef.current = null;
-      stopTracking();
-      stopTimer();
-      isNarratingRef.current = false;
-      setIsPaused(true);
+      audioCtxRef.current?.resume();
+      if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
+      narrationLoop();
     }
   };
 
-  if (!isPlaying) {
+  // ══════════════════════════════════════════════
+  // RENDER: Session Summary
+  // ══════════════════════════════════════════════
+  if (showSummary) {
+    const mins = Math.floor(finalStats.time / 60);
+    const secs = Math.floor(finalStats.time % 60);
     return (
-      <div className="flex-1 flex flex-col p-6 animate-in fade-in overflow-y-auto bg-white dark:bg-[#121212]">
-        <div className="flex items-center gap-2 mb-8">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-            <ChevronLeft size={24} />
-          </button>
-          <span className="font-black uppercase tracking-[0.3em] text-[10px] text-[#233DFF]">{t.nav.move}</span>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-8">
+        <div className="w-24 h-24 bg-[#233DFF]/10 rounded-full flex items-center justify-center">
+          <Activity size={40} className="text-[#233DFF]" />
         </div>
-
-        <div className="space-y-1 mb-8">
-          <h2 className="text-4xl font-black tracking-tighter uppercase dark:text-white">{t.labels.readyToBegin}</h2>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">{t.labels.selectMode}</p>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.sessionSummary}</h2>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.sessionSummaryDesc}</p>
         </div>
-
-        <div className="grid grid-cols-1 gap-3 mb-6">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setMode(m.id)}
-              className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between group active:scale-[0.98] ${mode === m.id ? 'border-[#233DFF] bg-[#233DFF]/5' : 'border-gray-50 dark:border-white/5 bg-gray-50 dark:bg-white/5'}`}
-            >
-              <div className="flex flex-col items-start text-left">
-                <span className={`font-black uppercase text-sm tracking-widest ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{m.desc}</span>
-              </div>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${mode === m.id ? 'bg-[#233DFF] text-white scale-110' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
-                <Sparkles size={18} />
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Walk Mode Selection */}
-        <div className="mb-6">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-3">
-            {lang === 'es' ? 'Tipo de caminata' : 'Walk Type'}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setWalkMode('free')}
-              className={`p-4 rounded-2xl border-2 transition-all ${walkMode === 'free' ? 'border-[#233DFF] bg-[#233DFF]/5' : 'border-gray-100 dark:border-white/5'}`}
-            >
-              <Navigation size={24} className={walkMode === 'free' ? 'text-[#233DFF] mx-auto mb-2' : 'text-gray-400 mx-auto mb-2'} />
-              <span className={`text-xs font-bold block ${walkMode === 'free' ? 'text-[#233DFF]' : 'text-gray-500'}`}>
-                {lang === 'es' ? 'Libre' : 'Free Walk'}
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setWalkMode('destination');
-                if (userLocation) {
-                  loadNearbyDestinations(userLocation[0], userLocation[1]);
-                } else {
-                  navigator.geolocation.getCurrentPosition((pos) => {
-                    setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-                    loadNearbyDestinations(pos.coords.latitude, pos.coords.longitude);
-                  });
-                }
-              }}
-              className={`p-4 rounded-2xl border-2 transition-all ${walkMode === 'destination' ? 'border-green-500 bg-green-500/5' : 'border-gray-100 dark:border-white/5'}`}
-            >
-              <MapPin size={24} className={walkMode === 'destination' ? 'text-green-500 mx-auto mb-2' : 'text-gray-400 mx-auto mb-2'} />
-              <span className={`text-xs font-bold block ${walkMode === 'destination' ? 'text-green-600' : 'text-gray-500'}`}>
-                {lang === 'es' ? 'A un destino' : 'To Destination'}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Destination Selection (if destination mode) */}
-        {walkMode === 'destination' && (
-          <div className="mb-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-3">
-              {lang === 'es' ? 'Elige un destino' : 'Choose Destination'}
-            </p>
-            {isLoadingDestinations ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-8 h-8 border-3 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
-              </div>
-            ) : nearbyDestinations.length > 0 ? (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {nearbyDestinations.map((dest, i) => (
-                  <button
-                    key={i}
-                    onClick={() => selectDestination(dest)}
-                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${selectedDestination?.name === dest.name ? 'border-green-500 bg-green-500/5' : 'border-gray-100 dark:border-white/5'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedDestination?.name === dest.name ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-400'}`}>
-                        <MapPin size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate dark:text-white">{dest.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{dest.address}</p>
-                      </div>
-                      {dest.rating && (
-                        <span className="text-xs font-bold text-yellow-500">★ {dest.rating}</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-sm text-gray-400 py-4">
-                {lang === 'es' ? 'No se encontraron destinos cercanos' : 'No nearby destinations found'}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Route Info */}
-        {currentRoute && selectedDestination && (
-          <div className="mb-6 p-4 bg-green-500/10 rounded-2xl border border-green-500/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-600 font-bold uppercase tracking-wider">
-                  {lang === 'es' ? 'Ruta a' : 'Route to'}
-                </p>
-                <p className="font-bold text-green-700">{selectedDestination.name}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-black text-green-600">{currentRoute.distance}</p>
-                <p className="text-xs text-green-500">{currentRoute.duration}</p>
-              </div>
+        <div className="flex gap-8">
+          {sessionType === 'OUTDOOR' && (
+            <div className="flex flex-col items-center">
+              <span className="text-4xl font-semibold tabular-nums text-[#233DFF]">{finalStats.distance.toFixed(2)}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{t.labels.miles}</span>
             </div>
+          )}
+          <div className="flex flex-col items-center">
+            <span className="text-4xl font-semibold tabular-nums dark:text-white">{mins}:{secs.toString().padStart(2, '0')}</span>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{t.labels.time}</span>
           </div>
-        )}
-
-        <button
-          onClick={handleStart}
-          disabled={walkMode === 'destination' && !selectedDestination}
-          className={`w-full h-20 rounded-[32px] font-black uppercase tracking-[0.5em] text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 ${walkMode === 'destination' && !selectedDestination ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-[#233DFF] text-white'}`}
-        >
-          <Play size={20} fill="currentColor" /> {t.labels.start}
-        </button>
+          {sessionType === 'OUTDOOR' && finalStats.distance > 0 && (
+            <div className="flex flex-col items-center">
+              <span className="text-4xl font-semibold tabular-nums dark:text-white">{finalStats.pace}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{t.labels.avgPace}</span>
+            </div>
+          )}
+        </div>
+        <p className="text-base font-medium italic text-gray-500 dark:text-gray-400 max-w-xs">{t.labels.wellDone}</p>
+        <div className="w-full max-w-xs space-y-4">
+          <button
+            onClick={onBack}
+            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-lg active:scale-95 transition-all"
+          >
+            {t.labels.returnHome}
+          </button>
+          <p className="text-xs font-medium text-gray-300 dark:text-gray-600 uppercase tracking-wide">{t.labels.crisisLine}</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="flex-1 flex flex-col bg-black overflow-hidden relative">
-      <div ref={mapContainerRef} className="absolute inset-0 z-0 opacity-60" />
-      
-      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/90 pointer-events-none z-[1]" />
-
-      <header className="relative z-[10] p-6 flex justify-between items-start">
-        <button onClick={handleStop} className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all">
-          <X size={20} />
-        </button>
-        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-          <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">GPS: {gpsAccuracy ? `${gpsAccuracy.toFixed(0)}m` : '---'}</span>
-        </div>
-      </header>
-
-      <div className="relative z-[10] mt-auto p-6 space-y-6">
-        {/* Turn-by-turn navigation card */}
-        {walkMode === 'destination' && currentRoute && currentRoute.steps[currentStepIndex] && (
-          <div className="bg-green-500/90 backdrop-blur-lg rounded-3xl p-4 border border-green-400/30">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Navigation size={24} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-bold text-sm leading-tight">
-                  {currentRoute.steps[currentStepIndex].instruction}
-                </p>
-                <p className="text-green-100 text-xs mt-1">
-                  {currentRoute.steps[currentStepIndex].distance} · {lang === 'es' ? 'Paso' : 'Step'} {currentStepIndex + 1}/{currentRoute.steps.length}
-                </p>
+  // ══════════════════════════════════════════════
+  // RENDER: Active Walk — Ghost Mode
+  // ══════════════════════════════════════════════
+  if (isPlaying) {
+    return (
+      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
+        {/* Ghost Mode Map or Indoor Background */}
+        <div className="flex-1 relative overflow-hidden dark-map">
+          {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+          {sessionType === 'INDOOR' && (
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
+              <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
+                <Activity size={48} className="text-[#233DFF]/30" />
               </div>
             </div>
-            {selectedDestination && (
-              <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
-                <span className="text-green-100 text-xs">{lang === 'es' ? 'Destino' : 'Destination'}</span>
-                <span className="text-white font-bold text-xs">{selectedDestination.name}</span>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
+
+          {/* Floating Pill HUD */}
+          <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
+            <div className="flex justify-center gap-2.5">
+              {sessionType === 'OUTDOOR' && (
+                <>
+                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
+                    <Activity size={16} className="text-[#233DFF]" />
+                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
+                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
+                  </div>
+                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
+                    <Navigation size={16} className="text-[#233DFF]" />
+                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
+                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-center">
+              <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
+                <Clock size={16} className="text-[#233DFF]" />
+                <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">
+                  {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
+                </span>
+                <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.time}</span>
               </div>
-            )}
+            </div>
+
+            {/* Status indicators */}
+            <div className="flex justify-center gap-2.5">
+              {sessionType === 'INDOOR' && (
+                <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+                  <span className="text-[11px] font-medium text-white/50 uppercase">{t.labels.indoorSession} — {t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}</span>
+                </div>
+              )}
+              {sessionType === 'OUTDOOR' && gpsAccuracy != null && gpsAccuracy > 30 && (
+                <div className="px-4 py-1.5 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
+                  <span className="text-[11px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
+                </div>
+              )}
+              {isBufferingAudio && (
+                <div className="px-4 py-1.5 rounded-full bg-[#233DFF]/30 backdrop-blur-md border border-[#233DFF]/40 animate-pulse">
+                  <span className="text-[11px] font-medium text-white/70 uppercase">loading</span>
+                </div>
+              )}
+            </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: t.labels.miles, value: sessionStats.distance.toFixed(2) },
-            { label: t.labels.avgPace, value: sessionStats.pace },
-            { label: t.labels.time, value: `${Math.floor(sessionStats.time / 60)}:${(sessionStats.time % 60).toString().padStart(2, '0')}` }
-          ].map((stat, i) => (
-            <div key={i} className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-3xl p-4 flex flex-col items-center">
-              <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-1">{stat.label}</span>
-              <span className="text-xl font-black text-white tabular-nums tracking-tighter">{stat.value}</span>
+          {/* Bottom Controls */}
+          <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+20px)] flex flex-col items-center gap-5">
+            <div className="px-5 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+              <span className="text-xs font-medium text-white uppercase tracking-wide">
+                {MODES.find(m => m.id === mode)?.label}{sessionType === 'INDOOR' ? ` · ${t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}` : ''}
+              </span>
             </div>
-          ))}
-        </div>
-
-        <div className="flex gap-4">
-          <button 
-            onClick={handlePause}
-            className="flex-1 h-20 bg-white/10 backdrop-blur-lg border border-white/10 rounded-[32px] flex items-center justify-center text-white active:scale-95 transition-all"
-          >
-            {isPaused ? <Play size={24} fill="currentColor" /> : <Pause size={24} fill="currentColor" />}
-          </button>
-          <button 
-            onClick={handleStop}
-            className="flex-1 h-20 bg-[#233DFF] rounded-[32px] flex items-center justify-center text-white font-black uppercase tracking-[0.3em] text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
-          >
-            {t.labels.done}
-          </button>
+            <div className="flex items-center gap-8">
+              <button
+                onClick={handleStop}
+                className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center text-white/60 active:scale-95 transition-all"
+              >
+                <X size={22} />
+              </button>
+              <button
+                onClick={togglePause}
+                className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
+              >
+                {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} fill="currentColor" />}
+              </button>
+              <div className="w-16 h-16" />
+            </div>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {isBufferingAudio && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[20] flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+  // ══════════════════════════════════════════════
+  // RENDER: Setup — Step 0 (CBT Check-in) & Step 1 (Mode + Destination)
+  // ══════════════════════════════════════════════
+  return (
+    <div className="flex-1 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0">
+        <button onClick={step === 0 ? onBack : () => setStep(0)} className="w-11 h-11 -ml-2 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
+          <ChevronLeft size={24} />
+        </button>
+        <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF]">{t.nav.move}</span>
+      </div>
+
+      {/* ── Step 0: CBT Check-in ── */}
+      {step === 0 && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="space-y-2 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
+          </div>
+          <div className="flex-1 min-h-0 my-4">
+            <textarea
+              value={targetThought}
+              onChange={(e) => setTargetThought(e.target.value)}
+              placeholder={t.labels.thoughtPlaceholder}
+              className="w-full h-full p-5 bg-gray-50 dark:bg-white/5 rounded-3xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-base resize-none dark:text-white placeholder:text-gray-400"
+            />
+          </div>
+          {/* GPS Status Indicator */}
+          {gpsLoading && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl flex-shrink-0">
+              <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
+              <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
+            </div>
+          )}
+          {!gpsLoading && userLocation && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl flex-shrink-0">
+              <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'Ubicación GPS obtenida' : 'GPS location acquired'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
+            </div>
+          )}
+          {!gpsLoading && gpsError && (
+            <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS.' : 'Could not access GPS.'}</p>
+              <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
+            </div>
+          )}
+
+          <button
+            onClick={async () => {
+              if (!userLocation) await requestGpsPermission();
+              setStep(1);
+            }}
+            disabled={!targetThought.trim() || gpsLoading}
+            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
+          >
+            {gpsLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {gpsLoading ? (lang === 'es' ? 'Localizando...' : 'Locating...') : t.onboarding.next}
+          </button>
+        </div>
+      )}
+
+      {/* ── Step 1: Mode + Destination ── */}
+      {step === 1 && (
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Title */}
+          <div className="space-y-2 mb-4 flex-shrink-0">
+            <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
+          </div>
+
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 -mx-1 px-1 space-y-4">
+            {/* Outdoor / Indoor Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.labels.sessionType}</span>
+              {(['OUTDOOR', 'INDOOR'] as SessionType[]).map(st => (
+                <button
+                  key={st}
+                  onClick={() => setSessionType(st)}
+                  className={`px-4 py-2 rounded-full text-[11px] font-medium uppercase tracking-wide transition-all active:scale-95 ${sessionType === st ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+                >
+                  {t.labels[st.toLowerCase() as 'outdoor' | 'indoor']}
+                </button>
+              ))}
+            </div>
+
+            {/* GPS Status (outdoor only) */}
+            {sessionType === 'OUTDOOR' && gpsLoading && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl">
+                <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
+              </div>
+            )}
+            {sessionType === 'OUTDOOR' && !gpsLoading && userLocation && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl">
+                <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'GPS listo' : 'GPS ready'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
+              </div>
+            )}
+            {sessionType === 'OUTDOOR' && !gpsLoading && gpsError && (
+              <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. Audio seguirá funcionando.' : 'Could not access GPS. Audio guidance will still play.'}</p>
+                <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95 flex-shrink-0 ml-2">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
+              </div>
+            )}
+
+            {/* Outdoor: Destination Search */}
+            {sessionType === 'OUTDOOR' && (
+              <div className="relative">
+                <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-4">
+                  <Search size={18} className="text-gray-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
+                    className="bg-transparent flex-1 text-base outline-none dark:text-white placeholder:text-gray-400"
+                  />
+                </div>
+                {suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
+                    {suggestions.map((s: any, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => selectSuggestion(s)}
+                        className="w-full text-left px-5 py-4 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate active:bg-gray-100 dark:active:bg-white/10"
+                      >
+                        {s.display_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {destinationName && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Navigation size={14} className="text-[#233DFF]" />
+                    <span className="text-sm text-[#233DFF] font-medium truncate">{destinationName}</span>
+                    <button
+                      onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
+                      className="text-gray-400 text-base ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Indoor: Activity Picker */}
+            {sessionType === 'INDOOR' && (
+              <div className="grid grid-cols-3 gap-2.5">
+                {([
+                  { id: 'STRETCH' as IndoorActivity, label: t.labels.stretch, desc: t.labels.stretchDesc },
+                  { id: 'FLOW' as IndoorActivity, label: t.labels.flow, desc: t.labels.flowDesc },
+                  { id: 'SWEAT' as IndoorActivity, label: t.labels.sweat, desc: t.labels.sweatDesc },
+                ]).map(act => (
+                  <button
+                    key={act.id}
+                    onClick={() => setIndoorActivity(act.id)}
+                    className={`p-4 rounded-2xl text-center transition-all border active:scale-[0.97] ${
+                      indoorActivity === act.id
+                        ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
+                        : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
+                    }`}
+                  >
+                    <span className={`font-medium text-base block ${indoorActivity === act.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{act.label}</span>
+                    <span className="text-[11px] text-gray-400 block mt-1">{act.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 2x2 Mode Grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setMode(m.id)}
+                  className={`p-4 rounded-2xl text-left transition-all border active:scale-[0.97] ${
+                    mode === m.id
+                      ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
+                      : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full mb-2 ${
+                    m.tone === 'blue' ? 'bg-[#233DFF]' :
+                    m.tone === 'pink' ? 'bg-pink-400' :
+                    m.tone === 'orange' ? 'bg-orange-400' : 'bg-yellow-400'
+                  }`} />
+                  <span className={`font-medium text-base block ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
+                  <span className="text-xs text-gray-400 block mt-0.5">{m.desc}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Narration Frequency */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.labels.narrationFreq}</span>
+              {([
+                { id: 'CONTINUOUS' as NarrationFrequency, label: t.labels.continuous },
+                { id: 'INTERVAL_2' as NarrationFrequency, label: t.labels.every2Min },
+                { id: 'INTERVAL_5' as NarrationFrequency, label: t.labels.every5Min },
+              ]).map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setNarrationFreq(opt.id)}
+                  className={`px-4 py-2 rounded-full text-[11px] font-medium uppercase tracking-wide transition-all active:scale-95 ${narrationFreq === opt.id ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Go Button — pinned to bottom */}
+          <button
+            onClick={handleStart}
+            className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
+          >
+            <Play size={20} fill="currentColor" />
+            <span>{sessionType === 'INDOOR'
+              ? (lang === 'es' ? 'Comenzar' : 'Begin')
+              : destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'
+            }</span>
+          </button>
         </div>
       )}
     </div>
   );
 };
 
-// Fix for Error 1: Exporting GuidedWalk as default
 export default GuidedWalk;

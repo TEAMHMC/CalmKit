@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, RefreshCcw, Volume2, Loader2, Music, Pause, Play } from 'lucide-react';
+import { Sparkles, RefreshCcw, Volume2, Loader2, Pause, Play } from 'lucide-react';
 import { Language, BackgroundSound } from '../types';
 import { translations } from '../translations';
 import { generateMeditationScript } from '../geminiService';
 import { GoogleGenAI, Modality } from "@google/genai";
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, fullCleanup } from '../audioManager';
 
 interface MeditationProps {
   onBack: () => void;
@@ -18,6 +19,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const [bgSound, setBgSound] = useState<BackgroundSound>('NONE');
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState(false);
 
   const t = translations[lang];
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -49,13 +51,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   };
 
   const initAudio = async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-    }
-    return audioContextRef.current;
+    const ctx = await getAudioContext(24000);
+    audioContextRef.current = ctx;
+    return ctx;
   };
 
   const stopAudio = () => {
@@ -66,6 +64,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
+    stopKeepAlive();
+    releaseWakeLock();
     setIsAudioPlaying(false);
     setProgress(0);
   };
@@ -75,7 +75,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     try {
       const ctx = await initAudio();
       setIsAudioPlaying(true);
-      
+      startKeepAlive();
+      await requestWakeLock();
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -100,7 +102,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         
         progressIntervalRef.current = setInterval(() => {
           const current = ctx.currentTime - startTimeRef.current;
-          setProgress((current / audioBuffer.duration) * 100);
+          setProgress(Math.min((current / audioBuffer.duration) * 100, 100));
         }, 100);
 
         source.onended = () => {
@@ -115,11 +117,13 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     } catch (e) {
       console.error("Meditation failed", e);
       setIsAudioPlaying(false);
+      setError(true);
     }
   };
 
   const loadScript = async () => {
     setIsLoading(true);
+    setError(false);
     await initAudio();
     try {
       const s = await generateMeditationScript(lang);
@@ -135,40 +139,44 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   };
 
   useEffect(() => {
-    return () => stopAudio();
+    return () => {
+      stopAudio();
+      fullCleanup();
+      audioContextRef.current = null;
+    };
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col p-6 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+    <div className="flex-1 flex flex-col px-5 py-5 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex flex-col">
-          <span className="font-black uppercase tracking-[0.5em] text-[10px] text-[#233DFF]">{t.nav.meditate}</span>
-          <span className="text-[8px] font-bold text-gray-300 uppercase tracking-widest mt-1">{t.labels.phaseStillness}</span>
+          <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF]">{t.nav.meditate}</span>
+          <span className="text-[11px] font-medium text-gray-300 uppercase tracking-wide mt-1">{t.labels.phaseStillness}</span>
         </div>
         {script && !isLoading && (
-          <button 
-            onClick={loadScript} 
-            className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all shadow-sm"
+          <button
+            onClick={loadScript}
+            className="w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all shadow-sm"
           >
-            <RefreshCcw size={16} className="text-gray-400" />
+            <RefreshCcw size={18} className="text-gray-400" />
           </button>
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-between text-center py-4 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-between text-center py-2 overflow-hidden min-h-0">
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-8 animate-in fade-in zoom-in">
-            <div className="w-24 h-24 bg-gray-50 dark:bg-white/5 rounded-[40px] flex items-center justify-center relative shadow-inner">
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in">
+            <div className="w-24 h-24 bg-gray-50 dark:bg-white/5 rounded-[32px] flex items-center justify-center relative shadow-inner">
                <Loader2 size={40} className="text-[#233DFF] animate-spin" />
                <div className="absolute -inset-4 border-2 border-[#233DFF]/10 rounded-full animate-ping"></div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
           </div>
         ) : (
           <>
-            <div className="w-32 h-32 bg-[#233DFF]/5 rounded-[48px] flex items-center justify-center relative group flex-shrink-0">
-              <div className={`absolute inset-0 bg-[#233DFF]/10 rounded-[48px] transition-all duration-[2500ms] ${isAudioPlaying ? 'animate-ping' : ''}`}></div>
-              <Sparkles size={48} className={`text-[#233DFF] transition-all duration-700 ${isAudioPlaying ? 'scale-110 rotate-6' : 'scale-100'}`} />
+            <div className="w-24 h-24 bg-[#233DFF]/5 rounded-[32px] flex items-center justify-center relative group flex-shrink-0">
+              <div className={`absolute inset-0 bg-[#233DFF]/10 rounded-[32px] transition-all duration-[2500ms] ${isAudioPlaying ? 'animate-ping' : ''}`}></div>
+              <Sparkles size={40} className={`text-[#233DFF] transition-all duration-700 ${isAudioPlaying ? 'scale-110 rotate-6' : 'scale-100'}`} />
               {isAudioPlaying && (
                 <div className="absolute -bottom-2 -right-2 bg-[#233DFF] text-white p-2 rounded-full shadow-2xl animate-in bounce-in">
                   <Volume2 size={16} className="animate-pulse" />
@@ -176,38 +184,61 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               )}
             </div>
 
-            <div className="w-full max-w-[180px] h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden my-4">
-              <div 
-                className="h-full bg-[#233DFF] transition-all duration-100 ease-linear" 
+            <div className="w-full max-w-[240px] h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden my-4">
+              <div
+                className="h-full bg-[#233DFF] transition-all duration-100 ease-linear rounded-full"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="space-y-4 px-4 flex-1 flex flex-col justify-center overflow-y-auto scrollbar-hide">
-              <h2 className="text-2xl font-[900] uppercase tracking-tighter dark:text-white leading-none">{t.meditationHeader}</h2>
+            <div className="space-y-3 px-4 flex-1 flex flex-col justify-center overflow-hidden min-h-0">
+              <h2 className="text-2xl font-normal tracking-normal dark:text-white leading-none font-display flex-shrink-0">{t.meditationHeader}</h2>
               {script ? (
-                <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700">
+                <p className="text-base font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700 overflow-hidden">
                   {script}
                 </p>
               ) : (
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest leading-loose opacity-60">{t.labels.tapToStart}</p>
+                <p className="text-xs font-medium text-gray-300 uppercase tracking-wide leading-loose opacity-60">{t.labels.tapToStart}</p>
               )}
             </div>
 
-            <div className="flex flex-col gap-4 w-full max-w-xs flex-shrink-0 mt-6">
+            {/* Error state */}
+            {error && (
+              <div className="px-5 py-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {lang === 'es' ? 'No se pudo reproducir el audio. Puedes leer la meditación arriba.' : 'Audio playback failed. You can read the meditation text above.'}
+                </p>
+              </div>
+            )}
+
+            {/* Background Sound Selector */}
+            <div className="flex items-center justify-center gap-2 flex-shrink-0 flex-wrap">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-1">{t.bgSound}</span>
+              {(['NONE', 'RAIN', 'OCEAN', 'FOREST', 'ZEN'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setBgSound(s)}
+                  className={`px-4 py-2 rounded-full text-[11px] font-medium uppercase tracking-wide transition-all active:scale-95 ${bgSound === s ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+                >
+                  {t.sounds[s]}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3 w-full max-w-xs flex-shrink-0 mt-5">
               {!script ? (
-                <button 
+                <button
                   onClick={loadScript}
-                  className="w-full h-16 bg-[#233DFF] text-white rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] shadow-lg active:scale-95 transition-all"
+                  className="w-full h-16 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   {t.labels.beginSession}
                 </button>
               ) : (
-                <button 
+                <button
                   onClick={() => isAudioPlaying ? stopAudio() : playMeditationAudio(script)}
-                  className={`w-full h-16 rounded-[28px] font-black uppercase tracking-[0.4em] text-[11px] transition-all flex items-center justify-center gap-3 ${isAudioPlaying ? 'bg-gray-100 dark:bg-white/10 text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black shadow-xl'}`}
+                  className={`w-full h-16 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 active:scale-95 ${isAudioPlaying ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl'}`}
                 >
-                  {isAudioPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  {isAudioPlaying ? <Pause size={18} /> : <Play size={18} />}
                   {isAudioPlaying ? t.pauseSession : t.labels.start}
                 </button>
               )}
