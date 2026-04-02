@@ -22,15 +22,25 @@ export const generateSegmentNarrative = async (params: {
   isIntro: boolean;
   isFirstSegment: boolean;
   destinationName?: string;
+  targetThought?: string;
   userLat?: number;
   userLng?: number;
 }) => {
   try {
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+    const sessionMinutes = Math.floor((params.stats?.time || 0) / 60);
     const data = await proxyCall('movement-narrative', {
       mode: params.mode,
       activity: params.activity || 'WALK',
       lang: params.lang,
       destinationName: params.destinationName,
+      targetThought: params.targetThought,
+      timeOfDay,
+      sessionMinutes,
+      distanceMiles: params.stats?.distance || 0,
+      isIntro: params.isIntro,
+      isFirstSegment: params.isFirstSegment,
     });
     // Return the full narrative data for the narration loop
     if (data.preStartIntro) return data.preStartIntro;

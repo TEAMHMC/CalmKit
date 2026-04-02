@@ -343,10 +343,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── Nominatim Destination Search ──
   const fetchSuggestions = async (q: string) => {
     if (q.length < 3) { setSuggestions([]); return; }
-    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`;
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1&countrycodes=us`;
     if (userLocation) {
       const [lat, lon] = userLocation;
-      url += `&lat=${lat}&lon=${lon}&viewbox=${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}&bounded=0`;
+      url += `&lat=${lat}&lon=${lon}&viewbox=${lon - 0.15},${lat + 0.15},${lon + 0.15},${lat - 0.15}&bounded=1`;
     }
     try {
       const res = await fetch(url);
@@ -428,6 +428,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           stats: sessionStatsRef.current,
           isIntro: startTimeRef.current === null,
           isFirstSegment: !sponsorPlayedRef.current,
+          destinationName: destinationNameRef.current || undefined,
+          userLat: userLocation?.[0],
+          userLng: userLocation?.[1],
         });
         if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
         const buffer = await speakText(segment);
@@ -524,7 +527,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         doubleClickZoom: false
       }).setView(initialLoc, 19);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
+      L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        attribution: '&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap'
+      }).addTo(mapRef.current);
 
       // Neon polyline for walked path
       pathRef.current = L.polyline([], {
@@ -634,7 +640,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, activity: 'WALK', lang, destinationName: destinationNameRef.current || undefined }),
+        body: JSON.stringify({
+          mode, activity: 'WALK', lang,
+          destinationName: destinationNameRef.current || undefined,
+          targetThought: targetThoughtRef.current || undefined,
+          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+        }),
       });
       const data = await res.json();
       if (data.success && data.preStartIntro) {
