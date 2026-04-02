@@ -26,14 +26,14 @@ export const generateSegmentNarrative = async (params: {
   userLng?: number;
 }) => {
   try {
-    const data = await proxyCall('narration', {
+    const data = await proxyCall('movement-narrative', {
       mode: params.mode,
+      activity: params.activity || 'WALK',
       lang: params.lang,
-      stats: params.stats,
-      isIntro: params.isIntro,
-      isFirstSegment: params.isFirstSegment,
       destinationName: params.destinationName,
     });
+    // Return the full narrative data for the narration loop
+    if (data.preStartIntro) return data.preStartIntro;
     return data.narration || "";
   } catch (e) {
     return params.lang === 'es' ? "Sigue moviéndote, lo estás haciendo bien." : "Keep moving, you are doing great.";
