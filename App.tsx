@@ -128,7 +128,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'HOME': return <Home onSelectView={safeSetView} lang={prefs.lang} />;
-      case 'WALK': return <GuidedWalk onBack={() => safeSetView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} />;
+      case 'WALK': try { return <GuidedWalk onBack={() => safeSetView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} />; } catch(e: any) { return <div className="p-8 text-red-500"><p className="font-bold">Move Error:</p><pre className="text-xs mt-2 whitespace-pre-wrap">{e?.message || String(e)}</pre><button onClick={() => safeSetView('HOME')} className="mt-4 px-4 py-2 bg-black text-white rounded-full">Back to Home</button></div>; }
       case 'BREATHE': return <BreathingExercise onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
       case 'MEDITATE': return <Meditation onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
       case 'REFLECT': return <Journal onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
