@@ -10,21 +10,42 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
-  const [affirmation, setAffirmation] = useState("");
+  // Instant defaults — never show a blank or loading state
+  const DEFAULT_AFFIRMATIONS = {
+    en: [
+      "I am unstoppable today.",
+      "I choose to show up for myself.",
+      "My next step matters more than my last setback.",
+      "I am building something powerful — one day at a time.",
+      "I am worthy of rest, growth, and good things.",
+    ],
+    es: [
+      "Hoy soy imparable.",
+      "Elijo aparecer por mí mismo.",
+      "Mi próximo paso importa más que mi último tropiezo.",
+      "Estoy construyendo algo poderoso — un día a la vez.",
+      "Merezco descanso, crecimiento y cosas buenas.",
+    ],
+  };
+
+  const getRandomDefault = (l: Language) => {
+    const arr = DEFAULT_AFFIRMATIONS[l];
+    return arr[Math.floor(Math.random() * arr.length)];
+  };
+
+  const [affirmation, setAffirmation] = useState(() => getRandomDefault(lang));
   const [loadingAff, setLoadingAff] = useState(false);
   const t = translations[lang];
 
   const fetchAffirmation = async () => {
+    // Show a random default immediately so user is never waiting
+    setAffirmation(getRandomDefault(lang));
     setLoadingAff(true);
     try {
       const a = await generateAffirmation(lang);
-      setAffirmation(a);
+      if (a && a.trim()) setAffirmation(a);
     } catch {
-      setAffirmation(
-        lang === 'en'
-          ? "I am capable and resilient."
-          : "Soy capaz y resiliente."
-      );
+      // Already showing a default — no action needed
     } finally {
       setLoadingAff(false);
     }

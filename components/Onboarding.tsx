@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { ArrowRight, Check, Wind, Move, BookOpen, Zap } from 'lucide-react';
+import { ArrowRight, Check, Wind, Move, BookOpen, Zap, Download } from 'lucide-react';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -45,6 +45,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, lang: initialLang, 
       desc: t.onboarding.step3,
       icon: <Zap className="text-white" size={56} />,
       color: "bg-black dark:bg-white/10"
+    },
+    {
+      title: lang === 'en' ? "Install the App" : "Instala la App",
+      desc: lang === 'en'
+        ? "Add CalmKit to your home screen for quick access anytime. iPhone: tap Share (□↑) then \"Add to Home Screen\". Android: tap the menu then \"Install app\"."
+        : "Agrega CalmKit a tu pantalla de inicio para acceso rápido. iPhone: toca Compartir (□↑) y \"Agregar a inicio\". Android: toca el menú y \"Instalar app\".",
+      icon: <Download className="text-[#233DFF]" size={56} />,
+      color: "bg-white dark:bg-white/5"
     }
   ];
 

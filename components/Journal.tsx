@@ -64,9 +64,16 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
   if (showHistory) {
     return (
       <div className="flex-1 flex flex-col bg-white dark:bg-[#121212] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 dark:border-white/5">
-          <span className="font-medium text-xs tracking-wide text-[#233DFF] uppercase">{t.labels.history}</span>
-          <button onClick={() => setShowHistory(false)} className="text-xs font-medium uppercase text-gray-400 px-3 py-2 rounded-full active:bg-gray-50 dark:active:bg-white/5 transition-colors">{t.labels.close}</button>
+        <div className="border-b border-gray-50 dark:border-white/5 px-5 py-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-xs tracking-wide text-[#233DFF] uppercase">{t.labels.history}</span>
+            <button onClick={() => setShowHistory(false)} className="text-xs font-medium uppercase text-gray-400 px-3 py-2 rounded-full active:bg-gray-50 dark:active:bg-white/5 transition-colors">{t.labels.close}</button>
+          </div>
+          <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 leading-relaxed">
+            {lang === 'es'
+              ? 'Las reflexiones se guardan solo en este dispositivo. Estarán aquí mientras no borres los datos de tu navegador.'
+              : "Reflections are saved on this device only. They'll be here as long as you don't clear your browser data."}
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-hide">
           {entries.length === 0 && <p className="text-center text-gray-300 py-20 text-sm font-medium uppercase tracking-wide">{t.labels.noEntries}</p>}
@@ -133,8 +140,9 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
 
         <div className="relative flex-shrink-0">
           {showSuccess && (
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-green-500 text-white px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wide shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-2">
-              <CheckCircle2 size={14} /> {t.labels.saved}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-green-500 text-white px-5 py-2.5 rounded-full text-xs font-medium tracking-wide shadow-lg flex flex-col items-center gap-0.5 animate-in slide-in-from-bottom-2 whitespace-nowrap">
+              <span className="flex items-center gap-2 uppercase"><CheckCircle2 size={14} /> {t.labels.saved}</span>
+              <span className="text-[10px] font-normal normal-case text-white/80">{lang === 'es' ? 'Guardado en este dispositivo' : 'Saved to this device'}</span>
             </div>
           )}
           <button

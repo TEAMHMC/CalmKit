@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity } from '../types';
 import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
-import { GoogleGenAI, Modality } from "@google/genai";
 import {
   Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2
 } from 'lucide-react';
@@ -83,7 +82,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
-  // Try to get location on mount with high accuracy
+  // Try to get location on mount with high accuracy — silently continue if it fails
   useEffect(() => {
     if (navigator.geolocation) {
       setGpsLoading(true);
@@ -92,12 +91,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setUserLocation([pos.coords.latitude, pos.coords.longitude]);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
-          setGpsError(false);
         },
         (err) => {
           console.warn('Initial GPS failed:', err.message);
           setGpsLoading(false);
-          // Don't set error yet — user hasn't explicitly requested GPS
+          // Silently continue — GPS is nice-to-have, not required
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
@@ -120,27 +118,38 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   }, []);
 
   // Request GPS on user gesture (mobile Safari requires this)
+  // If permission was already denied, skip re-requesting and return false immediately.
   const requestGpsPermission = (): Promise<boolean> => {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       if (!navigator.geolocation) {
-        setGpsError(true);
         setGpsLoading(false);
         resolve(false);
         return;
       }
-      setGpsError(false);
+      // Check if permission was already denied — don't re-prompt
+      try {
+        if (navigator.permissions) {
+          const status = await navigator.permissions.query({ name: 'geolocation' });
+          if (status.state === 'denied') {
+            console.warn('GPS permission previously denied, skipping re-request');
+            setGpsLoading(false);
+            resolve(false);
+            return;
+          }
+        }
+      } catch (e) {
+        // permissions API not supported, continue with request
+      }
       setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setUserLocation([pos.coords.latitude, pos.coords.longitude]);
           setGpsAccuracy(pos.coords.accuracy);
-          setGpsError(false);
           setGpsLoading(false);
           resolve(true);
         },
         (err) => {
           console.warn('GPS permission request failed:', err.code, err.message);
-          setGpsError(true);
           setGpsLoading(false);
           resolve(false);
         },
@@ -275,19 +284,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     bgGainRef.current = null;
   };
 
-  // ── TTS via Gemini ──
+  // ── TTS via server-side proxy — API key never in browser ──
   const speakText = async (text: string) => {
-    const genai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
-    const response = await genai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
+    const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang, voice }),
     });
-    const base64 = response.candidates?.[0]?.content?.parts[0]?.inlineData?.data;
+    if (!res.ok) return null;
+    const data = await res.json();
+    const base64 = data.audio;
     if (!base64) return null;
 
     const binary = atob(base64);
@@ -296,8 +303,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     const int16 = new Int16Array(bytes.buffer);
     const buffer = audioCtxRef.current!.createBuffer(1, int16.length, 24000);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < int16.length; i++) data[i] = int16[i] / 32768.0;
+    const channelData = buffer.getChannelData(0);
+    for (let i = 0; i < int16.length; i++) channelData[i] = int16[i] / 32768.0;
     return buffer;
   };
 
@@ -542,7 +549,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── Handlers ──
   const handleStart = async () => {
     await initAudio();
-    const isIndoor = sessionType === 'INDOOR';
+    // If user chose outdoor but GPS was never granted, silently switch to indoor
+    const effectiveSessionType = (sessionType === 'OUTDOOR' && !userLocation) ? 'INDOOR' : sessionType;
+    if (effectiveSessionType !== sessionType) setSessionType(effectiveSessionType);
+    const isIndoor = effectiveSessionType === 'INDOOR';
     indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
     // GPS only for outdoor sessions
@@ -685,10 +695,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   if (isPlaying) {
     return (
       <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
-        {/* Ghost Mode Map or Indoor Background */}
+        {/* Ghost Mode Map or Indoor Background — hide map if no GPS */}
         <div className="flex-1 relative overflow-hidden dark-map">
-          {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
-          {sessionType === 'INDOOR' && (
+          {sessionType === 'OUTDOOR' && userLocation && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+          {(sessionType === 'INDOOR' || (sessionType === 'OUTDOOR' && !userLocation)) && (
             <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
               <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
                 <Activity size={48} className="text-[#233DFF]/30" />
@@ -791,9 +801,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         <div className="flex-1 flex flex-col min-h-0">
           <div className="space-y-2 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.checkInSub}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 leading-snug">
+              {lang === 'es'
+                ? 'Cuéntanos cómo te sientes — tu guía adaptará la sesión a lo que necesitas ahora mismo.'
+                : 'Tell us what\'s on your mind — your guide will tailor the session to what you need right now.'}
+            </p>
           </div>
-          <div className="flex-1 min-h-0 my-4">
+          <div className="flex-1 min-h-0 my-3">
             <textarea
               value={targetThought}
               onChange={(e) => setTargetThought(e.target.value)}
@@ -801,37 +815,30 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               className="w-full h-full p-5 bg-gray-50 dark:bg-white/5 rounded-3xl border border-gray-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#233DFF] text-base resize-none dark:text-white placeholder:text-gray-400"
             />
           </div>
-          {/* GPS Status Indicator */}
-          {gpsLoading && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl flex-shrink-0">
-              <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
-              <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
-            </div>
-          )}
-          {!gpsLoading && userLocation && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl flex-shrink-0">
-              <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
-              <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'Ubicación GPS obtenida' : 'GPS location acquired'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
-            </div>
-          )}
-          {!gpsLoading && gpsError && (
-            <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex-shrink-0">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS.' : 'Could not access GPS.'}</p>
-              <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
-            </div>
-          )}
 
-          <button
-            onClick={async () => {
-              if (!userLocation) await requestGpsPermission();
-              setStep(1);
-            }}
-            disabled={!targetThought.trim() || gpsLoading}
-            className="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20 flex-shrink-0"
-          >
-            {gpsLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            {gpsLoading ? (lang === 'es' ? 'Localizando...' : 'Locating...') : t.onboarding.next}
-          </button>
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <button
+              onClick={async () => {
+                if (!userLocation && !gpsLoading) await requestGpsPermission();
+                setStep(1);
+              }}
+              disabled={!targetThought.trim()}
+              className="w-full h-14 bg-black dark:bg-white text-white dark:text-black rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-20"
+            >
+              <Send size={18} />
+              {t.onboarding.next}
+            </button>
+            <button
+              onClick={async () => {
+                setTargetThought('');
+                if (!userLocation && !gpsLoading) await requestGpsPermission();
+                setStep(1);
+              }}
+              className="w-full py-3 text-sm font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              {lang === 'es' ? 'Saltar — solo quiero moverme' : 'Skip — just let me move'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -860,7 +867,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ))}
             </div>
 
-            {/* GPS Status (outdoor only) */}
+            {/* GPS Status (outdoor only) — never show errors, just positive or nothing */}
             {sessionType === 'OUTDOOR' && gpsLoading && (
               <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl">
                 <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
@@ -873,15 +880,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'GPS listo' : 'GPS ready'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
               </div>
             )}
-            {sessionType === 'OUTDOOR' && !gpsLoading && gpsError && (
-              <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{lang === 'es' ? 'No se pudo acceder al GPS. Audio seguirá funcionando.' : 'Could not access GPS. Audio guidance will still play.'}</p>
-                <button onClick={() => requestGpsPermission()} className="text-xs font-medium uppercase text-[#233DFF] active:scale-95 flex-shrink-0 ml-2">{lang === 'es' ? 'Reintentar' : 'Retry'}</button>
+            {sessionType === 'OUTDOOR' && !gpsLoading && !userLocation && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl">
+                <MapPin size={16} className="text-gray-400 flex-shrink-0" />
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{lang === 'es' ? 'Ubicación no disponible — no te preocupes, la guía de audio funciona sin ella' : 'Location not available — no worries, audio guidance works without it'}</p>
               </div>
             )}
 
-            {/* Outdoor: Destination Search */}
-            {sessionType === 'OUTDOOR' && (
+            {/* Outdoor: Destination Search — only show if GPS is available */}
+            {sessionType === 'OUTDOOR' && userLocation && (
               <div className="relative">
                 <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-4">
                   <Search size={18} className="text-gray-400 flex-shrink-0" />

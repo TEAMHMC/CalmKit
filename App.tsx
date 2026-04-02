@@ -9,7 +9,7 @@ import Grounding from './components/Grounding';
 import Meditation from './components/Meditation';
 import Onboarding from './components/Onboarding';
 import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download } from 'lucide-react';
-import { fullCleanup } from './audioManager';
+import { fullCleanup, destroyAudioContext } from './audioManager';
 import NoSleep from "nosleep.js";
 
 const noSleep = new NoSleep();
@@ -112,9 +112,14 @@ const App: React.FC = () => {
      SAFE VIEW SWITCH
   --------------------------------*/
   const safeSetView = useCallback((newView: AppView) => {
+    // Destroy AudioContext first so component cleanup effects
+    // can't accidentally re-create audio nodes on a stale context
+    destroyAudioContext();
     fullCleanup();
     setImmersive(false);
-    setView(newView);
+    // Defer view switch to a microtask so the OLD component unmounts
+    // and its cleanup useEffect runs before the new view renders
+    setTimeout(() => setView(newView), 0);
   }, []);
 
   /* ------------------------------
