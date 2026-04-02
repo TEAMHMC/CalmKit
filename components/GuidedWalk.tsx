@@ -11,10 +11,10 @@ import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, re
 declare const L: any;
 
 const MODES: { id: EchoPersona; label: string; desc: string; voice: string; tone: string }[] = [
-  { id: 'HOPE', label: 'Hope', desc: 'Safety & Self-Compassion', voice: 'Kore', tone: 'blue' },
-  { id: 'HYPE', label: 'Hype', desc: 'Momentum & Action', voice: 'Zephyr', tone: 'pink' },
-  { id: 'BREAKTHROUGH', label: 'Breakthrough', desc: 'Clarity & Perspective', voice: 'Puck', tone: 'orange' },
-  { id: 'STRATEGY', label: 'Strategy', desc: 'Problem-Solving & Control', voice: 'Charon', tone: 'yellow' },
+  { id: 'HOPE', label: 'Hope', desc: 'Safety & Self-Compassion', voice: 'Orus', tone: 'blue' },
+  { id: 'HYPE', label: 'Hype', desc: 'Momentum & Action', voice: 'Charon', tone: 'pink' },
+  { id: 'BREAKTHROUGH', label: 'Breakthrough', desc: 'Clarity & Perspective', voice: 'Kore', tone: 'orange' },
+  { id: 'STRATEGY', label: 'Strategy', desc: 'Problem-Solving & Control', voice: 'Aoede', tone: 'yellow' },
 ];
 
 interface MovementProps {
@@ -372,8 +372,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   };
 
   // ── Narration Loop ──
+  const isFetchingRef = useRef(false);
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
+    if (isFetchingRef.current || currentSourceRef.current) return; // Prevent overlap
 
     // Ensure AudioContext is active before playing
     if (audioCtxRef.current?.state === 'suspended') {
@@ -398,7 +400,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         targetThought: targetThoughtRef.current || undefined
       });
       if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
+      isFetchingRef.current = true;
       const buffer = await speakText(segment);
+      isFetchingRef.current = false;
       if (buffer) audioBufferQueue.current.push(buffer);
       setIsBufferingAudio(false);
     }
