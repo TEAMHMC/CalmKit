@@ -83,23 +83,55 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
   // Try to get location on mount with high accuracy — silently continue if it fails
+  // Instant lock on mount — watchPosition for continuous high-accuracy GPS from the moment MOVE tab opens
   useEffect(() => {
     if (navigator.geolocation) {
       setGpsLoading(true);
-      navigator.geolocation.getCurrentPosition(
+      watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          setUserLocation(newLoc);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
+
+          // If map is active, update marker and track path
+          if (mapRef.current && markerRef.current) {
+            markerRef.current.setLatLng(newLoc);
+            if (!isPausedRef.current) {
+              mapRef.current.panTo(newLoc, { animate: true });
+            }
+            // 2-meter tracking sensitivity (0.0012 miles)
+            if (isNarratingRef.current) {
+              const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
+              if (last) {
+                const R = 3958.8;
+                const dLat = (newLoc[0] - last[0]) * Math.PI / 180;
+                const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
+                const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                if (dist > 0.0012) {
+                  pathCoordsRef.current.push(newLoc);
+                  if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
+                  lastPositionRef.current = newLoc;
+                  setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
+                }
+              } else {
+                pathCoordsRef.current.push(newLoc);
+                lastPositionRef.current = newLoc;
+              }
+            }
+          }
         },
         (err) => {
-          console.warn('Initial GPS failed:', err.message);
+          console.warn('GPS error:', err.message);
           setGpsLoading(false);
-          // Silently continue — GPS is nice-to-have, not required
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
   }, []);
 
   // Cleanup on unmount — close AudioContext to prevent audio bleed between views
@@ -448,16 +480,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── Map (Ghost Mode) ──
   useEffect(() => {
     if (isPlaying && mapContainerRef.current && !mapRef.current) {
+      const initialLoc = userLocation || [34.05, -118.24];
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: false,
         attributionControl: false,
         dragging: true,
-        scrollWheelZoom: true,
         touchZoom: true,
-        doubleClickZoom: true
-      }).setView(userLocation || [34.05, -118.24], 17);
+        scrollWheelZoom: false,
+        doubleClickZoom: false
+      }).setView(initialLoc, 19);
 
-      // Standard OSM tiles — CSS .dark-map filter converts to ghost mode
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRef.current);
 
       // Neon polyline for walked path
@@ -468,40 +500,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         lineJoin: 'round',
         className: 'glowing-path'
       }).addTo(mapRef.current);
-    }
 
-    if (mapRef.current && userLocation) {
-      // Start pin: small green marker at the walk origin
-      if (!startMarkerRef.current && pathCoordsRef.current.length > 0) {
-        const startIcon = L.divIcon({
-          className: '',
-          html: `<div class="w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-[0_0_10px_rgba(74,222,128,0.6)]"></div>`,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
-        });
-        startMarkerRef.current = L.marker(pathCoordsRef.current[0], { icon: startIcon }).addTo(mapRef.current);
-      }
-
-      if (!markerRef.current) {
-        // Pulsing neon marker via divIcon
-        const icon = L.divIcon({
-          className: '',
-          html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
-        });
-        markerRef.current = L.marker(userLocation, { icon }).addTo(mapRef.current);
-      } else {
-        markerRef.current.setLatLng(userLocation);
-      }
-
-      if (pathCoordsRef.current.length > 1 && pathRef.current) {
-        pathRef.current.setLatLngs(pathCoordsRef.current);
-      }
-
-      if (!isPaused) {
-        mapRef.current.panTo(userLocation, { animate: true });
-      }
+      // Create neon marker immediately at current location
+      const icon = L.divIcon({
+        className: 'user-marker',
+        html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
+        iconSize: [48, 48],
+        iconAnchor: [24, 24]
+      });
+      markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
     }
 
     return () => {
@@ -513,7 +520,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         pathRef.current = null;
       }
     };
-  }, [isPlaying, userLocation, isPaused]);
+  }, [isPlaying]);
 
   // ── GPS Tracking ──
   const startTracking = () => {
