@@ -548,28 +548,18 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
   // ── Handlers ──
   const handleStart = async () => {
-    await initAudio();
+    try { await initAudio(); } catch (e) { console.warn('Audio init failed, continuing:', e); }
+
     // If user chose outdoor but GPS was never granted, silently switch to indoor
     const effectiveSessionType = (sessionType === 'OUTDOOR' && !userLocation) ? 'INDOOR' : sessionType;
     if (effectiveSessionType !== sessionType) setSessionType(effectiveSessionType);
     const isIndoor = effectiveSessionType === 'INDOOR';
     indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
-    // GPS only for outdoor sessions
-    if (!isIndoor) {
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true, timeout: 10000
-          });
-        });
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setUserLocation(coords);
-        pathCoordsRef.current = [coords];
-        lastPositionRef.current = coords;
-      } catch (e) {
-        // GPS failed on outdoor — still continue, just no map tracking
-      }
+    // Use existing GPS if available, don't re-request (avoids 10s hang)
+    if (!isIndoor && userLocation) {
+      pathCoordsRef.current = [userLocation];
+      lastPositionRef.current = userLocation;
     }
 
     startKeepAlive();

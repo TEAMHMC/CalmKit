@@ -159,7 +159,7 @@ const App: React.FC = () => {
   --------------------------------*/
   return (
     <>
-      {!prefs.hasSeenOnboarding && (
+      {!prefs.hasSeenOnboarding && !(window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) && (
         <Onboarding
           onComplete={() => setPrefs(p => ({ ...p, hasSeenOnboarding: true }))}
           lang={prefs.lang}
