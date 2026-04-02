@@ -684,29 +684,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ══════════════════════════════════════════════
   if (isPlaying) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden">
-        {/* Background — map or pulse animation */}
-        <div className="flex-1 relative overflow-hidden">
-          {sessionType === 'OUTDOOR' && userLocation && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+      <div className="fixed inset-0 z-[100] flex flex-col bg-[#0A0A0A]">
+        {/* Full-screen background — map or pulse animation */}
+        <div className="flex-1 relative">
+          {sessionType === 'OUTDOOR' && userLocation && <div ref={mapContainerRef} className="absolute inset-0" />}
           {(sessionType === 'INDOOR' || (sessionType === 'OUTDOOR' && !userLocation)) && (
-            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
-              <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
-                <Activity size={48} className="text-[#233DFF]/30" />
+            <div className="absolute inset-0 flex items-center justify-center bg-[#0A0A0A]">
+              <div className="w-48 h-48 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
+                <Activity size={56} className="text-[#233DFF]/20" />
               </div>
             </div>
           )}
+          {/* Dark gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70 pointer-events-none" />
 
-          {/* Stats overlay */}
-          <div className="absolute top-0 left-0 right-0 p-4 pt-[env(safe-area-inset-top,16px)] z-10 flex flex-col items-center gap-2">
+          {/* Stats — top of screen */}
+          <div className="absolute top-0 left-0 right-0 p-4 pt-[calc(env(safe-area-inset-top,16px)+8px)] flex flex-col items-center gap-2 pointer-events-none">
             <div className="flex gap-2">
               <div className="px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                <span className="text-lg font-semibold text-white tabular-nums">
+                <span className="text-xl font-semibold text-white tabular-nums">
                   {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
                 </span>
               </div>
               {sessionType === 'OUTDOOR' && (
                 <div className="px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                  <span className="text-lg font-semibold text-white tabular-nums">{sessionStats.distance.toFixed(2)} mi</span>
+                  <span className="text-xl font-semibold text-white tabular-nums">{sessionStats.distance.toFixed(2)} mi</span>
                 </div>
               )}
             </div>
@@ -723,8 +725,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
         </div>
 
-        {/* Controls — OUTSIDE the map container, always tappable */}
-        <div className="flex-shrink-0 bg-[#0A0A0A] px-6 py-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] flex items-center justify-center gap-6">
+        {/* Controls — fixed at bottom, always tappable */}
+        <div className="flex-shrink-0 bg-[#0A0A0A] border-t border-white/5 px-6 py-5 pb-[calc(env(safe-area-inset-bottom,16px)+12px)] flex items-center justify-center gap-8">
           <button
             onClick={handleStop}
             className="w-14 h-14 bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white active:scale-95 transition-all"
