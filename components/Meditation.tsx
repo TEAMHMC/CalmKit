@@ -379,7 +379,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
       const ttsPromise = fetch(TTS_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, lang, voice: 'Kore' }),
+        body: JSON.stringify({ text, lang, voice: 'Kore', calm: true }),
       }).then(r => { if (!r.ok) throw new Error('TTS proxy failed'); return r.json(); });
 
       const response = await withTimeout(ttsPromise, 15000, 'TTS');
