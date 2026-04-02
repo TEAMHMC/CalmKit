@@ -877,7 +877,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             {sessionType === 'OUTDOOR' && !gpsLoading && userLocation && (
               <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl">
                 <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'GPS listo' : 'GPS ready'}{gpsAccuracy ? ` (${Math.round(gpsAccuracy)}m)` : ''}</p>
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'GPS listo' : 'GPS ready'}{gpsAccuracy ? ` — ${Math.round(gpsAccuracy)} meter accuracy` : ''}</p>
               </div>
             )}
             {sessionType === 'OUTDOOR' && !gpsLoading && !userLocation && (
