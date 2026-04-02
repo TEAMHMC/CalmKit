@@ -684,9 +684,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ══════════════════════════════════════════════
   if (isPlaying) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
-        {/* Ghost Mode Map or Indoor Background — hide map if no GPS */}
-        <div className="flex-1 relative overflow-hidden dark-map">
+      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden">
+        {/* Background — map or pulse animation */}
+        <div className="flex-1 relative overflow-hidden">
           {sessionType === 'OUTDOOR' && userLocation && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
           {(sessionType === 'INDOOR' || (sessionType === 'OUTDOOR' && !userLocation)) && (
             <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
@@ -695,79 +695,54 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               </div>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
 
-          {/* Floating Pill HUD */}
-          <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
-            <div className="flex justify-center gap-2.5">
-              {sessionType === 'OUTDOOR' && (
-                <>
-                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                    <Activity size={16} className="text-[#233DFF]" />
-                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
-                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
-                  </div>
-                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                    <Navigation size={16} className="text-[#233DFF]" />
-                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
-                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="flex justify-center">
-              <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                <Clock size={16} className="text-[#233DFF]" />
-                <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">
+          {/* Stats overlay */}
+          <div className="absolute top-0 left-0 right-0 p-4 pt-[env(safe-area-inset-top,16px)] z-10 flex flex-col items-center gap-2">
+            <div className="flex gap-2">
+              <div className="px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                <span className="text-lg font-semibold text-white tabular-nums">
                   {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
                 </span>
-                <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.time}</span>
               </div>
-            </div>
-
-            {/* Status indicators */}
-            <div className="flex justify-center gap-2.5">
-              {sessionType === 'INDOOR' && (
-                <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-                  <span className="text-[11px] font-medium text-white/50 uppercase">{t.labels.indoorSession} — {t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}</span>
-                </div>
-              )}
-              {sessionType === 'OUTDOOR' && gpsAccuracy != null && gpsAccuracy > 30 && (
-                <div className="px-4 py-1.5 rounded-full bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30">
-                  <span className="text-[11px] font-medium text-yellow-400 uppercase">GPS: {gpsAccuracy.toFixed(0)}m</span>
-                </div>
-              )}
-              {isBufferingAudio && (
-                <div className="px-4 py-1.5 rounded-full bg-[#233DFF]/30 backdrop-blur-md border border-[#233DFF]/40 animate-pulse">
-                  <span className="text-[11px] font-medium text-white/70 uppercase">loading</span>
+              {sessionType === 'OUTDOOR' && (
+                <div className="px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                  <span className="text-lg font-semibold text-white tabular-nums">{sessionStats.distance.toFixed(2)} mi</span>
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+20px)] flex flex-col items-center gap-5">
-            <div className="px-5 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-              <span className="text-xs font-medium text-white uppercase tracking-wide">
+            <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md">
+              <span className="text-[11px] font-medium text-white/60 uppercase">
                 {MODES.find(m => m.id === mode)?.label}{sessionType === 'INDOOR' ? ` · ${t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}` : ''}
               </span>
             </div>
-            <div className="flex items-center gap-8">
-              <button
-                onClick={handleStop}
-                className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center text-white/60 active:scale-95 transition-all"
-              >
-                <X size={22} />
-              </button>
-              <button
-                onClick={togglePause}
-                className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
-              >
-                {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} fill="currentColor" />}
-              </button>
-              <div className="w-16 h-16" />
-            </div>
+            {isBufferingAudio && (
+              <div className="px-3 py-1 rounded-full bg-[#233DFF]/30 animate-pulse">
+                <span className="text-[11px] font-medium text-white/70 uppercase">loading audio...</span>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Controls — OUTSIDE the map container, always tappable */}
+        <div className="flex-shrink-0 bg-[#0A0A0A] px-6 py-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] flex items-center justify-center gap-6">
+          <button
+            onClick={handleStop}
+            className="w-14 h-14 bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white active:scale-95 transition-all"
+          >
+            <X size={20} />
+          </button>
+          <button
+            onClick={togglePause}
+            className="w-20 h-20 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
+          >
+            {isPaused ? <Play size={28} fill="currentColor" /> : <Pause size={28} fill="currentColor" />}
+          </button>
+          <button
+            onClick={handleStop}
+            className="w-14 h-14 bg-red-500/20 rounded-full border border-red-500/30 flex items-center justify-center text-red-400 active:scale-95 transition-all"
+          >
+            <span className="text-[10px] font-bold uppercase">End</span>
+          </button>
         </div>
       </div>
     );
