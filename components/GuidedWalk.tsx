@@ -70,6 +70,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const startMarkerRef = useRef<any>(null);
   const isReturningRef = useRef(false);
   const indoorActivityRef = useRef<IndoorActivity | null>(null);
+  const segmentCounterRef = useRef(0);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
   const targetThoughtRef = useRef(targetThought);
@@ -423,12 +424,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         // Fallback: no structured narrative, use single segment generation
         isFetchingRef.current = true;
         setIsBufferingAudio(true);
+        segmentCounterRef.current++;
         const segment = await generateSegmentNarrative({
           mode, activity: 'WALK', lang,
           stats: sessionStatsRef.current,
           isIntro: startTimeRef.current === null,
           isFirstSegment: !sponsorPlayedRef.current,
           destinationName: destinationNameRef.current || undefined,
+          targetThought: targetThoughtRef.current || undefined,
           userLat: userLocation?.[0],
           userLng: userLocation?.[1],
         });
