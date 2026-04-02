@@ -372,39 +372,69 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   };
 
   // ── Narration Loop ──
+  const narrativeDataRef = useRef<any>(null);
+  const narrativeSegmentIndexRef = useRef(0);
   const isFetchingRef = useRef(false);
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
-    if (isFetchingRef.current || currentSourceRef.current) return; // Prevent overlap
+    if (isFetchingRef.current || currentSourceRef.current) return;
 
-    // Ensure AudioContext is active before playing
     if (audioCtxRef.current?.state === 'suspended') {
       await audioCtxRef.current.resume();
     }
 
     if (audioBufferQueue.current.length === 0) {
-      setIsBufferingAudio(true);
-      const stats = sessionStatsRef.current;
-      const returning = isReturningRef.current;
-      isReturningRef.current = false;
-      const segment = await generateSegmentNarrative({
-        mode,
-        activity: 'WALK',
-        lang,
-        stats,
-        isIntro: startTimeRef.current === null,
-        isFirstSegment: !sponsorPlayedRef.current,
-        isReturning: returning,
-        indoorActivity: indoorActivityRef.current || undefined,
-        destinationName: destinationNameRef.current || undefined,
-        targetThought: targetThoughtRef.current || undefined
-      });
-      if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
-      isFetchingRef.current = true;
-      const buffer = await speakText(segment);
-      isFetchingRef.current = false;
-      if (buffer) audioBufferQueue.current.push(buffer);
-      setIsBufferingAudio(false);
+      const narrative = narrativeDataRef.current;
+      if (narrative && narrative.segments) {
+        const elapsed = sessionStatsRef.current.time || 0;
+        const currentMin = Math.floor(elapsed / 60);
+
+        // Find the next segment to play based on elapsed time
+        const idx = narrativeSegmentIndexRef.current;
+        if (idx < narrative.segments.length) {
+          const seg = narrative.segments[idx];
+          // Play when we've reached this segment's minute mark (or immediately if we're past it)
+          if (currentMin >= (seg.minuteIndex || 0)) {
+            isFetchingRef.current = true;
+            setIsBufferingAudio(true);
+            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
+            const buffer = await speakText(text);
+            isFetchingRef.current = false;
+            if (buffer) audioBufferQueue.current.push(buffer);
+            narrativeSegmentIndexRef.current = idx + 1;
+            setIsBufferingAudio(false);
+          }
+        } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
+          // Play sponsor line after all segments
+          isFetchingRef.current = true;
+          const buffer = await speakText(narrative.spokenSponsorMoment);
+          isFetchingRef.current = false;
+          if (buffer) audioBufferQueue.current.push(buffer);
+          sponsorPlayedRef.current = true;
+        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length) {
+          // Play closing after sponsor
+          isFetchingRef.current = true;
+          const buffer = await speakText(narrative.closingTemplate);
+          isFetchingRef.current = false;
+          if (buffer) audioBufferQueue.current.push(buffer);
+          narrativeSegmentIndexRef.current = 9999; // Done
+        }
+      } else {
+        // Fallback: no structured narrative, use single segment generation
+        isFetchingRef.current = true;
+        setIsBufferingAudio(true);
+        const segment = await generateSegmentNarrative({
+          mode, activity: 'WALK', lang,
+          stats: sessionStatsRef.current,
+          isIntro: startTimeRef.current === null,
+          isFirstSegment: !sponsorPlayedRef.current,
+        });
+        if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
+        const buffer = await speakText(segment);
+        isFetchingRef.current = false;
+        if (buffer) audioBufferQueue.current.push(buffer);
+        setIsBufferingAudio(false);
+      }
     }
 
     if (isPausedRef.current || !isNarratingRef.current) return;
@@ -596,7 +626,29 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }, 1000);
 
     if (!isIndoor && pathCoordsRef.current.length > 0) startTracking();
-    if (narrationFreq === 'CONTINUOUS') createAmbience();
+    // No synthetic ambient noise — let the user's music or silence be the background
+
+    // Fetch full 20-minute structured narrative before starting narration
+    try {
+      setIsBufferingAudio(true);
+      const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, activity: 'WALK', lang, destinationName: destinationNameRef.current || undefined }),
+      });
+      const data = await res.json();
+      if (data.success && data.preStartIntro) {
+        narrativeDataRef.current = data;
+        narrativeSegmentIndexRef.current = 0;
+        // Play the intro immediately
+        const buf = await speakText(data.preStartIntro);
+        if (buf) audioBufferQueue.current.push(buf);
+      }
+      setIsBufferingAudio(false);
+    } catch (e) {
+      console.warn('Failed to fetch narrative, falling back to loop:', e);
+      setIsBufferingAudio(false);
+    }
     narrationLoop();
   };
 
@@ -863,23 +915,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ))}
             </div>
 
-            {/* GPS Status (outdoor only) — never show errors, just positive or nothing */}
-            {sessionType === 'OUTDOOR' && gpsLoading && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl">
-                <Loader2 size={16} className="text-[#233DFF] animate-spin flex-shrink-0" />
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-400">{lang === 'es' ? 'Obteniendo ubicación GPS...' : 'Getting your GPS location...'}</p>
-              </div>
-            )}
-            {sessionType === 'OUTDOOR' && !gpsLoading && userLocation && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-2xl">
-                <MapPin size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">{lang === 'es' ? 'Ubicación lista' : 'Location ready'}</p>
-              </div>
-            )}
+            {/* GPS Status — only show if not available */}
             {sessionType === 'OUTDOOR' && !gpsLoading && !userLocation && (
               <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl">
                 <MapPin size={16} className="text-gray-400 flex-shrink-0" />
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{lang === 'es' ? 'Ubicación no disponible — no te preocupes, la guía de audio funciona sin ella' : 'Location not available — no worries, audio guidance works without it'}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{lang === 'es' ? 'Ubicación no disponible — la guía de audio funciona sin ella' : 'Location not available — audio guidance works without it'}</p>
               </div>
             )}
 
