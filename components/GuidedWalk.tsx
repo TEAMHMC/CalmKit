@@ -691,9 +691,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ══════════════════════════════════════════════
   if (isPlaying) {
     return (
-      <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-full bg-[#0A0A0A] overflow-hidden relative">
         {/* Ghost Mode Map or Indoor Background */}
-        <div className="flex-1 relative overflow-hidden dark-map">
+        <div className="flex-1 relative overflow-hidden dark-map h-full">
           {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
           {sessionType === 'INDOOR' && (
             <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
