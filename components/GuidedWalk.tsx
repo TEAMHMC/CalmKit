@@ -458,6 +458,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           stats: sessionStatsRef.current,
           isIntro: startTimeRef.current === null,
           isFirstSegment: !sponsorPlayedRef.current,
+          segmentNumber: segmentCounterRef.current,
           destinationName: destinationNameRef.current || undefined,
           targetThought: targetThoughtRef.current || undefined,
           userLat: userLocation?.[0],
@@ -510,6 +511,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             const seg = await generateSegmentNarrative({
               mode, activity: 'WALK', lang, stats,
               isIntro: false, isFirstSegment: false, isReturning: true,
+              segmentNumber: segmentCounterRef.current,
               indoorActivity: indoorActivityRef.current || undefined,
               destinationName: destinationNameRef.current || undefined,
               targetThought: targetThoughtRef.current || undefined,
@@ -540,6 +542,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           const seg = await generateSegmentNarrative({
             mode, activity: 'WALK', lang, stats,
             isIntro: false, isFirstSegment: false,
+            segmentNumber: segmentCounterRef.current,
             indoorActivity: indoorActivityRef.current || undefined,
             destinationName: destinationNameRef.current || undefined,
             targetThought: targetThoughtRef.current || undefined,
@@ -570,9 +573,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         doubleClickZoom: false
       }).setView(initialLoc, 19);
 
-      L.tileLayer('https://volunteer.healthmatters.clinic/api/calmkit/maptiles/{z}/{x}/{y}', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
         maxZoom: 20,
-        attribution: '&copy; Google Maps'
+        attribution: '&copy; OpenStreetMap &copy; CartoDB'
       }).addTo(mapRef.current);
 
       // Neon polyline for walked path

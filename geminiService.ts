@@ -23,6 +23,7 @@ export const generateSegmentNarrative = async (params: {
   isFirstSegment: boolean;
   isReturning?: boolean;
   indoorActivity?: string;
+  segmentNumber?: number;
   destinationName?: string;
   targetThought?: string;
   userLat?: number;
@@ -54,6 +55,7 @@ export const generateSegmentNarrative = async (params: {
       isFirstSegment: params.isFirstSegment,
       isReturning: params.isReturning,
       indoorActivity: params.indoorActivity,
+      segmentNumber: params.segmentNumber,
       // Environmental context — only send if available
       ...(params.weatherCondition && { weatherCondition: params.weatherCondition }),
       ...(params.temperature !== undefined && { temperature: params.temperature }),
