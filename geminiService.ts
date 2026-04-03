@@ -21,10 +21,21 @@ export const generateSegmentNarrative = async (params: {
   stats: { distance: number; time: number; pace: string };
   isIntro: boolean;
   isFirstSegment: boolean;
+  isReturning?: boolean;
+  indoorActivity?: string;
   destinationName?: string;
   targetThought?: string;
   userLat?: number;
   userLng?: number;
+  // Environmental context
+  weatherCondition?: string;
+  temperature?: number;   // Celsius from Google Weather API
+  windSpeed?: number;     // m/s from Google Weather API
+  airQualityIndex?: number;
+  airQualityCategory?: string;
+  elevationGain?: number; // cumulative meters climbed
+  elevationDelta?: number; // recent change (negative = downhill)
+  speed?: number;         // mph from device GPS
 }) => {
   try {
     const hour = new Date().getHours();
@@ -41,6 +52,17 @@ export const generateSegmentNarrative = async (params: {
       distanceMiles: params.stats?.distance || 0,
       isIntro: params.isIntro,
       isFirstSegment: params.isFirstSegment,
+      isReturning: params.isReturning,
+      indoorActivity: params.indoorActivity,
+      // Environmental context — only send if available
+      ...(params.weatherCondition && { weatherCondition: params.weatherCondition }),
+      ...(params.temperature !== undefined && { temperature: params.temperature }),
+      ...(params.windSpeed !== undefined && { windSpeed: params.windSpeed }),
+      ...(params.airQualityIndex !== undefined && { airQualityIndex: params.airQualityIndex }),
+      ...(params.airQualityCategory && { airQualityCategory: params.airQualityCategory }),
+      ...(params.elevationGain !== undefined && params.elevationGain > 0 && { elevationGain: Math.round(params.elevationGain) }),
+      ...(params.elevationDelta !== undefined && { elevationDelta: Math.round(params.elevationDelta) }),
+      ...(params.speed !== undefined && params.speed > 0 && { speed: params.speed }),
     });
     // Return the full narrative data for the narration loop
     if (data.preStartIntro) return data.preStartIntro;

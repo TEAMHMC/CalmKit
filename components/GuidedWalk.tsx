@@ -45,6 +45,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
   const [showSummary, setShowSummary] = useState(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
+  const [envData, setEnvData] = useState<{
+    weatherCondition?: string;
+    temperature?: number;
+    windSpeed?: number;
+    airQualityIndex?: number;
+    airQualityCategory?: string;
+  }>({});
 
   // ── Refs ──
   const mapRef = useRef<any>(null);
@@ -74,6 +81,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
   const targetThoughtRef = useRef(targetThought);
+  const envDataRef = useRef(envData);
+  const lastElevationRef = useRef<number | null>(null);
+  const elevationGainRef = useRef(0);
+  const elevationDeltaRef = useRef<number | null>(null);
+  const currentSpeedRef = useRef<number | null>(null);
 
   const t = translations[lang];
 
@@ -81,6 +93,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { sessionStatsRef.current = sessionStats; }, [sessionStats]);
   useEffect(() => { destinationNameRef.current = destinationName; }, [destinationName]);
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
+  useEffect(() => { envDataRef.current = envData; }, [envData]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
   // Try to get location on mount with high accuracy — silently continue if it fails
@@ -94,6 +107,21 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setUserLocation(newLoc);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
+
+          // Capture altitude for uphill/downhill detection
+          if (pos.coords.altitude !== null) {
+            const alt = pos.coords.altitude;
+            if (lastElevationRef.current !== null) {
+              const delta = alt - lastElevationRef.current;
+              elevationDeltaRef.current = delta;
+              if (delta > 0.5) elevationGainRef.current += delta; // only count meaningful climbs
+            }
+            lastElevationRef.current = alt;
+          }
+          // Capture speed (m/s → mph)
+          if (pos.coords.speed !== null && pos.coords.speed >= 0) {
+            currentSpeedRef.current = pos.coords.speed * 2.237;
+          }
 
           // If map is active, update marker and track path
           if (mapRef.current && markerRef.current) {
@@ -434,6 +462,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           targetThought: targetThoughtRef.current || undefined,
           userLat: userLocation?.[0],
           userLng: userLocation?.[1],
+          ...envDataRef.current,
+          ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+          ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
         });
         if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
         const buffer = await speakText(segment);
@@ -480,7 +512,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               isIntro: false, isFirstSegment: false, isReturning: true,
               indoorActivity: indoorActivityRef.current || undefined,
               destinationName: destinationNameRef.current || undefined,
-              targetThought: targetThoughtRef.current || undefined
+              targetThought: targetThoughtRef.current || undefined,
+              ...envDataRef.current,
+              ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+              ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
             });
             const buf = await speakText(seg);
             if (buf) audioBufferQueue.current.push(buf);
@@ -506,7 +542,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             isIntro: false, isFirstSegment: false,
             indoorActivity: indoorActivityRef.current || undefined,
             destinationName: destinationNameRef.current || undefined,
-            targetThought: targetThoughtRef.current || undefined
+            targetThought: targetThoughtRef.current || undefined,
+            ...envDataRef.current,
+            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
           });
           const buf = await speakText(seg);
           if (buf) audioBufferQueue.current.push(buf);
@@ -530,9 +570,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         doubleClickZoom: false
       }).setView(initialLoc, 19);
 
-      L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://volunteer.healthmatters.clinic/api/calmkit/maptiles/{z}/{x}/{y}', {
         maxZoom: 20,
-        attribution: '&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap'
+        attribution: '&copy; Google Maps'
       }).addTo(mapRef.current);
 
       // Neon polyline for walked path
@@ -637,9 +677,30 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     if (!isIndoor && pathCoordsRef.current.length > 0) startTracking();
     // No synthetic ambient noise — let the user's music or silence be the background
 
+    // Fetch weather + air quality non-blocking (best-effort — if they fail, Echo still works)
+    if (userLocation) {
+      const [lat, lng] = userLocation;
+      const base = 'https://volunteer.healthmatters.clinic/api/calmkit';
+      Promise.all([
+        fetch(`${base}/weather?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${base}/airquality?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      ]).then(([weather, air]) => {
+        const update: typeof envData = {};
+        if (weather?.condition) update.weatherCondition = weather.condition;
+        if (weather?.temperature !== null && weather?.temperature !== undefined) update.temperature = weather.temperature;
+        if (weather?.windSpeed !== null && weather?.windSpeed !== undefined) update.windSpeed = weather.windSpeed;
+        if (air?.aqi !== null && air?.aqi !== undefined) update.airQualityIndex = air.aqi;
+        if (air?.category) update.airQualityCategory = air.category;
+        setEnvData(update);
+        envDataRef.current = update;
+      });
+    }
+
     // Fetch full 20-minute structured narrative before starting narration
     try {
       setIsBufferingAudio(true);
+      const hour = new Date().getHours();
+      const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
       const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -647,7 +708,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           mode, activity: 'WALK', lang,
           destinationName: destinationNameRef.current || undefined,
           targetThought: targetThoughtRef.current || undefined,
-          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening',
+          timeOfDay,
+          ...envDataRef.current,
+          ...(elevationGainRef.current > 0 && { elevationGain: Math.round(elevationGainRef.current) }),
+          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
         }),
       });
       const data = await res.json();
