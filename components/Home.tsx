@@ -88,7 +88,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       </button>
 
       {/* ACTION GRID — fills remaining space on mobile; capped on tablet/desktop so cards don't become tall rectangles */}
-      <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-3 sm:max-h-[300px]">
+      <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-3">
 
         {/* WALK */}
         <button

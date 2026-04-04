@@ -5,6 +5,25 @@ import { translations } from '../translations';
 import { RotateCcw, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, getAudioContext } from '../audioManager';
 
+const TTS_PROXY_URL = 'https://volunteer.healthmatters.clinic/api/calmkit/tts';
+
+const decodeBase64 = (base64: string): Uint8Array => {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+};
+
+// Decode raw Int16 PCM (24 kHz, mono) into an AudioBuffer.
+// The AudioContext may be 44100 Hz — the browser resamples automatically.
+const decodeInt16PCM = (data: Uint8Array, ctx: AudioContext): AudioBuffer => {
+  const samples = new Int16Array(data.buffer);
+  const buffer = ctx.createBuffer(1, samples.length, 24000);
+  const ch = buffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) ch[i] = samples[i] / 32768;
+  return buffer;
+};
+
 interface BreathingExerciseProps {
   onBack: () => void;
   lang: Language;
@@ -21,6 +40,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [cycles, setCycles] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const prevPhaseRef = useRef<BreathPhase | null>(null);
+  const audioCacheRef = useRef<Map<BreathPhase, AudioBuffer>>(new Map());
   const t = translations[lang];
 
   // Tone frequencies per phase (Hz) — inhale rises, exhale falls, hold holds
@@ -52,18 +72,59 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     } catch { /* audio unavailable — fail silently */ }
   }, []);
 
-  // Speak the phase instruction via Web Speech API
-  const speak = useCallback((text: string) => {
-    if (!audioEnabled) return;
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = 0.85;
-    utt.pitch = 1.0;
-    utt.volume = 0.9;
-    utt.lang = lang === 'es' ? 'es-US' : 'en-US';
-    window.speechSynthesis.speak(utt);
-  }, [audioEnabled, lang]);
+  // Map each phase to calm, spoken-word TTS text (different from the display labels)
+  const PHASE_TTS: Record<BreathPhase, { en: string; es: string }> = {
+    PHYS_INHALE_1: { en: 'Inhale through your nose',          es: 'Inhala por la nariz' },
+    PHYS_INHALE_2: { en: 'Inhale again, top it off',          es: 'Inhala de nuevo, llena los pulmones' },
+    PHYS_EXHALE:   { en: 'Long exhale through your mouth',    es: 'Exhala lentamente por la boca' },
+    INHALE:        { en: 'Inhale',                             es: 'Inhala' },
+    HOLD_FULL:     { en: 'Hold',                               es: 'Sostén' },
+    EXHALE:        { en: 'Exhale',                             es: 'Exhala' },
+    HOLD_EMPTY:    { en: 'Rest',                               es: 'Descansa' },
+  };
+
+  // Fetch TTS for all phases in the current mode — fire-and-forget before session starts.
+  // Tones play immediately; voice enhances as the cache fills (usually < 2 s).
+  const preCachePhaseAudio = useCallback(async () => {
+    const phases: BreathPhase[] = mode === 'physiological'
+      ? ['PHYS_INHALE_1', 'PHYS_INHALE_2', 'PHYS_EXHALE']
+      : ['INHALE', 'HOLD_FULL', 'EXHALE', 'HOLD_EMPTY'];
+    audioCacheRef.current.clear();
+    let ctx: AudioContext;
+    try { ctx = await getAudioContext(44100); } catch { return; }
+    await Promise.all(phases.map(async (p) => {
+      const text = PHASE_TTS[p][lang];
+      try {
+        const res = await fetch(TTS_PROXY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang, voice: 'Kore', calm: true }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.audio) {
+          audioCacheRef.current.set(p, decodeInt16PCM(decodeBase64(data.audio), ctx));
+        }
+      } catch { /* fail silently — tones still play */ }
+    }));
+  }, [mode, lang]);
+
+  // Play cached TTS audio for the current phase (300 ms after the chime)
+  const playPhaseAudio = useCallback(async (p: BreathPhase) => {
+    const buffer = audioCacheRef.current.get(p);
+    if (!buffer) return;
+    try {
+      const ctx = await getAudioContext(44100);
+      if (ctx.state === 'closed') return;
+      setTimeout(() => {
+        if (ctx.state === 'closed') return;
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        src.start();
+      }, 300);
+    } catch { /* fail silently */ }
+  }, []);
 
   // Keep screen awake during active breathing session
   useEffect(() => {
@@ -74,28 +135,26 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       stopKeepAlive();
       releaseWakeLock();
     }
-    return () => { stopKeepAlive(); releaseWakeLock(); window.speechSynthesis?.cancel(); };
+    return () => { stopKeepAlive(); releaseWakeLock(); };
   }, [isActive]);
 
-  // Speak + tone on phase change
+  // Tone + cached TTS voice on phase change
   useEffect(() => {
     if (!isActive) return;
     if (prevPhaseRef.current === phase) return;
     prevPhaseRef.current = phase;
-    const text = getPhaseText();
     if (audioEnabled) {
       playTone(PHASE_TONES[phase]);
-      // Small delay so tone plays before voice
-      setTimeout(() => speak(text), 200);
+      playPhaseAudio(phase);
     }
-  }, [phase, isActive, audioEnabled]);
+  }, [phase, isActive, audioEnabled, playPhaseAudio]);
 
   // Reset phase/timer when switching modes
   const switchMode = (newMode: BreathingMode) => {
-    window.speechSynthesis?.cancel();
     setIsActive(false);
     setCycles(0);
     prevPhaseRef.current = null;
+    audioCacheRef.current.clear();
     if (newMode === 'physiological') {
       setPhase('PHYS_INHALE_1');
       setTimer(2);
@@ -222,7 +281,6 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           <button
             onClick={() => {
               setAudioEnabled(e => !e);
-              if (audioEnabled) window.speechSynthesis?.cancel();
             }}
             className="w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm"
             aria-label={audioEnabled ? 'Mute audio guidance' : 'Enable audio guidance'}
@@ -231,10 +289,10 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           </button>
           <button
             onClick={() => {
-              window.speechSynthesis?.cancel();
               setIsActive(false);
               setCycles(0);
               prevPhaseRef.current = null;
+              audioCacheRef.current.clear();
               if (mode === 'physiological') { setPhase('PHYS_INHALE_1'); setTimer(2); }
               else { setPhase('INHALE'); setTimer(4); }
             }}
@@ -277,11 +335,12 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           <button
             onClick={() => {
               if (isActive) {
-                window.speechSynthesis?.cancel();
                 setIsActive(false);
               } else {
-                prevPhaseRef.current = null; // trigger speak on next phase
+                prevPhaseRef.current = null;
                 setIsActive(true);
+                // Pre-cache TTS in the background — tones play immediately
+                if (audioEnabled) preCachePhaseAudio();
               }
             }}
             className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-[#233dff] text-white border border-[#233dff] shadow-blue-500/20'}`}

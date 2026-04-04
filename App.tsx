@@ -167,9 +167,12 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* PHONE-SIZED VIEWPORT LOCK */}
-      <div className="fixed inset-0 flex justify-center bg-[#f5f5f5] dark:bg-[#0a0a0a]">
-        <div className="flex flex-col overflow-hidden bg-white dark:bg-[#121212] w-full" style={{ maxWidth: 430 }}>
+      {/* PHONE FRAME — full screen on mobile, floating centered phone on desktop */}
+      <div className="fixed inset-0 flex justify-center items-start sm:items-center bg-[#e8e8e8] dark:bg-[#0a0a0a]">
+        <div
+          className="flex flex-col overflow-hidden bg-white dark:bg-[#121212] w-full h-full sm:h-[844px] sm:max-h-[90vh] sm:rounded-[40px] sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.35)] dark:sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.7)]"
+          style={{ maxWidth: 430 }}
+        >
 
           {/* HEADER */}
           {!immersive && (
