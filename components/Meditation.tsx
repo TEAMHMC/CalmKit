@@ -597,11 +597,6 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         </div>
       </div>
 
-      {/* Title */}
-      <h2 className="text-2xl font-black uppercase text-center tracking-tight dark:text-white flex-shrink-0 mb-4">
-        {lang === 'es' ? 'PRESENCIA GUIADA' : 'GUIDED PRESENCE'}
-      </h2>
-
       {/* Script — scrollable, full text, no clamp */}
       <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 mb-5 px-1">
         {ttsUnavailable ? (
