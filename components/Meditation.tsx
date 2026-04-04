@@ -220,10 +220,11 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const t = translations[lang];
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);  // keep buffer for pause/resume
   const bgGainRef = useRef<GainNode | null>(null);
   const bgSoundNodesRef = useRef<BgSoundNodes | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedAtRef = useRef<number>(0);
+  const pausedAtRef = useRef<number>(0);        // seconds into buffer where we paused
   const progressIntervalRef = useRef<any>(null);
 
   const decode = (base64: string) => {
@@ -337,12 +338,36 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     if (!ctx || ctx.state === 'closed') return;
 
     if (isPaused) {
-      // Resume
-      try { await ctx.resume(); } catch (_) {}
+      // Resume — replay the buffer from where we paused
+      const buffer = audioBufferRef.current;
+      if (!buffer) { setIsPaused(false); return; }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+
+      const offset = pausedAtRef.current;
+      startTimeRef.current = ctx.currentTime - offset;
+
+      source.onended = () => {
+        // Only mark done if we weren't paused again
+        if (!isPaused) {
+          setIsAudioPlaying(false);
+          setIsPaused(false);
+          clearInterval(progressIntervalRef.current);
+        }
+      };
+      sourceNodeRef.current = source;
+      source.start(0, offset);
       setIsPaused(false);
     } else {
-      // Pause - suspends entire AudioContext (narration + background)
-      try { await ctx.suspend(); } catch (_) {}
+      // Pause — stop the source and record current position
+      const elapsed = ctx.currentTime - startTimeRef.current;
+      pausedAtRef.current = Math.min(elapsed, audioBufferRef.current?.duration ?? elapsed);
+      if (sourceNodeRef.current) {
+        try { sourceNodeRef.current.onended = null; sourceNodeRef.current.stop(); } catch (_) {}
+        sourceNodeRef.current = null;
+      }
       setIsPaused(true);
     }
   }, [isPaused]);
@@ -387,6 +412,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
       const base64Audio = response.audio;
       if (base64Audio) {
         const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
+        audioBufferRef.current = audioBuffer;  // save for pause/resume
+        pausedAtRef.current = 0;               // fresh start
+
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
@@ -395,7 +423,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         startTimeRef.current = ctx.currentTime;
 
         progressIntervalRef.current = setInterval(() => {
-          if (ctx.state === 'running') {
+          if (ctx.state !== 'closed') {
             const current = ctx.currentTime - startTimeRef.current;
             setProgress(Math.min((current / audioBuffer.duration) * 100, 100));
           }
