@@ -175,26 +175,26 @@ const App: React.FC = () => {
           {!immersive && (
             <header
               className="flex-shrink-0 px-5 flex justify-between items-center bg-white dark:bg-[#121212]"
-              style={{ height: 56, paddingTop: 'env(safe-area-inset-top)' }}
+              style={{ minHeight: 56, paddingTop: 'calc(env(safe-area-inset-top) + 8px)', paddingBottom: 8 }}
             >
               <div onClick={() => safeSetView('HOME')} className="flex items-center gap-3">
                 <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png"
-                  className="w-8 h-8" />
+                  className="w-8 h-8" alt="CalmKit by Health Matters Clinic" />
                 <div>
                   <h2 className="text-xs uppercase dark:text-white">CALMKIT</h2>
                   <span className="text-[10px] text-[#233DFF]">UNSTOPPABLE</span>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 {showInstall &&
-                  <button onClick={handleInstall}><Download size={14} /></button>}
-                <button onClick={() => safeSetView('ABOUT')}><Info size={14} /></button>
-                <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))}>
+                  <button onClick={handleInstall} aria-label="Install CalmKit app" className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Download size={16} /></button>}
+                <button onClick={() => safeSetView('ABOUT')} aria-label="About CalmKit" className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Info size={16} /></button>
+                <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} aria-label={prefs.lang === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'} className="w-11 h-11 flex items-center justify-center rounded-full text-xs font-bold hover:bg-gray-100 dark:hover:bg-white/10 dark:text-white transition-colors">
                   {prefs.lang.toUpperCase()}
                 </button>
-                <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))}>
-                  {prefs.darkMode ? <Sun size={14} /> : <Moon size={14} />}
+                <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} aria-label={prefs.darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+                  {prefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}
                 </button>
               </div>
             </header>
@@ -208,8 +208,9 @@ const App: React.FC = () => {
           {/* BOTTOM NAV */}
           {!immersive && (
             <nav
-              className="flex-shrink-0 flex justify-around border-t"
-              style={{ height: 56, paddingBottom: 'env(safe-area-inset-bottom)' }}
+              className="flex-shrink-0 flex justify-around border-t dark:border-white/10"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+              aria-label="Main navigation"
             >
               {[
                 { id: 'HOME', icon: <HomeIcon size={18} />, label: t.nav.home },
@@ -222,10 +223,12 @@ const App: React.FC = () => {
                 <button
                   key={n.id}
                   onClick={() => safeSetView(n.id as AppView)}
-                  className={`flex flex-col items-center flex-1 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-400'}`}
+                  aria-label={n.label}
+                  aria-current={view === n.id ? 'page' : undefined}
+                  className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-2 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-400 dark:text-gray-500'}`}
                 >
                   {n.icon}
-                  <span className="text-[9px]">{n.label}</span>
+                  <span className="text-[9px] mt-0.5">{n.label}</span>
                 </button>
               ))}
             </nav>
