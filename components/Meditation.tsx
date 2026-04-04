@@ -495,134 +495,164 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <div className="flex-1 flex flex-col px-5 py-3 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
-      <div className="flex items-center justify-between mb-2 flex-shrink-0">
-        <div className="flex flex-col">
-          <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF]">{t.nav.meditate}</span>
+  // ── PRE-SESSION: no script yet ──
+  if (!script && !isLoading) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col px-5 py-4 bg-white dark:bg-[#121212] animate-in fade-in">
+        <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF] flex-shrink-0">
+          {t.nav.meditate}
+        </span>
+
+        {/* Centered icon + label */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-28 h-28 bg-[#233DFF]/8 dark:bg-[#233DFF]/10 rounded-[32px] flex items-center justify-center shadow-inner">
+            <Sparkles size={52} className="text-[#233DFF]" />
+          </div>
+          <p className="text-[11px] font-medium uppercase tracking-widest text-gray-300 dark:text-gray-600">
+            {t.labels.tapToStart}
+          </p>
         </div>
-        {script && !isLoading && (
-          <button
-            onClick={() => { stopAll(); loadScript(); }}
-            className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all"
-          >
-            <RefreshCcw size={16} className="text-gray-400" />
-          </button>
+
+        {/* Background atmosphere */}
+        <div className="flex-shrink-0 mb-5">
+          <p className="text-[9px] font-medium uppercase tracking-widest text-gray-300 dark:text-gray-600 text-center mb-3">
+            {t.bgSound}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {(['NONE', 'RAIN', 'OCEAN', 'FOREST', 'ZEN'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setBgSound(s)}
+                className={`px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wide transition-all active:scale-95 ${bgSound === s ? 'bg-[#233DFF] text-white shadow-lg shadow-blue-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
+              >
+                {t.sounds[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Begin button */}
+        <button
+          onClick={loadScript}
+          className="flex-shrink-0 w-full h-16 bg-[#233DFF] text-white rounded-full font-normal text-base shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+        >
+          <Play size={20} fill="currentColor" />
+          {t.labels.beginSession}
+        </button>
+      </div>
+    );
+  }
+
+  // ── LOADING ──
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 bg-white dark:bg-[#121212] animate-in fade-in">
+        <div className="w-24 h-24 bg-[#233DFF]/8 rounded-[28px] flex items-center justify-center">
+          <Loader2 size={40} className="text-[#233DFF] animate-spin" />
+        </div>
+        <p className="text-xs font-medium uppercase tracking-wide text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
+      </div>
+    );
+  }
+
+  // ── ACTIVE / COMPLETE SESSION: script loaded ──
+  return (
+    <div className="flex-1 min-h-0 flex flex-col px-5 py-4 bg-white dark:bg-[#121212] animate-in fade-in overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center justify-between flex-shrink-0 mb-4">
+        <div>
+          <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF]">{t.nav.meditate}</span>
+          <p className="text-[9px] font-medium uppercase tracking-widest text-gray-400 dark:text-gray-600 mt-0.5">
+            {lang === 'es' ? 'PRESENCIA GUIADA' : 'STILLNESS'}
+          </p>
+        </div>
+        <button
+          onClick={() => { stopAll(); setScript(''); }}
+          className="w-10 h-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center active:scale-95 transition-all"
+        >
+          <RefreshCcw size={16} className="text-gray-400" />
+        </button>
+      </div>
+
+      {/* Icon + volume badge + progress */}
+      <div className="flex flex-col items-center gap-4 flex-shrink-0 mb-5">
+        <div className="relative">
+          <div className="w-24 h-24 bg-[#233DFF]/8 dark:bg-[#233DFF]/10 rounded-[24px] flex items-center justify-center">
+            <div className={`absolute inset-0 bg-[#233DFF]/8 rounded-[24px] transition-all duration-[2500ms] ${isAudioPlaying && !isPaused ? 'animate-ping' : ''}`} />
+            <Sparkles size={40} className={`text-[#233DFF] relative z-10 transition-all duration-700 ${isAudioPlaying && !isPaused ? 'scale-110' : ''}`} />
+          </div>
+          {/* Volume badge */}
+          <div className="absolute -bottom-2 -right-2 w-9 h-9 bg-[#233DFF] rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <Volume2 size={15} className="text-white" />
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-[260px] h-[3px] bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-[#233DFF] transition-all duration-100 ease-linear rounded-full"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Title */}
+      <h2 className="text-2xl font-black uppercase text-center tracking-tight dark:text-white flex-shrink-0 mb-4">
+        {lang === 'es' ? 'PRESENCIA GUIADA' : 'GUIDED PRESENCE'}
+      </h2>
+
+      {/* Script — scrollable, full text, no clamp */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 mb-5 px-1">
+        {ttsUnavailable ? (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-base font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed text-center animate-in fade-in">
+              {script}
+            </p>
+            <button
+              onClick={() => playMeditationAudio(script)}
+              className="px-5 py-2.5 bg-amber-50 dark:bg-amber-500/10 rounded-full text-xs font-medium text-amber-700 dark:text-amber-400 active:scale-95 transition-all"
+            >
+              {lang === 'es' ? 'Audio no disponible — reintentar' : 'Audio unavailable — tap to retry'}
+            </button>
+          </div>
+        ) : (
+          <p className="text-base font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed text-center animate-in fade-in">
+            {script}
+          </p>
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center text-center overflow-y-auto scrollbar-hide min-h-0 gap-3">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-5 animate-in fade-in zoom-in">
-            <div className="w-20 h-20 bg-gray-50 dark:bg-white/5 rounded-[28px] flex items-center justify-center relative shadow-inner">
-               <Loader2 size={36} className="text-[#233DFF] animate-spin" />
-            </div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#233DFF] animate-pulse">{t.loadingMeditation}</p>
-          </div>
+      {/* Controls */}
+      <div className="flex-shrink-0 pb-1">
+        {isAudioPlaying ? (
+          <button
+            onClick={togglePause}
+            className="w-full h-16 bg-gray-100 dark:bg-white/8 rounded-2xl font-semibold text-sm uppercase tracking-widest text-[#1a1a1a] dark:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+          >
+            {isPaused ? <Play size={18} /> : <Pause size={18} />}
+            {isPaused
+              ? (lang === 'es' ? 'CONTINUAR SESIÓN' : 'RESUME SESSION')
+              : (lang === 'es' ? 'PAUSAR SESIÓN' : 'PAUSE SESSION')}
+          </button>
         ) : (
-          <>
-            {/* Sparkle icon — smaller to save space */}
-            <div className="w-16 h-16 bg-[#233DFF]/5 rounded-[24px] flex items-center justify-center relative flex-shrink-0">
-              <div className={`absolute inset-0 bg-[#233DFF]/10 rounded-[24px] transition-all duration-[2500ms] ${isAudioPlaying && !isPaused ? 'animate-ping' : ''}`}></div>
-              <Sparkles size={28} className={`text-[#233DFF] transition-all duration-700 ${isAudioPlaying && !isPaused ? 'scale-110 rotate-6' : 'scale-100'}`} />
-            </div>
-
-            {/* Progress bar — only show during playback */}
-            {(isAudioPlaying || progress > 0) && (
-              <div className="w-full max-w-[220px] h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#233DFF] transition-all duration-100 ease-linear rounded-full"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            )}
-
-            {/* Script text */}
-            <div className="px-2 flex-shrink overflow-hidden min-h-0">
-              {script ? (
-                <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400 leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-700 line-clamp-6">
-                  {script}
-                </p>
-              ) : (
-                <p className="text-xs font-medium text-gray-300 uppercase tracking-wide opacity-60">{t.labels.tapToStart}</p>
-              )}
-            </div>
-
-            {/* TTS unavailable — compact inline message */}
-            {(ttsUnavailable || (error && !ttsUnavailable)) && script && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => playMeditationAudio(script)}
+              className="flex-1 h-16 bg-[#233DFF] text-white rounded-2xl font-semibold text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            >
+              <Play size={18} fill="currentColor" />
+              {lang === 'es' ? 'REPRODUCIR' : 'PLAY AGAIN'}
+            </button>
+            {bgSoundActive && (
               <button
-                onClick={() => playMeditationAudio(script)}
-                className="px-4 py-2 bg-amber-50 dark:bg-amber-500/10 rounded-full text-xs font-medium text-amber-700 dark:text-amber-400 active:scale-95 transition-all flex-shrink-0"
+                onClick={stopAll}
+                className="h-16 px-5 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center"
               >
-                {lang === 'es' ? 'Audio no disponible — toca para reintentar' : 'Audio unavailable — tap to retry'}
+                <Square size={16} />
               </button>
             )}
-
-            {/* Background Sound Selector */}
-            <div className="flex items-center justify-center gap-1.5 flex-shrink-0 flex-wrap">
-              <span className="text-[9px] font-medium uppercase tracking-wide text-gray-300 dark:text-gray-500 mr-0.5">{t.bgSound}</span>
-              {(['NONE', 'RAIN', 'OCEAN', 'FOREST', 'ZEN'] as const).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setBgSound(s)}
-                  className={`px-3 py-1.5 rounded-full text-[10px] font-medium uppercase tracking-wide transition-all active:scale-95 ${bgSound === s ? 'bg-[#233DFF] text-white' : 'bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-gray-500'}`}
-                >
-                  {t.sounds[s]}
-                </button>
-              ))}
-            </div>
-
-            {/* ── CONTROLS ── */}
-            <div className="flex flex-col gap-2 w-full max-w-xs flex-shrink-0 pb-1">
-              {!script ? (
-                /* BEGIN SESSION — no script yet */
-                <button
-                  onClick={loadScript}
-                  className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <Play size={18} />
-                  {t.labels.beginSession}
-                </button>
-              ) : isAudioPlaying ? (
-                /* PAUSE + STOP — narration is actively playing */
-                <div className="flex gap-2">
-                  <button
-                    onClick={togglePause}
-                    className="flex-1 h-14 rounded-full font-normal text-sm transition-all flex items-center justify-center gap-2 active:scale-95 bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white"
-                  >
-                    {isPaused ? <Play size={16} /> : <Pause size={16} />}
-                    {isPaused ? (lang === 'es' ? 'Continuar' : 'Resume') : (lang === 'es' ? 'Pausa' : 'Pause')}
-                  </button>
-                  <button
-                    onClick={stopAll}
-                    className="h-14 px-6 rounded-full font-normal text-sm transition-all flex items-center justify-center gap-2 active:scale-95 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10"
-                  >
-                    <Square size={14} />
-                    {lang === 'es' ? 'Parar' : 'Stop'}
-                  </button>
-                </div>
-              ) : (
-                /* PLAY / PLAY AGAIN — narration ended or not started; music may still be playing */
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => playMeditationAudio(script)}
-                    className="flex-1 h-14 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 active:scale-95 bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl"
-                  >
-                    <Play size={18} />
-                    {lang === 'es' ? 'Reproducir' : 'Play'}
-                  </button>
-                  {bgSoundActive && (
-                    <button
-                      onClick={stopAll}
-                      className="h-14 px-5 rounded-full font-normal text-sm transition-all flex items-center justify-center gap-2 active:scale-95 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10"
-                    >
-                      <Square size={14} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </>
+          </div>
         )}
       </div>
     </div>

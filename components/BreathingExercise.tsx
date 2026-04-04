@@ -345,8 +345,8 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
               } else {
                 prevPhaseRef.current = null;
                 setIsActive(true);
-                // Pre-cache TTS in the background — tones play immediately
-                if (audioEnabled) preCachePhaseAudio();
+                // Cache is already populated from mount-time fetch.
+                // Re-caching here would clear it and cause PHYS_INHALE_1 to miss.
               }
             }}
             className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-[#233dff] text-white border border-[#233dff] shadow-blue-500/20'}`}
