@@ -644,13 +644,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const handleStart = async () => {
     try { await initAudio(); } catch (e) { console.warn('Audio init failed, continuing:', e); }
 
-    // If user chose outdoor but GPS was never granted, silently switch to indoor
-    const effectiveSessionType = (sessionType === 'OUTDOOR' && !userLocation) ? 'INDOOR' : sessionType;
-    if (effectiveSessionType !== sessionType) setSessionType(effectiveSessionType);
+    // Respect the user's session type choice — OUTDOOR works without GPS
+    // (map shows at default LA coordinates, audio coaching still fully functional)
+    const effectiveSessionType = sessionType;
     const isIndoor = effectiveSessionType === 'INDOOR';
     indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
-    // Use existing GPS if available, don't re-request (avoids 10s hang)
+    // Seed path with GPS location if available
     if (!isIndoor && userLocation) {
       pathCoordsRef.current = [userLocation];
       lastPositionRef.current = userLocation;
