@@ -572,10 +572,10 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               ))}
             </div>
 
-            {/* ── CONTROLS: Clear Start / Pause / Stop ── */}
+            {/* ── CONTROLS ── */}
             <div className="flex flex-col gap-2 w-full max-w-xs flex-shrink-0 pb-1">
               {!script ? (
-                /* BEGIN SESSION — initial state */
+                /* BEGIN SESSION — no script yet */
                 <button
                   onClick={loadScript}
                   className="w-full h-14 bg-[#233dff] text-white rounded-full border border-[#233dff] font-normal text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -583,8 +583,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
                   <Play size={18} />
                   {t.labels.beginSession}
                 </button>
-              ) : (isAudioPlaying || bgSoundActive) ? (
-                /* PAUSE + STOP — during playback */
+              ) : isAudioPlaying ? (
+                /* PAUSE + STOP — narration is actively playing */
                 <div className="flex gap-2">
                   <button
                     onClick={togglePause}
@@ -602,14 +602,24 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
                   </button>
                 </div>
               ) : (
-                /* PLAY AGAIN — after session ends or stopped */
-                <button
-                  onClick={() => playMeditationAudio(script)}
-                  className="w-full h-14 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 active:scale-95 bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl"
-                >
-                  <Play size={18} />
-                  {lang === 'es' ? 'Reproducir' : 'Play'}
-                </button>
+                /* PLAY / PLAY AGAIN — narration ended or not started; music may still be playing */
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => playMeditationAudio(script)}
+                    className="flex-1 h-14 rounded-full font-normal text-base transition-all flex items-center justify-center gap-3 active:scale-95 bg-black dark:bg-white text-white dark:text-black border border-[#0f0f0f] dark:border-white shadow-xl"
+                  >
+                    <Play size={18} />
+                    {lang === 'es' ? 'Reproducir' : 'Play'}
+                  </button>
+                  {bgSoundActive && (
+                    <button
+                      onClick={stopAll}
+                      className="h-14 px-5 rounded-full font-normal text-sm transition-all flex items-center justify-center gap-2 active:scale-95 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-white/10"
+                    >
+                      <Square size={14} />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </>
