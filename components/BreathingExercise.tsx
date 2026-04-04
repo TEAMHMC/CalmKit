@@ -41,6 +41,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [audioEnabled, setAudioEnabled] = useState(true);
   const prevPhaseRef = useRef<BreathPhase | null>(null);
   const audioCacheRef = useRef<Map<BreathPhase, AudioBuffer>>(new Map());
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const t = translations[lang];
 
   // Tone frequencies per phase (Hz) — inhale rises, exhale falls, hold holds
@@ -89,6 +90,9 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     const phases: BreathPhase[] = mode === 'physiological'
       ? ['PHYS_INHALE_1', 'PHYS_INHALE_2', 'PHYS_EXHALE']
       : ['INHALE', 'HOLD_FULL', 'EXHALE', 'HOLD_EMPTY'];
+    // Stop any in-flight voice from the previous language immediately
+    try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
+    currentSourceRef.current = null;
     audioCacheRef.current.clear();
     let ctx: AudioContext;
     try { ctx = await getAudioContext(44100); } catch { return; }
@@ -109,7 +113,8 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     }));
   }, [mode, lang]);
 
-  // Play cached TTS audio for the current phase (300 ms after the chime)
+  // Play cached TTS audio for the current phase (300 ms after the chime).
+  // Stops any previous source first so English/Spanish don't overlap.
   const playPhaseAudio = useCallback(async (p: BreathPhase) => {
     const buffer = audioCacheRef.current.get(p);
     if (!buffer) return;
@@ -118,10 +123,14 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       if (ctx.state === 'closed') return;
       setTimeout(() => {
         if (ctx.state === 'closed') return;
+        // Stop previous voice immediately
+        try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         src.start();
+        currentSourceRef.current = src;
+        src.onended = () => { currentSourceRef.current = null; };
       }, 300);
     } catch { /* fail silently */ }
   }, []);

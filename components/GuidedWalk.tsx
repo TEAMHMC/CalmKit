@@ -911,7 +911,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // RENDER: Setup — Step 0 (CBT Check-in) & Step 1 (Mode + Destination)
   // ══════════════════════════════════════════════
   return (
-    <div className="flex-1 min-h-0 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+    <div className="flex-1 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <button onClick={step === 0 ? onBack : () => setStep(0)} className="w-11 h-11 -ml-2 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
@@ -991,54 +991,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ))}
             </div>
 
-            {/* GPS Status — only show if not available */}
-            {sessionType === 'OUTDOOR' && !gpsLoading && !userLocation && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl">
-                <MapPin size={16} className="text-gray-400 flex-shrink-0" />
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{lang === 'es' ? 'Ubicación no disponible — la guía de audio funciona sin ella' : 'Location not available — audio guidance works without it'}</p>
-              </div>
-            )}
-
-            {/* Outdoor: Destination Search — only show if GPS is available */}
-            {sessionType === 'OUTDOOR' && userLocation && (
-              <div className="relative">
-                <div className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 px-4 py-4">
-                  <Search size={18} className="text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder={lang === 'es' ? 'Buscar un destino...' : 'Search for a destination...'}
-                    className="bg-transparent flex-1 text-base outline-none dark:text-white placeholder:text-gray-400"
-                  />
-                </div>
-                {suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/10 shadow-xl z-50 max-h-48 overflow-auto">
-                    {suggestions.map((s: any, i: number) => (
-                      <button
-                        key={i}
-                        onClick={() => selectSuggestion(s)}
-                        className="w-full text-left px-5 py-4 text-sm hover:bg-gray-50 dark:hover:bg-white/5 border-b border-gray-50 dark:border-white/5 last:border-0 dark:text-white truncate active:bg-gray-100 dark:active:bg-white/10"
-                      >
-                        {s.display_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {destinationName && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <Navigation size={14} className="text-[#233DFF]" />
-                    <span className="text-sm text-[#233DFF] font-medium truncate">{destinationName}</span>
-                    <button
-                      onClick={() => { setDestinationName(''); setDestinationCoords(null); setSearchQuery(''); }}
-                      className="text-gray-400 text-base ml-auto flex-shrink-0 w-8 h-8 flex items-center justify-center"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Indoor: Activity Picker */}
             {sessionType === 'INDOOR' && (
@@ -1112,10 +1064,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
           >
             <Play size={20} fill="currentColor" />
-            <span>{sessionType === 'INDOOR'
-              ? (lang === 'es' ? 'Comenzar' : 'Begin')
-              : destinationName ? `${t.labels.justGo} \u2192 ${destinationName}` : lang === 'es' ? 'Solo Moverme' : 'Just Move'
-            }</span>
+            <span>{lang === 'es' ? 'IR' : 'GO'}</span>
           </button>
         </div>
       )}
