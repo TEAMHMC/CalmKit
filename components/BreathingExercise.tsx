@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { RotateCcw, Play, Pause } from 'lucide-react';
-import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock } from '../audioManager';
+import { RotateCcw, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, getAudioContext } from '../audioManager';
 
 interface BreathingExerciseProps {
   onBack: () => void;
@@ -19,7 +19,51 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [timer, setTimer] = useState(2);
   const [isActive, setIsActive] = useState(false);
   const [cycles, setCycles] = useState(0);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const prevPhaseRef = useRef<BreathPhase | null>(null);
   const t = translations[lang];
+
+  // Tone frequencies per phase (Hz) — inhale rises, exhale falls, hold holds
+  const PHASE_TONES: Record<BreathPhase, number> = {
+    PHYS_INHALE_1: 330,
+    PHYS_INHALE_2: 396,
+    PHYS_EXHALE:   220,
+    INHALE:        330,
+    HOLD_FULL:     396,
+    EXHALE:        220,
+    HOLD_EMPTY:    180,
+  };
+
+  // Play a soft chime using AudioContext — gentle sine wave, ~0.6s fade
+  const playTone = useCallback(async (freq: number) => {
+    try {
+      const ctx = await getAudioContext(44100);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.75);
+    } catch { /* audio unavailable — fail silently */ }
+  }, []);
+
+  // Speak the phase instruction via Web Speech API
+  const speak = useCallback((text: string) => {
+    if (!audioEnabled) return;
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = 0.85;
+    utt.pitch = 1.0;
+    utt.volume = 0.9;
+    utt.lang = lang === 'es' ? 'es-US' : 'en-US';
+    window.speechSynthesis.speak(utt);
+  }, [audioEnabled, lang]);
 
   // Keep screen awake during active breathing session
   useEffect(() => {
@@ -30,13 +74,28 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       stopKeepAlive();
       releaseWakeLock();
     }
-    return () => { stopKeepAlive(); releaseWakeLock(); };
+    return () => { stopKeepAlive(); releaseWakeLock(); window.speechSynthesis?.cancel(); };
   }, [isActive]);
+
+  // Speak + tone on phase change
+  useEffect(() => {
+    if (!isActive) return;
+    if (prevPhaseRef.current === phase) return;
+    prevPhaseRef.current = phase;
+    const text = getPhaseText();
+    if (audioEnabled) {
+      playTone(PHASE_TONES[phase]);
+      // Small delay so tone plays before voice
+      setTimeout(() => speak(text), 200);
+    }
+  }, [phase, isActive, audioEnabled]);
 
   // Reset phase/timer when switching modes
   const switchMode = (newMode: BreathingMode) => {
+    window.speechSynthesis?.cancel();
     setIsActive(false);
     setCycles(0);
+    prevPhaseRef.current = null;
     if (newMode === 'physiological') {
       setPhase('PHYS_INHALE_1');
       setTimer(2);
@@ -54,8 +113,8 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         setTimer((prev) => {
           if (prev === 1) {
             switch (phase) {
-              // Physiological sigh: 2s inhale → 1s top-up inhale → 8s slow exhale
-              case 'PHYS_INHALE_1': setPhase('PHYS_INHALE_2'); return 1;
+              // Physiological sigh: 2s inhale → 2s top-up inhale → 8s slow exhale
+              case 'PHYS_INHALE_1': setPhase('PHYS_INHALE_2'); return 2;
               case 'PHYS_INHALE_2': setPhase('PHYS_EXHALE'); return 8;
               case 'PHYS_EXHALE': setPhase('PHYS_INHALE_1'); setCycles(c => c + 1); return 2;
               // Box breathing: 4-4-4-4
@@ -117,11 +176,11 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     : t.labels.boxBreathingPhase;
 
   const physioDesc = lang === 'es'
-    ? 'Doble inhalación + exhale largo — activa el nervio vago en segundos'
-    : 'Double inhale + long exhale — activates the vagus nerve in seconds';
+    ? 'Doble inhalación + exhale largo — calma tu cuerpo en segundos'
+    : 'Double inhale + long exhale — calms your body fast';
   const boxDesc = lang === 'es'
-    ? 'Respiración de 4 tiempos — regula y calma el sistema nervioso'
-    : '4-count cycle — regulates and calms your nervous system';
+    ? 'Respira lento y en ciclos — ayuda a sentirte más tranquilo'
+    : 'Slow, steady cycles — helps you feel calm and in control';
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#121212] animate-in fade-in w-full overflow-hidden">
@@ -159,18 +218,32 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF] dark:text-blue-400">
           {modeLabel}
         </span>
-        <button
-          onClick={() => {
-            setIsActive(false);
-            setCycles(0);
-            if (mode === 'physiological') { setPhase('PHYS_INHALE_1'); setTimer(2); }
-            else { setPhase('INHALE'); setTimer(4); }
-          }}
-          className="w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm active:rotate-180"
-          aria-label="Reset timer"
-        >
-          <RotateCcw size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setAudioEnabled(e => !e);
+              if (audioEnabled) window.speechSynthesis?.cancel();
+            }}
+            className="w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm"
+            aria-label={audioEnabled ? 'Mute audio guidance' : 'Enable audio guidance'}
+          >
+            {audioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} className="text-gray-300" />}
+          </button>
+          <button
+            onClick={() => {
+              window.speechSynthesis?.cancel();
+              setIsActive(false);
+              setCycles(0);
+              prevPhaseRef.current = null;
+              if (mode === 'physiological') { setPhase('PHYS_INHALE_1'); setTimer(2); }
+              else { setPhase('INHALE'); setTimer(4); }
+            }}
+            className="w-11 h-11 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm active:rotate-180"
+            aria-label="Reset timer"
+          >
+            <RotateCcw size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Responsive Visual Center */}
@@ -202,7 +275,15 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           </div>
 
           <button
-            onClick={() => setIsActive(!isActive)}
+            onClick={() => {
+              if (isActive) {
+                window.speechSynthesis?.cancel();
+                setIsActive(false);
+              } else {
+                prevPhaseRef.current = null; // trigger speak on next phase
+                setIsActive(true);
+              }
+            }}
             className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-[#233dff] text-white border border-[#233dff] shadow-blue-500/20'}`}
           >
             {isActive ? (
