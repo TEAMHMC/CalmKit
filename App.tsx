@@ -168,8 +168,8 @@ const App: React.FC = () => {
       )}
 
       {/* PHONE-SIZED VIEWPORT LOCK */}
-      <div className="fixed inset-0 flex justify-center" style={{ background: 'var(--desktop-bg, #f0f4ff)' }}>
-        <div className="flex flex-col overflow-hidden bg-white dark:bg-[#121212]" style={{ width: '100%', maxWidth: 430 }}>
+      <div className="fixed inset-0 flex justify-center bg-[#f5f5f5] dark:bg-[#0a0a0a]">
+        <div className="flex flex-col overflow-hidden bg-white dark:bg-[#121212] w-full" style={{ maxWidth: 430 }}>
 
           {/* HEADER */}
           {!immersive && (
