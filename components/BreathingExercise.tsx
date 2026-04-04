@@ -39,6 +39,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const [isActive, setIsActive] = useState(false);
   const [cycles, setCycles] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [cacheReady, setCacheReady] = useState(false);
   const prevPhaseRef = useRef<BreathPhase | null>(null);
   const audioCacheRef = useRef<Map<BreathPhase, AudioBuffer>>(new Map());
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -76,7 +77,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   // Map each phase to calm, spoken-word TTS text (different from the display labels)
   const PHASE_TTS: Record<BreathPhase, { en: string; es: string }> = {
     PHYS_INHALE_1: { en: 'Inhale through your nose',          es: 'Inhala por la nariz' },
-    PHYS_INHALE_2: { en: 'Inhale again, top it off',          es: 'Inhala de nuevo, llena los pulmones' },
+    PHYS_INHALE_2: { en: 'Second inhale, fill your lungs',     es: 'Segunda inhalación, llena tus pulmones' },
     PHYS_EXHALE:   { en: 'Long exhale through your mouth',    es: 'Exhala lentamente por la boca' },
     INHALE:        { en: 'Inhale',                             es: 'Inhala' },
     HOLD_FULL:     { en: 'Hold',                               es: 'Sostén' },
@@ -94,8 +95,9 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
     currentSourceRef.current = null;
     audioCacheRef.current.clear();
+    setCacheReady(false);
     let ctx: AudioContext;
-    try { ctx = await getAudioContext(44100); } catch { return; }
+    try { ctx = await getAudioContext(44100); } catch { setCacheReady(true); return; }
     await Promise.all(phases.map(async (p) => {
       const text = PHASE_TTS[p][lang];
       try {
@@ -111,6 +113,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         }
       } catch { /* fail silently — tones still play */ }
     }));
+    setCacheReady(true);
   }, [mode, lang]);
 
   // Play cached TTS audio for the current phase (300 ms after the chime).
@@ -168,6 +171,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const switchMode = (newMode: BreathingMode) => {
     setIsActive(false);
     setCycles(0);
+    setCacheReady(false);
     prevPhaseRef.current = null;
     audioCacheRef.current.clear();
     if (newMode === 'physiological') {
@@ -354,14 +358,15 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
               } else {
                 prevPhaseRef.current = null;
                 setIsActive(true);
-                // Cache is already populated from mount-time fetch.
-                // Re-caching here would clear it and cause PHYS_INHALE_1 to miss.
               }
             }}
-            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-black/10 dark:border-white/20' : 'bg-[#233dff] text-white shadow-blue-500/20'}`}
+            disabled={!isActive && !cacheReady}
+            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl disabled:opacity-50 ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-black/10 dark:border-white/20' : 'bg-[#233dff] text-white shadow-blue-500/20'}`}
           >
             {isActive ? (
               <><Pause size={20} fill="currentColor" /> {t.pauseSession}</>
+            ) : !cacheReady ? (
+              <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Getting ready...</>
             ) : (
               <><Play size={20} fill="currentColor" className="ml-0.5" /> {t.labels.beginSession}</>
             )}

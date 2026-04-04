@@ -911,7 +911,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // RENDER: Setup — Step 0 (CBT Check-in) & Step 1 (Mode + Destination)
   // ══════════════════════════════════════════════
   return (
-    <div className="flex-1 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+    <div className="flex-1 min-h-0 flex flex-col px-5 py-4 animate-in fade-in bg-white dark:bg-[#121212]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <button onClick={step === 0 ? onBack : () => setStep(0)} className="w-11 h-11 -ml-2 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
