@@ -144,7 +144,7 @@ const App: React.FC = () => {
             </div>
             <button
               onClick={() => safeSetView('HOME')}
-              className="h-14 bg-black dark:bg-white text-white dark:text-black rounded-full">
+              className="h-14 bg-black dark:bg-white text-white dark:text-black rounded-full font-normal active:scale-95 transition-all">
               Back
             </button>
           </div>
@@ -177,7 +177,7 @@ const App: React.FC = () => {
           {/* HEADER */}
           {!immersive && (
             <header
-              className="flex-shrink-0 px-5 flex justify-between items-center bg-white dark:bg-[#121212]"
+              className="flex-shrink-0 px-5 flex justify-between items-center bg-white dark:bg-[#121212] border-b border-gray-100 dark:border-white/10"
               style={{ minHeight: 56, paddingTop: 'calc(env(safe-area-inset-top) + 8px)', paddingBottom: 8 }}
             >
               <div onClick={() => safeSetView('HOME')} className="flex items-center gap-3">
@@ -228,8 +228,9 @@ const App: React.FC = () => {
                   onClick={() => safeSetView(n.id as AppView)}
                   aria-label={n.label}
                   aria-current={view === n.id ? 'page' : undefined}
-                  className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-2 ${view === n.id ? 'text-[#233DFF]' : 'text-gray-400 dark:text-gray-500'}`}
+                  className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-2 relative ${view === n.id ? 'text-[#233DFF]' : 'text-gray-400 dark:text-gray-500'}`}
                 >
+                  {view === n.id && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] rounded-full bg-[#233DFF]" />}
                   {n.icon}
                   <span className="text-[9px] mt-0.5">{n.label}</span>
                 </button>

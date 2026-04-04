@@ -623,7 +623,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         {isAudioPlaying ? (
           <button
             onClick={togglePause}
-            className="w-full h-16 bg-gray-100 dark:bg-white/10 border border-transparent dark:border-white/10 rounded-2xl font-semibold text-sm uppercase tracking-widest text-[#1a1a1a] dark:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+            className="w-full h-16 bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-2xl font-semibold text-sm uppercase tracking-widest text-[#1a1a1a] dark:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
           >
             {isPaused ? <Play size={18} /> : <Pause size={18} />}
             {isPaused

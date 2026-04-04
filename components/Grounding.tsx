@@ -36,7 +36,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
 
              <button
               onClick={() => step < 4 ? setStep(step + 1) : setDone(true)}
-              className="w-full bg-black dark:bg-white text-white dark:text-black h-16 rounded-full border border-[#0f0f0f] dark:border-white font-normal text-base flex items-center justify-center gap-2 shadow-lg active:scale-95"
+              className="w-full bg-black dark:bg-white text-white dark:text-black h-16 rounded-full font-normal text-base flex items-center justify-center gap-2 shadow-lg active:scale-95"
              >
                 {step < 4 ? t.onboarding.next : t.labels.done} <ArrowRight size={20} />
              </button>
@@ -54,7 +54,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
                <h3 className="text-3xl font-normal italic dark:text-white font-display">{t.labels.youArePresent}</h3>
                <p className="text-gray-400 font-medium uppercase text-xs tracking-wide">{t.labels.safetyFound}</p>
              </div>
-             <button onClick={() => { setStep(0); setDone(false); }} className="w-full bg-white dark:bg-transparent border border-[#0f0f0f] dark:border-white h-16 rounded-full font-normal text-base shadow-sm active:scale-95 text-[#1a1a1a] dark:text-white flex items-center justify-center gap-2">
+             <button onClick={() => { setStep(0); setDone(false); }} className="w-full bg-white dark:bg-white/5 border border-black/10 dark:border-white/20 h-16 rounded-full font-normal text-base shadow-sm active:scale-95 text-[#1a1a1a] dark:text-white flex items-center justify-center gap-2">
                 {t.labels.repeat}
              </button>
              <button onClick={onBack} className="w-full h-12 rounded-full font-normal text-base text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center justify-center gap-2">

@@ -263,7 +263,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         <div className="flex gap-2">
           <button
             onClick={() => switchMode('physiological')}
-            className={`flex-1 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wide transition-all ${
+            className={`flex-1 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-wide transition-all ${
               mode === 'physiological'
                 ? 'bg-[#233DFF] text-white shadow-lg shadow-blue-500/20'
                 : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400'
@@ -273,7 +273,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           </button>
           <button
             onClick={() => switchMode('box')}
-            className={`flex-1 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wide transition-all ${
+            className={`flex-1 py-2.5 rounded-full text-[11px] font-semibold uppercase tracking-wide transition-all ${
               mode === 'box'
                 ? 'bg-[#233DFF] text-white shadow-lg shadow-blue-500/20'
                 : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400'
@@ -358,7 +358,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
                 // Re-caching here would clear it and cause PHYS_INHALE_1 to miss.
               }
             }}
-            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-[#0f0f0f] dark:border-white' : 'bg-[#233dff] text-white border border-[#233dff] shadow-blue-500/20'}`}
+            className={`w-full h-16 rounded-full font-normal text-base flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${isActive ? 'bg-white dark:bg-white/10 text-[#1a1a1a] dark:text-white border border-black/10 dark:border-white/20' : 'bg-[#233dff] text-white shadow-blue-500/20'}`}
           >
             {isActive ? (
               <><Pause size={20} fill="currentColor" /> {t.pauseSession}</>
