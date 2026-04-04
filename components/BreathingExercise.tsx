@@ -126,6 +126,12 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     } catch { /* fail silently */ }
   }, []);
 
+  // Pre-cache TTS on mount and whenever mode/lang changes so the first phase
+  // has a voice ready the instant the user presses Play — no delay on cycle 1.
+  useEffect(() => {
+    preCachePhaseAudio();
+  }, [preCachePhaseAudio]);
+
   // Keep screen awake during active breathing session
   useEffect(() => {
     if (isActive) {

@@ -4,7 +4,7 @@ import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity 
 import { translations } from '../translations';
 import { generateSegmentNarrative } from '../geminiService';
 import {
-  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2
+  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap
 } from 'lucide-react';
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup } from '../audioManager';
 
@@ -658,7 +658,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     startKeepAlive();
     await sharedRequestWakeLock();
-    onImmersiveChange?.(true);
     setIsPlaying(true);
     isNarratingRef.current = true;
     const now = Date.now();
@@ -748,7 +747,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
     audioCtxRef.current = null;
-    onImmersiveChange?.(false);
     setIsPlaying(false);
     setIsPaused(false);
     // Show session summary instead of immediately going home
@@ -825,87 +823,83 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   }
 
   // ══════════════════════════════════════════════
-  // RENDER: Active Walk — Ghost Mode
+  // RENDER: Active Walk — New Card Layout
   // ══════════════════════════════════════════════
   if (isPlaying) {
+    const elapsed = sessionStats.time;
+    const timeStr = `${Math.floor(elapsed / 60)}:${(Math.floor(elapsed) % 60).toString().padStart(2, '0')}`;
+    const paceStr = sessionStats.pace === '0:00' ? `--'--"` : sessionStats.pace;
+
     return (
-      <div className="flex-1 flex flex-col h-full bg-[#0A0A0A] overflow-hidden relative">
-        {/* Ghost Mode Map or Indoor Background */}
-        <div className="flex-1 relative overflow-hidden dark-map h-full">
-          {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
-          {sessionType === 'INDOOR' && (
-            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
-              <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
-                <Activity size={48} className="text-[#233DFF]/30" />
-              </div>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none z-[1]" />
-
-          {/* Floating Pill HUD */}
-          <div className="absolute top-0 left-0 right-0 p-4 z-20 pt-[env(safe-area-inset-top,24px)] pointer-events-none flex flex-col gap-3">
-            <div className="flex justify-center gap-2.5">
-              {sessionType === 'OUTDOOR' && (
-                <>
-                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                    <Activity size={16} className="text-[#233DFF]" />
-                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.distance.toFixed(2)}</span>
-                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.miles}</span>
-                  </div>
-                  <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                    <Navigation size={16} className="text-[#233DFF]" />
-                    <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">{sessionStats.pace}</span>
-                    <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.avgPace}</span>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="flex justify-center">
-              <div className="px-5 py-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2.5 shadow-2xl">
-                <Clock size={16} className="text-[#233DFF]" />
-                <span className="text-2xl font-semibold tracking-tight text-white tabular-nums">
-                  {Math.floor(sessionStats.time / 60)}:{(Math.floor(sessionStats.time) % 60).toString().padStart(2, '0')}
-                </span>
-                <span className="text-[11px] font-medium text-white/60 uppercase tracking-widest">{t.labels.time}</span>
-              </div>
-            </div>
-
-            {/* Status indicators */}
-            <div className="flex justify-center gap-2.5">
-              {sessionType === 'INDOOR' && (
-                <div className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-                  <span className="text-[11px] font-medium text-white/50 uppercase">{t.labels.indoorSession} — {t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}</span>
-                </div>
-              )}
-              {isBufferingAudio && (
-                <div className="px-4 py-1.5 rounded-full bg-[#233DFF]/30 backdrop-blur-md border border-[#233DFF]/40 animate-pulse">
-                  <span className="text-[11px] font-medium text-white/70 uppercase">loading</span>
-                </div>
-              )}
+      <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] dark-map">
+        {/* Map */}
+        {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+        {sessionType === 'INDOOR' && (
+          <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
+            <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
+              <Activity size={48} className="text-[#233DFF]/30" />
             </div>
           </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/65 pointer-events-none z-[1]" />
 
-          {/* Bottom Controls — pointer-events-auto so buttons work over the map */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 z-20 pb-[calc(env(safe-area-inset-bottom,24px)+20px)] flex flex-col items-center gap-5 pointer-events-auto">
-            <div className="px-5 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
-              <span className="text-xs font-medium text-white uppercase tracking-wide">
-                {MODES.find(m => m.id === mode)?.label}{sessionType === 'INDOOR' ? ` · ${t.labels[indoorActivity.toLowerCase() as 'stretch' | 'flow' | 'sweat']}` : ''}
+        {/* MILES — large card, upper center */}
+        {sessionType === 'OUTDOOR' && (
+          <div className="absolute top-5 left-5 right-5 z-20 pointer-events-none">
+            <div className="bg-black/55 backdrop-blur-xl rounded-[28px] px-8 py-7 flex flex-col items-center border border-white/5 shadow-2xl">
+              <span className="text-[80px] font-black text-white tabular-nums leading-none tracking-tighter">
+                {sessionStats.distance.toFixed(2)}
+              </span>
+              <span className="text-sm font-bold text-[#233DFF] uppercase tracking-[0.35em] mt-2">
+                {t.labels.miles}
               </span>
             </div>
-            <div className="flex items-center gap-8">
-              <button
-                onClick={handleStop}
-                className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center text-white/60 active:scale-95 transition-all"
-              >
-                <X size={22} />
-              </button>
-              <button
-                onClick={togglePause}
-                className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center text-white shadow-[0_0_30px_rgba(35,61,255,0.4)] border border-white/20 active:scale-95 transition-all"
-              >
-                {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} fill="currentColor" />}
-              </button>
-              <div className="w-16 h-16" />
+          </div>
+        )}
+
+        {/* TIME + PACE — combined pill */}
+        <div className={`absolute ${sessionType === 'OUTDOOR' ? 'top-[222px]' : 'top-5'} left-5 right-5 z-20 pointer-events-none`}>
+          <div className="bg-black/55 backdrop-blur-xl rounded-full px-8 py-4 flex items-center justify-center gap-4 border border-white/5">
+            <Clock size={17} className="text-[#233DFF] flex-shrink-0" />
+            <span className="text-xl font-bold text-white tabular-nums">{timeStr}</span>
+            {sessionType === 'OUTDOOR' && (
+              <>
+                <div className="w-px h-5 bg-white/25 flex-shrink-0" />
+                <Zap size={17} className="text-[#233DFF] flex-shrink-0" fill="currentColor" />
+                <span className="text-xl font-bold text-white tabular-nums">{paceStr}</span>
+              </>
+            )}
+            {isBufferingAudio && (
+              <>
+                <div className="w-px h-5 bg-white/25 flex-shrink-0" />
+                <Loader2 size={15} className="text-[#233DFF] animate-spin flex-shrink-0" />
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Controls */}
+        <div
+          className="absolute bottom-0 left-0 right-0 px-5 z-20 pointer-events-auto"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)', paddingTop: 20 }}
+        >
+          <div className="bg-black/55 backdrop-blur-xl rounded-[32px] p-5 flex items-center justify-center gap-5 border border-white/5">
+            <button
+              onClick={handleStop}
+              className="w-16 h-16 bg-red-950/80 rounded-full border border-red-900/40 flex items-center justify-center active:scale-95 transition-all"
+            >
+              <X size={22} className="text-red-400" />
+            </button>
+            <button
+              onClick={togglePause}
+              className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(35,61,255,0.5)] border border-[#233DFF]/20 active:scale-95 transition-all"
+            >
+              {isPaused ? <Play size={32} fill="currentColor" className="text-white ml-1" /> : <Pause size={32} fill="currentColor" className="text-white" />}
+            </button>
+            <div className="w-16 h-16 flex items-center justify-center">
+              <span className="text-[10px] font-medium text-white/30 uppercase tracking-wide text-center leading-tight">
+                {MODES.find(m => m.id === mode)?.label}
+              </span>
             </div>
           </div>
         </div>
@@ -917,7 +911,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // RENDER: Setup — Step 0 (CBT Check-in) & Step 1 (Mode + Destination)
   // ══════════════════════════════════════════════
   return (
-    <div className="flex-1 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
+    <div className="flex-1 min-h-0 flex flex-col px-5 py-4 animate-in fade-in overflow-hidden bg-white dark:bg-[#121212]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <button onClick={step === 0 ? onBack : () => setStep(0)} className="w-11 h-11 -ml-2 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
