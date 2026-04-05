@@ -205,6 +205,21 @@ function createZen(ctx: AudioContext): BgSoundNodes {
   return { nodes: [osc1, osc2, lfo, padGain, lfoGain], gain: masterGain, timers: [] };
 }
 
+const GREETING = {
+  en: "Welcome. Take a moment to settle in. Gently close your eyes if that feels comfortable, and let's begin.",
+  es: "Bienvenido. Tómate un momento para acomodarte. Cierra suavemente los ojos si te sientes cómodo, y comencemos.",
+};
+
+const CLOSING = {
+  en: "Take your time returning. Carry this stillness with you.",
+  es: "Tómate tu tiempo para volver. Lleva contigo esta tranquilidad.",
+};
+
+const SPONSOR = {
+  en: "This session is brought to you by L.A. Care Health Plan.",
+  es: "Esta sesión fue presentada por L.A. Care Health Plan.",
+};
+
 const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const [script, setScript] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -216,6 +231,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const [error, setError] = useState(false);
   const [ttsUnavailable, setTtsUnavailable] = useState(false);
   const [bgSoundActive, setBgSoundActive] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(false);
 
   const t = translations[lang];
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -432,6 +448,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         source.onended = () => {
           setIsAudioPlaying(false);
           setIsPaused(false);
+          setSessionComplete(true);
           clearInterval(progressIntervalRef.current);
           // Background sound keeps playing until explicitly stopped or component unmounts
         };
@@ -455,12 +472,15 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     setIsLoading(true);
     setError(false);
     setTtsUnavailable(false);
+    setSessionComplete(false);
     await initAudio();
     try {
       const s = await withTimeout(generateMeditationScript(lang), 10000, 'Script generation');
       setScript(s);
       setIsLoading(false);
-      await playMeditationAudio(s);
+      // Prepend greeting to TTS audio only — displayed script stays clean
+      const greeting = GREETING[lang] ?? GREETING.en;
+      await playMeditationAudio(`${greeting} ${s}`);
     } catch (e) {
       console.error("Script generation failed", e);
       const fallback = lang === 'en'
@@ -468,8 +488,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         : "Inhala lentamente... sostén suavemente... exhala completamente. Siente cómo tu cuerpo se relaja con cada respiración. Deja ir la tensión en tus hombros, tu mandíbula, tus manos. Estás a salvo aquí. Estás presente. Continúa respirando lentamente, encontrando tu ritmo natural de paz.";
       setScript(fallback);
       setIsLoading(false);
-      // Try TTS on fallback, but don't error out if it also fails
-      await playMeditationAudio(fallback);
+      const greeting = GREETING[lang] ?? GREETING.en;
+      await playMeditationAudio(`${greeting} ${fallback}`);
     }
   };
 
@@ -503,9 +523,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
           {t.nav.meditate}
         </span>
 
-        {/* Centered icon + label */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="w-28 h-28 bg-[#233DFF]/8 dark:bg-[#233DFF]/10 rounded-[32px] flex items-center justify-center shadow-inner">
+        {/* Centered icon + label — tappable */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4" onClick={loadScript} style={{ cursor: 'pointer' }}>
+          <div className="w-28 h-28 bg-[#233DFF]/8 dark:bg-[#233DFF]/10 rounded-[32px] flex items-center justify-center active:scale-95 transition-all">
             <Sparkles size={52} className="text-[#233DFF]" />
           </div>
           <p className="text-[11px] font-medium uppercase tracking-widest text-gray-300 dark:text-gray-600">
@@ -623,18 +643,46 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         {isAudioPlaying ? (
           <button
             onClick={togglePause}
-            className="w-full h-16 bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-2xl font-semibold text-sm uppercase tracking-widest text-[#1a1a1a] dark:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+            className="w-full h-16 bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-full font-semibold text-sm uppercase tracking-widest text-[#1a1a1a] dark:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-3"
           >
             {isPaused ? <Play size={18} /> : <Pause size={18} />}
             {isPaused
               ? (lang === 'es' ? 'CONTINUAR SESIÓN' : 'RESUME SESSION')
               : (lang === 'es' ? 'PAUSAR SESIÓN' : 'PAUSE SESSION')}
           </button>
+        ) : sessionComplete ? (
+          <div className="flex flex-col gap-3">
+            {/* Closing message */}
+            <p className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+              {CLOSING[lang] ?? CLOSING.en}
+            </p>
+            {/* Sponsor line */}
+            <p className="text-center text-[10px] text-gray-300 dark:text-gray-600">
+              {SPONSOR[lang] ?? SPONSOR.en}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setSessionComplete(false); const g = GREETING[lang] ?? GREETING.en; playMeditationAudio(`${g} ${script}`); }}
+                className="flex-1 h-16 bg-[#233DFF] text-white rounded-full font-semibold text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+              >
+                <Play size={18} fill="currentColor" />
+                {lang === 'es' ? 'REPRODUCIR' : 'PLAY AGAIN'}
+              </button>
+              {bgSoundActive && (
+                <button
+                  onClick={stopAll}
+                  className="h-16 px-5 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 rounded-full active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  <Square size={16} />
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="flex gap-2">
             <button
-              onClick={() => playMeditationAudio(script)}
-              className="flex-1 h-16 bg-[#233DFF] text-white rounded-2xl font-semibold text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+              onClick={() => { const g = GREETING[lang] ?? GREETING.en; playMeditationAudio(`${g} ${script}`); }}
+              className="flex-1 h-16 bg-[#233DFF] text-white rounded-full font-semibold text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
             >
               <Play size={18} fill="currentColor" />
               {lang === 'es' ? 'REPRODUCIR' : 'PLAY AGAIN'}
@@ -642,7 +690,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
             {bgSoundActive && (
               <button
                 onClick={stopAll}
-                className="h-16 px-5 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center"
+                className="h-16 px-5 bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 rounded-full active:scale-[0.98] transition-all flex items-center justify-center"
               >
                 <Square size={16} />
               </button>
