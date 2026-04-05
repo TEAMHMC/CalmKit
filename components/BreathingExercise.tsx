@@ -213,7 +213,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     if (mode === 'physiological') {
       switch (phase) {
         case 'PHYS_INHALE_1': return (t as any).physioInhale1 || 'INHALE through your nose';
-        case 'PHYS_INHALE_2': return (t as any).physioInhale2 || 'INHALE again — top it off';
+        case 'PHYS_INHALE_2': return (t as any).physioInhale2 || 'INHALE again';
         case 'PHYS_EXHALE': return (t as any).physioExhale || 'LONG exhale through your mouth';
         default: return '';
       }
