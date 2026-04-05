@@ -656,6 +656,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       lastPositionRef.current = userLocation;
     }
 
+    // Reset all session state so a second session starts clean
+    setSessionStats({ distance: 0, time: 0, pace: '0:00' });
+    audioBufferQueue.current = [];
+    narrativeDataRef.current = null;
+    narrativeSegmentIndexRef.current = 0;
+    sponsorPlayedRef.current = false;
+    isFetchingRef.current = false;
+
     startKeepAlive();
     await sharedRequestWakeLock();
     setIsPlaying(true);
