@@ -739,9 +739,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (data.success && data.preStartIntro) {
         narrativeDataRef.current = data;
         narrativeSegmentIndexRef.current = 0;
-        // Play the intro immediately
+        // Play intro, then blend sponsor in right after — before segments begin
         const buf = await speakText(data.preStartIntro);
         if (buf) audioBufferQueue.current.push(buf);
+        if (data.spokenSponsorMoment) {
+          const sponsorBuf = await speakText(data.spokenSponsorMoment);
+          if (sponsorBuf) audioBufferQueue.current.push(sponsorBuf);
+          sponsorPlayedRef.current = true;
+        }
       }
       setIsBufferingAudio(false);
     } catch (e) {
