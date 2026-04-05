@@ -404,6 +404,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrativeDataRef = useRef<any>(null);
   const narrativeSegmentIndexRef = useRef(0);
   const isFetchingRef = useRef(false);
+  const fallbackIntroPlayedRef = useRef(false);
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
     if (isFetchingRef.current || currentSourceRef.current) return;
@@ -453,12 +454,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         isFetchingRef.current = true;
         setIsBufferingAudio(true);
         segmentCounterRef.current++;
+        const isIntro = !fallbackIntroPlayedRef.current;
+        fallbackIntroPlayedRef.current = true;
         const segment = await generateSegmentNarrative({
           mode,
           activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
           lang,
           stats: sessionStatsRef.current,
-          isIntro: startTimeRef.current === null,
+          isIntro,
           isFirstSegment: !sponsorPlayedRef.current,
           segmentNumber: segmentCounterRef.current,
           destinationName: destinationNameRef.current || undefined,
@@ -666,6 +669,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     narrativeSegmentIndexRef.current = 0;
     sponsorPlayedRef.current = false;
     isFetchingRef.current = false;
+    fallbackIntroPlayedRef.current = false;
 
     startKeepAlive();
     await sharedRequestWakeLock();
@@ -719,8 +723,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode, activity: 'WALK', lang,
-          destinationName: destinationNameRef.current || undefined,
+          mode,
+          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+          lang,
+          destinationName: sessionType === 'OUTDOOR' ? (destinationNameRef.current || undefined) : undefined,
           targetThought: targetThoughtRef.current || undefined,
           timeOfDay,
           ...envDataRef.current,
