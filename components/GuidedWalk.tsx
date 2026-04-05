@@ -454,13 +454,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         setIsBufferingAudio(true);
         segmentCounterRef.current++;
         const segment = await generateSegmentNarrative({
-          mode, activity: 'WALK', lang,
+          mode,
+          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+          lang,
           stats: sessionStatsRef.current,
           isIntro: startTimeRef.current === null,
           isFirstSegment: !sponsorPlayedRef.current,
           segmentNumber: segmentCounterRef.current,
           destinationName: destinationNameRef.current || undefined,
           targetThought: targetThoughtRef.current || undefined,
+          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
           userLat: userLocation?.[0],
           userLng: userLocation?.[1],
           ...envDataRef.current,
@@ -842,13 +845,52 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] dark-map">
         {/* Map */}
         {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
-        {sessionType === 'INDOOR' && (
-          <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
-            <div className="w-40 h-40 bg-[#233DFF]/5 rounded-full flex items-center justify-center animate-pulse">
-              <Activity size={48} className="text-[#233DFF]/30" />
+        {sessionType === 'INDOOR' && (() => {
+          const elapsed = sessionStats.time;
+          const auraColor = mode === 'HYPE' ? '#233DFF' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#4B70FF';
+          const auraSpeed = indoorActivity === 'SWEAT' ? '0.85s' : indoorActivity === 'FLOW' ? '2.2s' : '3.8s';
+          const auraScale = indoorActivity === 'SWEAT' ? 1.45 : indoorActivity === 'FLOW' ? 1.2 : 1.1;
+          const phase = elapsed < 180 ? 'WARMUP' : elapsed < 600 ? 'ACTIVE' : 'PEAK';
+          const ringCount = phase === 'PEAK' ? 4 : phase === 'ACTIVE' ? 3 : 2;
+          const ringSizes = [300, 230, 165, 110];
+          const activityLabel = indoorActivity === 'SWEAT' ? 'STRENGTH' : indoorActivity === 'FLOW' ? 'FLOW' : 'STRETCH';
+          return (
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
+              <style>{`
+                @keyframes aura-ring {
+                  0% { transform: scale(1); opacity: 0.55; }
+                  60% { transform: scale(${auraScale}); opacity: 0; }
+                  100% { transform: scale(${auraScale}); opacity: 0; }
+                }
+                @keyframes aura-core {
+                  0%, 100% { transform: scale(1); opacity: 0.7; }
+                  50% { transform: scale(${1 + (auraScale - 1) * 0.5}); opacity: 1; }
+                }
+              `}</style>
+              {ringSizes.slice(0, ringCount).map((size, i) => (
+                <div key={size} style={{
+                  position: 'absolute', width: size, height: size, borderRadius: '50%',
+                  border: `1px solid ${auraColor}`,
+                  opacity: [0.08, 0.15, 0.25, 0.4][i],
+                  animation: isPaused ? 'none' : `aura-ring ${auraSpeed} ease-out infinite`,
+                  animationDelay: `${i * 0.28}s`,
+                }} />
+              ))}
+              {/* Core */}
+              <div style={{
+                width: 80, height: 80, borderRadius: '50%',
+                background: `radial-gradient(circle, ${auraColor}50 0%, ${auraColor}15 65%, transparent 100%)`,
+                animation: isPaused ? 'none' : `aura-core ${auraSpeed} ease-in-out infinite`,
+                boxShadow: `0 0 40px ${auraColor}30`,
+              }} />
+              {/* Activity label */}
+              <span style={{
+                position: 'absolute', bottom: 120, fontSize: 10, letterSpacing: 6,
+                color: `${auraColor}60`, textTransform: 'uppercase', fontWeight: 600,
+              }}>{activityLabel}</span>
             </div>
-          </div>
-        )}
+          );
+        })()}
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/65 pointer-events-none z-[1]" />
 
         {/* MILES — large card, upper center */}
