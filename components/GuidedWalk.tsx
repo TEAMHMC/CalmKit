@@ -486,7 +486,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     if (audioBufferQueue.current.length > 0) {
       const buffer = audioBufferQueue.current.shift()!;
-      const source = audioCtxRef.current!.createBufferSource();
+      if (!audioCtxRef.current) return;
+      const source = audioCtxRef.current.createBufferSource();
       source.buffer = buffer;
       source.connect(audioCtxRef.current!.destination);
       currentSourceRef.current = source;
