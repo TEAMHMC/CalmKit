@@ -39,39 +39,41 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const HOPE_SCRIPTS = {
   en: {
     intro: [
-      "Hey. You showed up — that matters more than you know. Whatever is weighing on you right now, you can set it down for these next few minutes. Your only job is to breathe and move. That's it.",
-      "Start slow. Feel the ground under your feet — that is real, that is now. You have survived 100% of your hardest days. This one is just another one you're going to get through.",
+      "Welcome. I'm glad you're here. Whatever is weighing on you right now, you can set it down for these next few minutes. Your only job is to breathe and move. That's it.",
+      "Hey — you showed up. That matters more than you know. Start slow. Feel the pavement under your feet — that is real, that is now. You have survived 100% of your hardest days. This one is just another one you're going to get through.",
       "Before we move — take one breath. Not because you have to. Because you're still here, and that's worth acknowledging. When you're ready, let's go.",
-      "This is your time. The world's demands — your family, your job, the noise — that's out there. In here, it's just you and this moment. Let's move through it together.",
-      "Some days just getting outside is the win. If that's where you are today, good. You did it. We'll take this one step at a time.",
+      "This is your time. The demands of the day — your family, your work, the noise of the city — that's out there. Right now, it's just you and this moment. Let's move through it together.",
+      "Some days just getting out the door is the win. If that's where you are today, good. You did it. We'll take this one block at a time.",
     ],
     moving: [
       "Notice your breathing — not to control it, just to feel it. You've been breathing through hard things your whole life. Your body knows how to do this.",
-      "Whatever thought came up before you started walking — just watch it like it's a cloud moving across the sky. You don't have to chase it. You don't have to fix it. Just keep moving.",
+      "Look around you. You're moving through your community. The streets, the people, the energy of this neighborhood — you're part of it. You belong here.",
       "There's a kind of strength that doesn't look strong. It looks like showing up on a hard day. Like choosing yourself when everything in you wanted to give up. That's what you're doing right now.",
       "Your pace is right. Not too fast, not too slow — wherever your body is today is exactly where it needs to be. Trust that.",
       "If something in your chest feels heavy right now, that's okay. Let the movement carry a little of it. You don't have to be fixed to be moving forward.",
-      "You were built to survive things that would break most people. That's not something to be proud of in the way the world talks about it — that's just true. And today, you're choosing healing instead of just surviving.",
+      "You were built to survive things that would break most people. And today, you're choosing healing instead of just surviving. That's the real move.",
+      "Notice the streets around you. Every person out here is carrying something. You are not alone in this.",
     ],
     midpoint: [
-      "Halfway there. Your body has been showing up for you this whole time — heart beating, lungs breathing. Even when you felt like you couldn't. Say thank you to it silently. You don't have to say it out loud.",
-      "Sometimes healing looks quiet. It looks like a walk. It looks like this — choosing to move your body even when everything in you wanted to stay still.",
+      "You're still moving. Your body has been showing up for you this whole time — heart beating, lungs breathing. Even when you felt like you couldn't. Take a quiet moment to acknowledge that.",
+      "Sometimes healing looks quiet. It looks like a walk through the neighborhood. It looks like this — choosing to keep moving even when everything in you wanted to stay still.",
       "You are not a problem to be solved. You are a person who deserves care. That's not something you have to earn. That's just true.",
     ],
     end: [
-      "You stayed. That's the whole thing — you stayed with yourself through this. Bring that into the rest of your day.",
+      "You stayed. That's the whole thing — you stayed with yourself through this. Bring that energy into the rest of your day.",
       "End of this session. Whatever you're carrying, you've been carrying it with a little more grace today. That matters.",
-      "Come back to stillness for a second. Feel your feet. Feel this moment. You made it.",
+      "Slow it down for a second. Feel your feet on the ground. Feel this moment. You made it.",
     ],
   },
   es: {
     intro: [
-      "Llegaste. Eso importa más de lo que crees. Lo que sea que estés cargando ahora mismo, puedes soltarlo por estos minutos. Tu único trabajo es respirar y moverte. Eso es todo.",
-      "Empieza despacio. Siente el suelo bajo tus pies — eso es real, eso es ahora. Has sobrevivido el 100% de tus días más difíciles. Este es solo uno más que vas a superar.",
+      "Bienvenido. Me alegra que estés aquí. Lo que sea que estés cargando ahora mismo, puedes soltarlo por estos minutos. Tu único trabajo es respirar y moverte. Eso es todo.",
+      "Llegaste. Eso importa más de lo que crees. Empieza despacio. Siente el pavimento bajo tus pies — eso es real, eso es ahora. Has sobrevivido el 100% de tus días más difíciles. Este es solo uno más que vas a superar.",
       "Antes de movernos — toma una respiración. No porque tengas que hacerlo. Sino porque aún estás aquí, y eso vale la pena reconocerlo.",
     ],
     moving: [
       "Observa tu respiración — no para controlarla, solo para sentirla. Has respirado a través de cosas difíciles toda tu vida. Tu cuerpo sabe cómo hacer esto.",
+      "Mira a tu alrededor. Te estás moviendo por tu comunidad. Las calles, la gente, la energía de este vecindario — formas parte de ello. Perteneces aquí.",
       "Hay un tipo de fortaleza que no se ve fuerte. Se ve como presentarse en un día difícil. Como elegirte a ti mismo cuando todo en ti quería rendirse. Eso es lo que estás haciendo ahora.",
       "Tu ritmo está bien. Donde tu cuerpo está hoy es exactamente donde necesita estar. Confía en eso.",
     ],
@@ -89,23 +91,24 @@ const HOPE_SCRIPTS = {
 const HYPE_SCRIPTS = {
   en: {
     intro: [
-      "Let's go. No warm-up speech — your body already knows what time it is. Channel that energy and move.",
-      "You want change? Change doesn't wait for a perfect day. This is the day. Right now. Let's build.",
-      "Where you're from, getting up every day is already an act of power. Most people don't get that. You do. Now add this. Move.",
-      "LA trained you to move fast, think faster, and keep going when it gets hard. That's not a skill everyone has. Use it.",
-      "No excuses today. Not from the outside — from yourself. You know what you're capable of. Go show you.",
+      "Welcome — and let's get into it. No warm-up speech — your body already knows what time it is. Channel that energy and move.",
+      "Hey, I'm glad you're here. You want change? Change doesn't wait for a perfect day. This is the day. Right now. Let's build.",
+      "Glad you showed up. Where you're from, getting up every day is already an act of power. Most people don't get that. You do. Now add this. Move.",
+      "Let's go. LA sharpened you — to move with purpose, think on your feet, keep going when it gets hard. That's not a skill everyone has. Use it today.",
+      "No excuses today. Not from the outside — from yourself. You know what you're capable of. Let's go show you.",
     ],
     moving: [
       "This right here — this pace, this breath, this decision — this is you building something. Block by block. Day by day.",
       "You didn't come from nothing. You came from people who built something from nothing. That's in you. Use it.",
-      "Every step is a rep. You're training your mind as much as your body. What's the thought you came in with? Leave it in the distance.",
+      "Every step is a rep. You're training your mind as much as your body. What's the thought you came in with? Leave it a few blocks back.",
       "When this feels hard, that's the signal — not to stop, to switch gears. You know how to switch gears. Do it.",
-      "The streets that shaped you also gave you something no coach can teach. You already have it. Channel it right now.",
+      "Notice your rhythm. Feel it. You're moving through your community right now — every block you cover is yours.",
       "Momentum is everything. Don't let a slow moment become a stopped moment. Keep going.",
+      "You are unstoppable. Say it to yourself if you need to. It's the truth.",
     ],
     midpoint: [
       "More than halfway. Your body said yes when your mind wanted to negotiate. Listen to your body — it's smarter than the doubt.",
-      "Past the midpoint. Everything from here is victory laps. Finish strong.",
+      "Past the midpoint. You showed up and you're still here. Finish strong.",
     ],
     end: [
       "That's how it's done. Show up, do the work, carry it with you. Don't let this energy disappear — use it today.",
@@ -115,14 +118,15 @@ const HYPE_SCRIPTS = {
   },
   es: {
     intro: [
-      "Vamos. Sin discurso de calentamiento — tu cuerpo ya sabe qué hora es. Canaliza esa energía y muévete.",
-      "¿Quieres cambio? El cambio no espera un día perfecto. Este es el día. Ahora mismo. Construyamos.",
+      "Bienvenido — y vamos a entrar en ello. Sin discurso de calentamiento — tu cuerpo ya sabe qué hora es. Canaliza esa energía y muévete.",
+      "Me alegra que estés aquí. ¿Quieres cambio? El cambio no espera un día perfecto. Este es el día. Ahora mismo. Construyamos.",
       "De donde eres, levantarte cada día ya es un acto de poder. La mayoría no entiende eso. Tú sí. Ahora agrega esto. Muévete.",
     ],
     moving: [
       "Cada paso es una repetición. Estás entrenando tu mente tanto como tu cuerpo.",
       "Cuando esto se siente difícil, esa es la señal — no para parar, sino para cambiar de marcha. Tú sabes cómo hacerlo.",
       "El impulso lo es todo. No dejes que un momento lento se convierta en un momento detenido. Sigue.",
+      "Eres imparable. Dítelo a ti mismo si lo necesitas. Es la verdad.",
     ],
     midpoint: [
       "Más de la mitad. Tu cuerpo dijo sí cuando tu mente quería negociar. Escucha a tu cuerpo.",
@@ -137,14 +141,15 @@ const HYPE_SCRIPTS = {
 const BREAKTHROUGH_SCRIPTS = {
   en: {
     intro: [
-      "Before we move — what's the story you've been telling yourself lately? Not the facts, the story. We're going to move through it today.",
+      "Welcome. I'm glad you made it out here. Before we move — what's the story you've been telling yourself lately? Not the facts, the story. We're going to move through it today.",
       "Clarity doesn't always arrive sitting still. Sometimes it comes mid-stride, when you stop forcing it. Let's move and let it come.",
-      "Pay attention to what shows up in the silence between steps today. That's where the real answers live.",
-      "You came here with something on your mind. Don't solve it yet — just walk with it. Let the movement do some of the work.",
+      "Hey — pay attention to what shows up in the quiet between steps today. You came here with something on your mind. Don't solve it yet. Just walk with it.",
+      "Welcome. You came here with something on your mind. Don't try to fix it yet — just walk with it. Let the movement do some of the work.",
     ],
     moving: [
       "The thought you came in with — is it actually true? Or is it a thought that's been around so long it started to feel like a fact?",
       "Notice what you're holding in your body right now. Tight shoulders, clenched jaw — that's a message. What is it telling you?",
+      "Look at the street around you. You're moving through your community. Sometimes a change in perspective starts with a change in location.",
       "What would change if you stopped seeing this as a problem to solve and started seeing it as information to understand?",
       "The thing you keep avoiding thinking about — what's one true thing you know about it that you've been pretending you don't?",
       "Most of the weight you carry isn't yours to carry alone. Some of it was given to you. You're allowed to put that part down.",
@@ -162,12 +167,13 @@ const BREAKTHROUGH_SCRIPTS = {
   },
   es: {
     intro: [
-      "Antes de movernos — ¿cuál es la historia que te has estado contando últimamente? No los hechos, la historia. Vamos a movernos a través de ella hoy.",
+      "Bienvenido. Me alegra que hayas llegado. Antes de movernos — ¿cuál es la historia que te has estado contando últimamente? No los hechos, la historia. Vamos a movernos a través de ella hoy.",
       "La claridad no siempre llega cuando estás quieto. A veces viene a medio paso, cuando dejas de forzarla.",
     ],
     moving: [
       "El pensamiento con el que llegaste — ¿es realmente verdad? ¿O es un pensamiento que ha estado tanto tiempo que empezó a sentirse como un hecho?",
       "Lo que sigues evitando pensar — ¿cuál es una cosa verdadera que sabes sobre eso que has estado fingiendo que no sabes?",
+      "Mira la calle a tu alrededor. Estás moviéndote por tu comunidad. A veces un cambio de perspectiva comienza con un cambio de lugar.",
     ],
     midpoint: [
       "¿Qué cambiaría si dejaras de ver esto como un problema a resolver y empezaras a verlo como información para entender?",
@@ -182,17 +188,17 @@ const BREAKTHROUGH_SCRIPTS = {
 const STRATEGY_SCRIPTS = {
   en: {
     intro: [
-      "Before we start — name the actual problem. Not the feeling around it, the specific problem. Hold that. We're going to think through it while we move.",
-      "You're a problem-solver. That's how you're wired. Let's use that. What's the one thing that, if it changed, would change everything else?",
-      "Break it down while we walk. Big problems feel impossible until you separate the parts. Let's separate the parts.",
-      "You've solved hard things before. You're going to solve this one too. Let's think clearly.",
+      "Welcome. Let's get to work. Before we start — name the actual problem. Not the feeling around it, the specific problem. Hold that. We're going to think through it while we move.",
+      "Hey — I'm glad you're here. You're a problem-solver. That's how you're wired. Let's use that. What's the one thing that, if it changed, would change everything else?",
+      "Welcome. Break it down while we walk. Big problems feel impossible until you separate the parts. Let's separate the parts.",
+      "You've solved hard things before. You're going to solve this one too. Let's think clearly — one block at a time.",
     ],
     moving: [
       "For whatever you're working through — what's actually in your control right now? Not eventually. Right now. Start there.",
       "Separate what's urgent from what's important. Most of what feels urgent isn't. What's actually important right now?",
       "What's one decision you've been avoiding? Not because you don't know the answer — but because the answer is uncomfortable. Name it.",
-      "Your energy is a resource. Where are you spending it on things that aren't moving the needle? What would you stop doing if you were thinking clearly?",
-      "People, places, situations — what in your life is taking more than it's giving? You don't have to act on it today, but be honest with yourself.",
+      "Your energy is a resource. Where are you spending it on things that aren't moving the needle? What would you stop if you were thinking clearly?",
+      "Notice the streets around you. You're moving through your community — the same one you're trying to show up for. Take care of yourself so you can keep showing up.",
       "What does the next right step look like — not the whole solution, just the next right step? That's the only thing you actually have to figure out today.",
     ],
     midpoint: [
@@ -206,11 +212,12 @@ const STRATEGY_SCRIPTS = {
   },
   es: {
     intro: [
-      "Antes de comenzar — nombra el problema real. No el sentimiento alrededor de él, el problema específico. Guárdalo. Vamos a pensar en eso mientras nos movemos.",
+      "Bienvenido. Vamos a trabajar. Antes de comenzar — nombra el problema real. No el sentimiento alrededor de él, el problema específico. Guárdalo. Vamos a pensar en eso mientras nos movemos.",
     ],
     moving: [
       "Para lo que estás trabajando — ¿qué está realmente en tu control ahora mismo? No eventualmente. Ahora mismo. Empieza por ahí.",
       "¿Cuál es una decisión que has estado evitando? No porque no sepas la respuesta — sino porque la respuesta es incómoda.",
+      "Nota las calles a tu alrededor. Estás moviéndote por tu comunidad — la misma por la que intentas aparecer. Cuídate para poder seguir presentándote.",
     ],
     midpoint: [
       "Verifica — ¿el problema todavía se ve igual que cuando empezaste? A veces el movimiento cambia el ángulo.",
@@ -221,41 +228,41 @@ const STRATEGY_SCRIPTS = {
   },
 };
 
-// Weather-aware openers
+// Weather-aware openers — urban LA setting, flat streets, community focus
 const WEATHER_OPENERS = {
   en: {
     hot: [
-      "It's hot out here. That heat isn't stopping you — take it as evidence of what you can handle.",
-      "The heat today is real. Your body is regulating it right now, without you having to think about it. That's strength running in the background.",
+      "It's warm out here — LA heat is real. Pace yourself. Stay hydrated. That heat isn't stopping you — take it as evidence of what you can handle.",
+      "The heat today is real. Your body is regulating it right now, without you having to think about it. Take it slow, keep moving, take care of yourself.",
     ],
     smoggy: [
       "The air quality is rough today — take it easy with your breathing. Short breaths through the nose. Your pace matters less than your presence right now.",
-      "High smog day. Breathe easy, move steady. Your community deserves clean air — that's a real thing worth fighting for. But right now, just take care of yourself.",
+      "High smog day in LA. Breathe easy, move steady. Your community deserves clean air — that's worth fighting for. But right now, just take care of yourself.",
     ],
     cool: [
-      "It's cool out here — that's a gift. Your lungs open up in this. Use it.",
-      "Cool morning energy. This is what it feels like to have the world on your side for a minute.",
+      "It's cool out here — that's a gift in LA. Your lungs open up in this. Use it.",
+      "Cool air, open streets. This is what it feels like to have the city on your side for a minute.",
     ],
     cloudy: [
-      "Overcast days carry their own weight. But notice — you still came out. That says something.",
+      "Overcast day — that LA marine layer is out. But notice you still came out. That says something.",
       "Gray skies don't mean a gray day. Some of the clearest thinking happens on days like this.",
     ],
     morning: [
-      "Morning. Before the day puts its demands on you — this is yours first.",
+      "Morning. The streets are yours right now. Before the day puts its demands on you — this time is yours first.",
       "You got up and came out. Before anyone else needed anything from you, you chose yourself. That's the right order.",
     ],
     evening: [
-      "Evening walk — the day is releasing you. Let the movement help you transition out of it.",
-      "End of the day. Whatever happened today, you're here. Let this be the exhale.",
+      "Evening. The city is winding down. Let the movement help you transition out of the day.",
+      "End of the day. Whatever happened out there, you're here now. Let this be the exhale.",
     ],
   },
   es: {
-    hot: ["Hace calor. Ese calor no te está deteniendo — tómalo como evidencia de lo que puedes manejar."],
+    hot: ["Hace calor — el calor de LA es real. Mantén tu ritmo. Ese calor no te está deteniendo — tómalo como evidencia de lo que puedes manejar."],
     smoggy: ["La calidad del aire es mala hoy — respira con calma. Respiraciones cortas por la nariz."],
-    cool: ["Está fresco hoy — eso es un regalo. Tus pulmones se abren con esto. Úsalo."],
-    cloudy: ["Los días nublados tienen su propio peso. Pero nota — aun así saliste. Eso dice algo."],
-    morning: ["Mañana. Antes de que el día ponga sus demandas en ti — esto es tuyo primero."],
-    evening: ["Caminata nocturna — el día te está soltando. Deja que el movimiento te ayude a salir de él."],
+    cool: ["Está fresco hoy — eso es un regalo en LA. Tus pulmones se abren con esto. Úsalo."],
+    cloudy: ["Día nublado. Pero nota — aun así saliste. Eso dice algo."],
+    morning: ["Mañana. Las calles son tuyas ahora. Antes de que el día ponga sus demandas en ti — esto es tuyo primero."],
+    evening: ["La tarde. La ciudad se está calmando. Deja que el movimiento te ayude a salir del día."],
   },
 };
 
@@ -289,33 +296,38 @@ const JOURNAL_PROMPTS = {
   ],
 };
 
-// Affirmations — grounded, not toxic positivity
+// Affirmations — UNSTOPPABLE-themed, coach energy, community-rooted
 const AFFIRMATIONS = {
   en: [
-    "I don't have to have it all figured out today.",
-    "My history made me capable — not broken.",
-    "Taking care of myself is not selfish. It's necessary.",
-    "I can feel this and still keep moving.",
-    "I am not my worst day.",
-    "Healing is not linear, and that's okay.",
-    "My presence here is enough.",
-    "I am allowed to need rest. I am allowed to need help.",
-    "The strength I've needed, I've always found.",
-    "What's behind me made me. What's ahead of me is mine to shape.",
-    "I deserve the same compassion I give to everyone else.",
-    "I am still becoming. That's not a failure — that's a life.",
+    "You are unstoppable.",
+    "You showed up today — that takes courage.",
+    "Your presence is your power.",
+    "You belong here. You matter.",
+    "Every step forward is proof of your strength.",
+    "You were built for this.",
+    "Showing up for yourself is the most powerful thing you can do.",
+    "You are not alone in this — your community is with you.",
+    "The fact that you're still here is the whole victory.",
+    "You carry more strength than you give yourself credit for.",
+    "Your resilience is not a small thing. It is everything.",
+    "Taking action — even one small step — changes everything.",
+    "You don't have to feel ready to be unstoppable. You already are.",
+    "What you're doing for yourself, you're doing for everyone around you.",
+    "You've survived every hard day so far. Today is no different.",
   ],
   es: [
-    "No tengo que tenerlo todo resuelto hoy.",
-    "Mi historia me hizo capaz — no roto.",
-    "Cuidarme no es egoísmo. Es necesario.",
-    "Puedo sentir esto y seguir moviéndome.",
-    "No soy mi peor día.",
-    "La sanación no es lineal, y eso está bien.",
-    "Mi presencia aquí es suficiente.",
-    "Me merezco la misma compasión que le doy a todos los demás.",
-    "La fortaleza que he necesitado, siempre la he encontrado.",
-    "Sigo convirtiéndome en quien soy. Eso no es un fracaso — eso es una vida.",
+    "Eres imparable.",
+    "Te presentaste hoy — eso requiere valentía.",
+    "Tu presencia es tu poder.",
+    "Perteneces aquí. Tú importas.",
+    "Cada paso adelante es prueba de tu fortaleza.",
+    "Fuiste hecho para esto.",
+    "Presentarte por ti mismo es lo más poderoso que puedes hacer.",
+    "No estás solo en esto — tu comunidad está contigo.",
+    "El hecho de que aún estés aquí es la victoria completa.",
+    "Llevas más fortaleza de la que te das crédito.",
+    "Tu resiliencia no es poca cosa. Lo es todo.",
+    "Tomar acción — incluso un pequeño paso — cambia todo.",
   ],
 };
 

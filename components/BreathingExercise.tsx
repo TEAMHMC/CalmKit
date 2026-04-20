@@ -43,6 +43,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const prevPhaseRef = useRef<BreathPhase | null>(null);
   const audioCacheRef = useRef<Map<BreathPhase, AudioBuffer>>(new Map());
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const voiceDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = translations[lang];
 
   // Tone frequencies per phase (Hz) — inhale rises, exhale falls, hold holds
@@ -117,16 +118,24 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   }, [mode, lang]);
 
   // Play cached TTS audio for the current phase (300 ms after the chime).
-  // Stops any previous source first so English/Spanish don't overlap.
+  // Cancels any pending voice timer and stops any playing source first — prevents overlap.
   const playPhaseAudio = useCallback(async (p: BreathPhase) => {
     const buffer = audioCacheRef.current.get(p);
     if (!buffer) return;
+    // Cancel any pending voice-delay timer from a previous phase/restart
+    if (voiceDelayTimerRef.current !== null) {
+      clearTimeout(voiceDelayTimerRef.current);
+      voiceDelayTimerRef.current = null;
+    }
+    // Stop any currently playing voice immediately
+    try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
+    currentSourceRef.current = null;
     try {
       const ctx = await getAudioContext(44100);
       if (ctx.state === 'closed') return;
-      setTimeout(() => {
+      voiceDelayTimerRef.current = setTimeout(() => {
+        voiceDelayTimerRef.current = null;
         if (ctx.state === 'closed') return;
-        // Stop previous voice immediately
         try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
         const src = ctx.createBufferSource();
         src.buffer = buffer;
@@ -153,7 +162,17 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       stopKeepAlive();
       releaseWakeLock();
     }
-    return () => { stopKeepAlive(); releaseWakeLock(); };
+    return () => {
+      // Full stop on unmount (tab switch): cancel pending timers, stop all audio
+      if (voiceDelayTimerRef.current !== null) {
+        clearTimeout(voiceDelayTimerRef.current);
+        voiceDelayTimerRef.current = null;
+      }
+      try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
+      currentSourceRef.current = null;
+      stopKeepAlive();
+      releaseWakeLock();
+    };
   }, [isActive]);
 
   // Tone + cached TTS voice on phase change
@@ -311,6 +330,13 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
               setIsActive(false);
               setCycles(0);
               prevPhaseRef.current = null;
+              // Cancel any pending voice timer and stop playing audio before reset
+              if (voiceDelayTimerRef.current !== null) {
+                clearTimeout(voiceDelayTimerRef.current);
+                voiceDelayTimerRef.current = null;
+              }
+              try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
+              currentSourceRef.current = null;
               audioCacheRef.current.clear();
               if (mode === 'physiological') { setPhase('PHYS_INHALE_1'); setTimer(2); }
               else { setPhase('INHALE'); setTimer(4); }
@@ -355,7 +381,15 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
             onClick={() => {
               if (isActive) {
                 setIsActive(false);
+                // Stop any voice playing when pausing
+                if (voiceDelayTimerRef.current !== null) {
+                  clearTimeout(voiceDelayTimerRef.current);
+                  voiceDelayTimerRef.current = null;
+                }
+                try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
+                currentSourceRef.current = null;
               } else {
+                // Force re-trigger audio on the current phase by clearing prevPhaseRef
                 prevPhaseRef.current = null;
                 setIsActive(true);
               }

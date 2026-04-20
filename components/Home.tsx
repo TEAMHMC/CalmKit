@@ -13,18 +13,22 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   // Instant defaults — never show a blank or loading state
   const DEFAULT_AFFIRMATIONS = {
     en: [
-      "I am unstoppable today.",
-      "I choose to show up for myself.",
-      "My next step matters more than my last setback.",
-      "I am building something powerful — one day at a time.",
-      "I am worthy of rest, growth, and good things.",
+      "You are unstoppable.",
+      "You showed up today — that takes courage.",
+      "Your presence is your power.",
+      "You belong here. You matter.",
+      "Every step forward is proof of your strength.",
+      "You were built for this.",
+      "Showing up for yourself is the most powerful thing you can do.",
     ],
     es: [
-      "Hoy soy imparable.",
-      "Elijo aparecer por mí mismo.",
-      "Mi próximo paso importa más que mi último tropiezo.",
-      "Estoy construyendo algo poderoso — un día a la vez.",
-      "Merezco descanso, crecimiento y cosas buenas.",
+      "Eres imparable.",
+      "Te presentaste hoy — eso requiere valentía.",
+      "Tu presencia es tu poder.",
+      "Perteneces aquí. Tú importas.",
+      "Cada paso adelante es prueba de tu fortaleza.",
+      "Fuiste hecho para esto.",
+      "Presentarte por ti mismo es lo más poderoso que puedes hacer.",
     ],
   };
 
