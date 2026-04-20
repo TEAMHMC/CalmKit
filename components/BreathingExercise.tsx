@@ -5,24 +5,6 @@ import { translations } from '../translations';
 import { RotateCcw, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, getAudioContext } from '../audioManager';
 
-const TTS_PROXY_URL = 'https://volunteer.healthmatters.clinic/api/calmkit/tts';
-
-const decodeBase64 = (base64: string): Uint8Array => {
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-};
-
-// Decode raw Int16 PCM (24 kHz, mono) into an AudioBuffer.
-// The AudioContext may be 44100 Hz — the browser resamples automatically.
-const decodeInt16PCM = (data: Uint8Array, ctx: AudioContext): AudioBuffer => {
-  const samples = new Int16Array(data.buffer);
-  const buffer = ctx.createBuffer(1, samples.length, 24000);
-  const ch = buffer.getChannelData(0);
-  for (let i = 0; i < samples.length; i++) ch[i] = samples[i] / 32768;
-  return buffer;
-};
 
 interface BreathingExerciseProps {
   onBack: () => void;
@@ -86,13 +68,22 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     HOLD_EMPTY:    { en: 'Rest',                               es: 'Descansa' },
   };
 
-  // Fetch TTS for all phases in the current mode — fire-and-forget before session starts.
-  // Tones play immediately; voice enhances as the cache fills (usually < 2 s).
+  // Static audio file map — no API call needed, plays instantly from CDN
+  const STATIC_AUDIO: Record<BreathPhase, Record<Language, string>> = {
+    PHYS_INHALE_1: { en: '/audio/breathing/en_phys_inhale_1.wav', es: '/audio/breathing/es_phys_inhale_1.wav' },
+    PHYS_INHALE_2: { en: '/audio/breathing/en_phys_inhale_2.wav', es: '/audio/breathing/es_phys_inhale_2.wav' },
+    PHYS_EXHALE:   { en: '/audio/breathing/en_phys_exhale.wav',   es: '/audio/breathing/es_phys_exhale.wav'   },
+    INHALE:        { en: '/audio/breathing/en_inhale.wav',        es: '/audio/breathing/es_inhale.wav'        },
+    HOLD_FULL:     { en: '/audio/breathing/en_hold.wav',          es: '/audio/breathing/es_hold.wav'          },
+    EXHALE:        { en: '/audio/breathing/en_exhale.wav',        es: '/audio/breathing/es_exhale.wav'        },
+    HOLD_EMPTY:    { en: '/audio/breathing/en_rest.wav',          es: '/audio/breathing/es_rest.wav'          },
+  };
+
+  // Load static WAV files into AudioBuffers — fetches from local CDN, no TTS API needed.
   const preCachePhaseAudio = useCallback(async () => {
     const phases: BreathPhase[] = mode === 'physiological'
       ? ['PHYS_INHALE_1', 'PHYS_INHALE_2', 'PHYS_EXHALE']
       : ['INHALE', 'HOLD_FULL', 'EXHALE', 'HOLD_EMPTY'];
-    // Stop any in-flight voice from the previous language immediately
     try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
     currentSourceRef.current = null;
     audioCacheRef.current.clear();
@@ -100,19 +91,13 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     let ctx: AudioContext;
     try { ctx = await getAudioContext(44100); } catch { setCacheReady(true); return; }
     await Promise.all(phases.map(async (p) => {
-      const text = PHASE_TTS[p][lang];
       try {
-        const res = await fetch(TTS_PROXY_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, lang, voice: 'Kore', calm: true }),
-        });
+        const res = await fetch(STATIC_AUDIO[p][lang]);
         if (!res.ok) return;
-        const data = await res.json();
-        if (data.audio) {
-          audioCacheRef.current.set(p, decodeInt16PCM(decodeBase64(data.audio), ctx));
-        }
-      } catch { /* fail silently — tones still play */ }
+        const arrayBuffer = await res.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(p, audioBuffer);
+      } catch { /* tones still play as fallback */ }
     }));
     setCacheReady(true);
   }, [mode, lang]);
