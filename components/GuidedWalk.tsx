@@ -179,6 +179,164 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     };
   }, []);
 
+  // ── Narration Loop — must be declared before the useEffect that lists it as a dependency ──
+  const narrativeDataRef = useRef<any>(null);
+  const narrativeSegmentIndexRef = useRef(0);
+  const isFetchingRef = useRef(false);
+  const fallbackIntroPlayedRef = useRef(false);
+  const narrationLoop = useCallback(async () => {
+    if (!isNarratingRef.current || isPausedRef.current) return;
+    if (isFetchingRef.current || currentSourceRef.current) return;
+
+    if (audioCtxRef.current?.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
+    if (audioBufferQueue.current.length === 0) {
+      const narrative = narrativeDataRef.current;
+      if (narrative && narrative.segments) {
+        const elapsed = sessionStatsRef.current.time || 0;
+        const currentMin = Math.floor(elapsed / 60);
+
+        const idx = narrativeSegmentIndexRef.current;
+        if (idx < narrative.segments.length) {
+          const seg = narrative.segments[idx];
+          if (currentMin >= (seg.minuteIndex || 0)) {
+            isFetchingRef.current = true;
+            setIsBufferingAudio(true);
+            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
+            const buffer = await speakText(text);
+            isFetchingRef.current = false;
+            if (buffer) audioBufferQueue.current.push(buffer);
+            narrativeSegmentIndexRef.current = idx + 1;
+            setIsBufferingAudio(false);
+          }
+        } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
+          isFetchingRef.current = true;
+          const buffer = await speakText(narrative.spokenSponsorMoment);
+          isFetchingRef.current = false;
+          if (buffer) audioBufferQueue.current.push(buffer);
+          sponsorPlayedRef.current = true;
+        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length) {
+          isFetchingRef.current = true;
+          const buffer = await speakText(narrative.closingTemplate);
+          isFetchingRef.current = false;
+          if (buffer) audioBufferQueue.current.push(buffer);
+          narrativeSegmentIndexRef.current = 9999;
+        }
+      } else {
+        isFetchingRef.current = true;
+        setIsBufferingAudio(true);
+        segmentCounterRef.current++;
+        const isIntro = !fallbackIntroPlayedRef.current;
+        fallbackIntroPlayedRef.current = true;
+        const segment = await generateSegmentNarrative({
+          mode,
+          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+          lang,
+          stats: sessionStatsRef.current,
+          isIntro,
+          isFirstSegment: !sponsorPlayedRef.current,
+          segmentNumber: segmentCounterRef.current,
+          destinationName: destinationNameRef.current || undefined,
+          targetThought: targetThoughtRef.current || undefined,
+          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+          userLat: userLocation?.[0],
+          userLng: userLocation?.[1],
+          ...envDataRef.current,
+          ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+          ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+        });
+        if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
+        const buffer = await speakText(segment);
+        isFetchingRef.current = false;
+        if (buffer) audioBufferQueue.current.push(buffer);
+        setIsBufferingAudio(false);
+      }
+    }
+
+    if (isPausedRef.current || !isNarratingRef.current) return;
+
+    if (audioBufferQueue.current.length > 0) {
+      const buffer = audioBufferQueue.current.shift()!;
+      if (!audioCtxRef.current) return;
+      const source = audioCtxRef.current.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtxRef.current!.destination);
+      currentSourceRef.current = source;
+
+      if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
+
+      source.onended = () => {
+        currentSourceRef.current = null;
+
+        if (narrationFreqRef.current === 'CONTINUOUS') {
+          raiseAmbience();
+          narrationLoop();
+        } else {
+          stopAmbience();
+          audioCtxRef.current?.suspend();
+          pauseKeepAliveAudio();
+
+          const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
+          const preBufferDelay = Math.max(delayMs - 25000, 5000);
+
+          setTimeout(async () => {
+            if (!isNarratingRef.current) return;
+            isReturningRef.current = true;
+            const stats = sessionStatsRef.current;
+            const seg = await generateSegmentNarrative({
+              mode, activity: 'WALK', lang, stats,
+              isIntro: false, isFirstSegment: false, isReturning: true,
+              segmentNumber: segmentCounterRef.current,
+              indoorActivity: indoorActivityRef.current || undefined,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined,
+              ...envDataRef.current,
+              ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+              ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+            });
+            const buf = await speakText(seg);
+            if (buf) audioBufferQueue.current.push(buf);
+          }, preBufferDelay);
+
+          narrationTimeoutRef.current = setTimeout(async () => {
+            if (!isNarratingRef.current || isPausedRef.current) return;
+            resumeKeepAliveAudio();
+            await audioCtxRef.current?.resume();
+            narrationLoop();
+          }, delayMs);
+        }
+      };
+      source.start(0);
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
+
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current) {
+        (async () => {
+          const stats = sessionStatsRef.current;
+          const seg = await generateSegmentNarrative({
+            mode, activity: 'WALK', lang, stats,
+            isIntro: false, isFirstSegment: false,
+            segmentNumber: segmentCounterRef.current,
+            indoorActivity: indoorActivityRef.current || undefined,
+            destinationName: destinationNameRef.current || undefined,
+            targetThought: targetThoughtRef.current || undefined,
+            ...envDataRef.current,
+            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+          });
+          const buf = await speakText(seg);
+          if (buf) audioBufferQueue.current.push(buf);
+        })();
+      }
+    } else {
+      setTimeout(narrationLoop, 1000);
+    }
+  }, [mode, lang]);
+
   // Screen-lock recovery: when iOS resumes the AudioContext (via lock-screen play button
   // or visibilitychange), the playing AudioBufferSourceNode has died silently without
   // firing onended. Clear the stale ref and restart the narration loop.
@@ -422,175 +580,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     setSearchQuery(name);
     setSuggestions([]);
   };
-
-  // ── Narration Loop ──
-  const narrativeDataRef = useRef<any>(null);
-  const narrativeSegmentIndexRef = useRef(0);
-  const isFetchingRef = useRef(false);
-  const fallbackIntroPlayedRef = useRef(false);
-  const narrationLoop = useCallback(async () => {
-    if (!isNarratingRef.current || isPausedRef.current) return;
-    if (isFetchingRef.current || currentSourceRef.current) return;
-
-    if (audioCtxRef.current?.state === 'suspended') {
-      await audioCtxRef.current.resume();
-    }
-
-    if (audioBufferQueue.current.length === 0) {
-      const narrative = narrativeDataRef.current;
-      if (narrative && narrative.segments) {
-        const elapsed = sessionStatsRef.current.time || 0;
-        const currentMin = Math.floor(elapsed / 60);
-
-        // Find the next segment to play based on elapsed time
-        const idx = narrativeSegmentIndexRef.current;
-        if (idx < narrative.segments.length) {
-          const seg = narrative.segments[idx];
-          // Play when we've reached this segment's minute mark (or immediately if we're past it)
-          if (currentMin >= (seg.minuteIndex || 0)) {
-            isFetchingRef.current = true;
-            setIsBufferingAudio(true);
-            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
-            const buffer = await speakText(text);
-            isFetchingRef.current = false;
-            if (buffer) audioBufferQueue.current.push(buffer);
-            narrativeSegmentIndexRef.current = idx + 1;
-            setIsBufferingAudio(false);
-          }
-        } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
-          // Play sponsor line after all segments
-          isFetchingRef.current = true;
-          const buffer = await speakText(narrative.spokenSponsorMoment);
-          isFetchingRef.current = false;
-          if (buffer) audioBufferQueue.current.push(buffer);
-          sponsorPlayedRef.current = true;
-        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length) {
-          // Play closing after sponsor
-          isFetchingRef.current = true;
-          const buffer = await speakText(narrative.closingTemplate);
-          isFetchingRef.current = false;
-          if (buffer) audioBufferQueue.current.push(buffer);
-          narrativeSegmentIndexRef.current = 9999; // Done
-        }
-      } else {
-        // Fallback: no structured narrative, use single segment generation
-        isFetchingRef.current = true;
-        setIsBufferingAudio(true);
-        segmentCounterRef.current++;
-        const isIntro = !fallbackIntroPlayedRef.current;
-        fallbackIntroPlayedRef.current = true;
-        const segment = await generateSegmentNarrative({
-          mode,
-          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-          lang,
-          stats: sessionStatsRef.current,
-          isIntro,
-          isFirstSegment: !sponsorPlayedRef.current,
-          segmentNumber: segmentCounterRef.current,
-          destinationName: destinationNameRef.current || undefined,
-          targetThought: targetThoughtRef.current || undefined,
-          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-          userLat: userLocation?.[0],
-          userLng: userLocation?.[1],
-          ...envDataRef.current,
-          ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-          ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-        });
-        if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
-        const buffer = await speakText(segment);
-        isFetchingRef.current = false;
-        if (buffer) audioBufferQueue.current.push(buffer);
-        setIsBufferingAudio(false);
-      }
-    }
-
-    if (isPausedRef.current || !isNarratingRef.current) return;
-
-    if (audioBufferQueue.current.length > 0) {
-      const buffer = audioBufferQueue.current.shift()!;
-      if (!audioCtxRef.current) return;
-      const source = audioCtxRef.current.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioCtxRef.current!.destination);
-      currentSourceRef.current = source;
-
-      // In interval mode, only duck if ambience is active (continuous mode)
-      if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
-
-      source.onended = () => {
-        currentSourceRef.current = null;
-
-        if (narrationFreqRef.current === 'CONTINUOUS') {
-          // Continuous: raise ambience and immediately loop
-          raiseAmbience();
-          narrationLoop();
-        } else {
-          // Interval mode: release the audio session so Apple Music / Spotify can resume
-          stopAmbience();
-          audioCtxRef.current?.suspend();
-          pauseKeepAliveAudio(); // release iOS audio session during the gap
-
-          const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
-
-          // Pre-buffer next segment 25s before the gap ends
-          const preBufferDelay = Math.max(delayMs - 25000, 5000);
-          setTimeout(async () => {
-            if (!isNarratingRef.current) return;
-            isReturningRef.current = true;
-            const stats = sessionStatsRef.current;
-            const seg = await generateSegmentNarrative({
-              mode, activity: 'WALK', lang, stats,
-              isIntro: false, isFirstSegment: false, isReturning: true,
-              segmentNumber: segmentCounterRef.current,
-              indoorActivity: indoorActivityRef.current || undefined,
-              destinationName: destinationNameRef.current || undefined,
-              targetThought: targetThoughtRef.current || undefined,
-              ...envDataRef.current,
-              ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-              ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-            });
-            const buf = await speakText(seg);
-            if (buf) audioBufferQueue.current.push(buf);
-          }, preBufferDelay);
-
-          // Resume narration after the interval — reclaim audio session first
-          narrationTimeoutRef.current = setTimeout(async () => {
-            if (!isNarratingRef.current || isPausedRef.current) return;
-            resumeKeepAliveAudio(); // reclaim iOS audio session before speaking
-            await audioCtxRef.current?.resume();
-            narrationLoop();
-          }, delayMs);
-        }
-      };
-      source.start(0);
-      if (startTimeRef.current === null) startTimeRef.current = Date.now();
-
-      // Pre-buffer next segment (continuous mode only — interval pre-buffers in the timeout)
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current) {
-        (async () => {
-          const stats = sessionStatsRef.current;
-          const seg = await generateSegmentNarrative({
-            mode, activity: 'WALK', lang, stats,
-            isIntro: false, isFirstSegment: false,
-            segmentNumber: segmentCounterRef.current,
-            indoorActivity: indoorActivityRef.current || undefined,
-            destinationName: destinationNameRef.current || undefined,
-            targetThought: targetThoughtRef.current || undefined,
-            ...envDataRef.current,
-            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-          });
-          const buf = await speakText(seg);
-          if (buf) audioBufferQueue.current.push(buf);
-        })();
-      }
-    } else {
-      setTimeout(narrationLoop, 1000);
-    }
-  }, [mode, lang]);
 
   // ── Map (Ghost Mode) ──
   useEffect(() => {
