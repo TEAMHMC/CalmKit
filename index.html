@@ -31,7 +31,7 @@
   <link rel="apple-touch-icon"
         href="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png" />
 
-  <link rel="manifest" href="/CalmKit/manifest.json" />
+  <link rel="manifest" href="/manifest.json" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -131,5 +131,12 @@
   <div id="root"></div>
 
   <script type="module" src="/index.tsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
