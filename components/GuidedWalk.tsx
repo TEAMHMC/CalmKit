@@ -6,7 +6,7 @@ import { generateSegmentNarrative } from '../geminiService';
 import {
   Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap
 } from 'lucide-react';
-import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup } from '../audioManager';
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio } from '../audioManager';
 
 declare const L: any;
 
@@ -174,9 +174,32 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
       fullCleanup();
+      clearSessionResumeCallback();
       audioCtxRef.current = null;
     };
   }, []);
+
+  // Screen-lock recovery: when iOS resumes the AudioContext (via lock-screen play button
+  // or visibilitychange), the playing AudioBufferSourceNode has died silently without
+  // firing onended. Clear the stale ref and restart the narration loop.
+  useEffect(() => {
+    if (!isPlaying) {
+      clearSessionResumeCallback();
+      return;
+    }
+    setSessionResumeCallback(() => {
+      if (!isNarratingRef.current || isPausedRef.current) return;
+      // The old source node is dead — clear it so narrationLoop starts fresh
+      currentSourceRef.current = null;
+      // Cancel any pending interval timer; it may have misfired on the suspended context
+      if (narrationTimeoutRef.current) {
+        clearTimeout(narrationTimeoutRef.current);
+        narrationTimeoutRef.current = null;
+      }
+      narrationLoop();
+    });
+    return () => clearSessionResumeCallback();
+  }, [isPlaying, narrationLoop]);
 
   // Request GPS on user gesture (mobile Safari requires this)
   // If permission was already denied, skip re-requesting and return false immediately.
@@ -503,9 +526,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           raiseAmbience();
           narrationLoop();
         } else {
-          // Interval mode: silence everything so user's music plays
+          // Interval mode: release the audio session so Apple Music / Spotify can resume
           stopAmbience();
           audioCtxRef.current?.suspend();
+          pauseKeepAliveAudio(); // release iOS audio session during the gap
 
           const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
 
@@ -531,9 +555,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             if (buf) audioBufferQueue.current.push(buf);
           }, preBufferDelay);
 
-          // Resume narration after the interval
+          // Resume narration after the interval — reclaim audio session first
           narrationTimeoutRef.current = setTimeout(async () => {
             if (!isNarratingRef.current || isPausedRef.current) return;
+            resumeKeepAliveAudio(); // reclaim iOS audio session before speaking
             await audioCtxRef.current?.resume();
             narrationLoop();
           }, delayMs);

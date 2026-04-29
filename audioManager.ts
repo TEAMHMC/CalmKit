@@ -17,6 +17,9 @@ let _wakeLock: any = null;
 let _wakeLockInterval: ReturnType<typeof setInterval> | null = null;
 let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 let _wantWakeLock = false;
+// Callback invoked when AudioContext is resumed from screen-lock/suspension.
+// GuidedWalk registers this to restart the narration loop after interruption.
+let _onSessionResume: (() => void) | null = null;
 
 // ---------------------------------------------------------------------------
 // Silent WAV generator — produces a proper 10-second silent WAV as a Blob URL.
@@ -74,7 +77,11 @@ function setupMediaSession(): void {
   const noop = () => {};
   navigator.mediaSession.setActionHandler('play', () => {
     if (_keepAliveEl && _keepAliveEl.paused) _keepAliveEl.play().catch(noop);
-    if (_ctx && _ctx.state === 'suspended') _ctx.resume().catch(noop);
+    if (_ctx && _ctx.state === 'suspended') {
+      _ctx.resume().then(() => _onSessionResume?.()).catch(noop);
+    } else {
+      _onSessionResume?.();
+    }
   });
   navigator.mediaSession.setActionHandler('pause', noop);
   navigator.mediaSession.setActionHandler('seekbackward', noop);
@@ -253,6 +260,31 @@ export function releaseWakeLock(): void {
 }
 
 /**
+ * Register a callback invoked when AudioContext resumes after screen-lock.
+ * GuidedWalk uses this to restart the narration loop after interruption.
+ */
+export function setSessionResumeCallback(fn: () => void): void {
+  _onSessionResume = fn;
+}
+
+export function clearSessionResumeCallback(): void {
+  _onSessionResume = null;
+}
+
+/**
+ * Temporarily pause the silent keepalive so the OS releases the audio session.
+ * Call this during interval-mode gaps so Apple Music / Spotify can resume.
+ * Resume the keepalive with resumeKeepAliveAudio() before the next coaching segment.
+ */
+export function pauseKeepAliveAudio(): void {
+  if (_keepAliveEl && !_keepAliveEl.paused) _keepAliveEl.pause();
+}
+
+export function resumeKeepAliveAudio(): void {
+  if (_keepAliveEl && _keepAliveEl.paused) _keepAliveEl.play().catch(() => {});
+}
+
+/**
  * Full cleanup: destroy audio context, stop keepalive, release wake lock.
  * Call this when a session ends.
  */
@@ -272,13 +304,20 @@ if (typeof document !== 'undefined') {
       if (_wantWakeLock && !_wakeLock) {
         tryAcquireWakeLock();
       }
-      // Resume AudioContext if it was suspended by the OS
-      if (_ctx && _ctx.state === 'suspended') {
-        try { await _ctx.resume(); } catch (_) {}
-      }
       // Restart keepalive if it was interrupted
       if (_keepAliveEl && _keepAliveEl.paused) {
         _keepAliveEl.play().catch(() => {});
+      }
+      // Resume AudioContext if it was suspended by the OS, then restart narration
+      if (_ctx && _ctx.state === 'suspended') {
+        try {
+          await _ctx.resume();
+          _onSessionResume?.();
+        } catch (_) {}
+      } else {
+        // Context wasn't suspended but the source node may have died silently —
+        // still notify so GuidedWalk can check and restart if needed.
+        _onSessionResume?.();
       }
     }
   });
