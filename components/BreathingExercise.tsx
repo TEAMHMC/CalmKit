@@ -103,25 +103,22 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   }, [mode, lang]);
 
   // Play cached TTS audio for the current phase (300 ms after the chime).
-  // Cancels any pending voice timer and stops any playing source first — prevents overlap.
+  // Does NOT stop the previous source — lets it finish naturally so short phases
+  // (e.g. 2s physiological inhale) don't cut off mid-word.
   const playPhaseAudio = useCallback(async (p: BreathPhase) => {
     const buffer = audioCacheRef.current.get(p);
     if (!buffer) return;
-    // Cancel any pending voice-delay timer from a previous phase/restart
+    // Cancel any pending voice-delay timer from a previous phase change
     if (voiceDelayTimerRef.current !== null) {
       clearTimeout(voiceDelayTimerRef.current);
       voiceDelayTimerRef.current = null;
     }
-    // Stop any currently playing voice immediately
-    try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
-    currentSourceRef.current = null;
     try {
       const ctx = await getAudioContext(44100);
       if (ctx.state === 'closed') return;
       voiceDelayTimerRef.current = setTimeout(() => {
         voiceDelayTimerRef.current = null;
         if (ctx.state === 'closed') return;
-        try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);

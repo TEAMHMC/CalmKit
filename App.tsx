@@ -1,6 +1,38 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Component } from 'react';
 import { AppView, UserPreferences } from './types';
 import { translations } from './translations';
+
+class ErrorBoundary extends Component<
+  { children: React.ReactNode; onBack: () => void },
+  { error: Error | null }
+> {
+  constructor(props: any) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 bg-white dark:bg-[#121212] gap-6 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-stone-800 dark:text-white mb-2">Something went wrong</h2>
+            <p className="text-xs text-red-500 font-mono bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-left break-all max-h-40 overflow-auto">
+              {this.state.error.message}
+            </p>
+          </div>
+          <button
+            onClick={() => { this.setState({ error: null }); this.props.onBack(); }}
+            className="px-8 py-3 bg-black dark:bg-white text-white dark:text-black rounded-full font-medium text-sm"
+          >
+            Back to Home
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import Home from './components/Home';
 import GuidedWalk from './components/GuidedWalk';
 import BreathingExercise from './components/BreathingExercise';
@@ -128,7 +160,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'HOME': return <Home onSelectView={safeSetView} lang={prefs.lang} />;
-      case 'WALK': try { return <GuidedWalk onBack={() => safeSetView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} />; } catch(e: any) { return <div className="p-8 text-red-500"><p className="font-bold">Move Error:</p><pre className="text-xs mt-2 whitespace-pre-wrap">{e?.message || String(e)}</pre><button onClick={() => safeSetView('HOME')} className="mt-4 px-4 py-2 bg-black text-white rounded-full">Back to Home</button></div>; }
+      case 'WALK': return <ErrorBoundary onBack={() => safeSetView('HOME')}><GuidedWalk onBack={() => safeSetView('HOME')} lang={prefs.lang} onImmersiveChange={setImmersive} /></ErrorBoundary>;
       case 'BREATHE': return <BreathingExercise onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
       case 'MEDITATE': return <Meditation onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
       case 'REFLECT': return <Journal onBack={() => safeSetView('HOME')} lang={prefs.lang} />;
