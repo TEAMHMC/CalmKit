@@ -13,22 +13,38 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   // Instant defaults — never show a blank or loading state
   const DEFAULT_AFFIRMATIONS = {
     en: [
+      // Unstoppable Season originals
       "You are unstoppable.",
       "You showed up today — that takes courage.",
       "Your presence is your power.",
-      "You belong here. You matter.",
+      "You were built for this season.",
       "Every step forward is proof of your strength.",
-      "You were built for this.",
-      "Showing up for yourself is the most powerful thing you can do.",
+      // Widely accepted quotes & proverbs
+      '"She is clothed with strength and dignity." — Proverbs 31:25',
+      '"I can do all things through Christ who strengthens me." — Philippians 4:13',
+      '"You have been assigned this mountain to show others it can be moved." — Unknown',
+      '"The comeback is always stronger than the setback." — Unknown',
+      '"It always seems impossible until it\'s done." — Nelson Mandela',
+      '"You were born to stand out." — Dr. Seuss',
+      '"She believed she could, so she did." — R.S. Grey',
+      '"Our greatest glory is not in never falling, but in rising every time we fall." — Confucius',
+      '"Be still, and know that I am God." — Psalm 46:10',
+      '"I am not what happened to me. I am what I choose to become." — Carl Jung',
+      '"The struggle you\'re in today is developing the strength you need tomorrow." — Unknown',
+      '"You have within you right now, everything you need to deal with whatever the world can throw at you." — Brian Tracy',
     ],
     es: [
       "Eres imparable.",
       "Te presentaste hoy — eso requiere valentía.",
       "Tu presencia es tu poder.",
-      "Perteneces aquí. Tú importas.",
+      "Fuiste hecho para esta temporada.",
       "Cada paso adelante es prueba de tu fortaleza.",
-      "Fuiste hecho para esto.",
-      "Presentarte por ti mismo es lo más poderoso que puedes hacer.",
+      '"Está vestida de fuerza y dignidad." — Proverbios 31:25',
+      '"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13',
+      '"La recuperación siempre es más fuerte que la caída." — Desconocido',
+      '"Siempre parece imposible hasta que se hace." — Nelson Mandela',
+      '"No soy lo que me pasó. Soy lo que elijo ser." — Carl Jung',
+      '"La lucha en la que estás hoy está desarrollando la fortaleza que necesitas mañana." — Desconocido',
     ],
   };
 
@@ -87,7 +103,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </div>
 
         <p className="text-base font-bold italic text-black leading-snug font-display">
-          {loadingAff ? <span className="text-black/40">...</span> : `"${affirmation}"`}
+          {`"${affirmation}"`}
         </p>
       </button>
 

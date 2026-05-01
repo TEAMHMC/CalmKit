@@ -33,13 +33,13 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 // Played once per session, naturally integrated.
 const SPONSOR_LINES = {
   en: [
-    "This moment is supported by Health Matters Clinic — an official Take Action LA 2026 community partner. Three free events in Los Angeles this May. You deserve access to care. Visit healthmatters.clinic to learn more.",
-    "A note from your session host — Health Matters Clinic and LACDMH are bringing the Unstoppable Season to LA this May. Free events, free resources, open to everyone. Details at healthmatters.clinic.",
-    "This space is made possible by partners who believe wellness belongs to everyone — Health Matters Clinic, a Take Action LA community partner. Free mental health events in LA this May. You belong there.",
+    "This session is part of Take Action LA 2026, presented by the LA County Department of Mental Health and Health Matters Clinic. Three free events in LA this May — MOVE, HEAL, TRANSFORM. Visit healthmatters.clinic.",
+    "This walk is brought to you by the LA County Department of Mental Health through Take Action LA 2026, in partnership with Health Matters Clinic. Wellness like this is free and open to everyone.",
+    "A note from your host — this moment is part of Unstoppable Season 2026, presented by LACDMH and Health Matters Clinic. Free mental health events in LA this May. You belong there. healthmatters.clinic.",
   ],
   es: [
-    "Este momento está apoyado por Health Matters Clinic — un socio oficial de Take Action LA 2026. Tres eventos gratuitos en Los Ángeles este mayo. Mereces acceso al cuidado. Visita healthmatters.clinic.",
-    "Health Matters Clinic y LACDMH traen la Temporada Imparable a LA este mayo. Eventos gratuitos para toda la comunidad. Más información en healthmatters.clinic.",
+    "Esta sesión es parte de Take Action LA 2026, presentada por el Departamento de Salud Mental del Condado de LA y Health Matters Clinic. Tres eventos gratuitos en LA este mayo — MOVE, HEAL, TRANSFORM. Visita healthmatters.clinic.",
+    "Esta caminata es presentada por el Departamento de Salud Mental del Condado de LA a través de Take Action LA 2026, en asociación con Health Matters Clinic. El bienestar como este es gratuito para todos.",
   ],
 };
 
