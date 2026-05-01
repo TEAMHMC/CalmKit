@@ -732,7 +732,18 @@ export const generateSegmentNarrative = async (params: {
       const seg = data.segments[segIdx];
       if (seg) return Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
     }
-    return data.narration || "";
+    return data.narration || buildLocalNarrative({
+      mode: params.mode,
+      lang: params.lang,
+      isIntro: params.isIntro,
+      segmentNumber: params.segmentNumber,
+      timeOfDay,
+      weatherCondition: params.weatherCondition,
+      temperature: params.temperature,
+      airQualityIndex: params.airQualityIndex,
+      targetThought: params.targetThought,
+      sessionMinutes,
+    });
   } catch {
     return buildLocalNarrative({
       mode: params.mode,

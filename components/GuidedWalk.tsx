@@ -204,11 +204,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           if (currentMin >= (seg.minuteIndex || 0)) {
             isFetchingRef.current = true;
             setIsBufferingAudio(true);
-            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
-            const buffer = await speakText(text);
-            isFetchingRef.current = false;
-            if (buffer) audioBufferQueue.current.push(buffer);
+            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
             narrativeSegmentIndexRef.current = idx + 1;
+            if (text.trim()) {
+              const buffer = await speakText(text);
+              if (buffer) audioBufferQueue.current.push(buffer);
+            }
+            isFetchingRef.current = false;
             setIsBufferingAudio(false);
           }
         } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
