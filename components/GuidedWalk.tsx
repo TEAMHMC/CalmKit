@@ -45,6 +45,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
   const [showSummary, setShowSummary] = useState(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
+  const [finalPath, setFinalPath] = useState<[number, number][]>([]);
   const [envData, setEnvData] = useState<{
     weatherCondition?: string;
     temperature?: number;
@@ -874,7 +875,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     audioCtxRef.current = null;
     setIsPlaying(false);
     setIsPaused(false);
-    // Show session summary instead of immediately going home
+    // Snapshot the walked path and stats before showing summary
+    setFinalPath([...pathCoordsRef.current]);
     setFinalStats({ ...sessionStats });
     setShowSummary(true);
   };
@@ -906,16 +908,50 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   if (showSummary) {
     const mins = Math.floor(finalStats.time / 60);
     const secs = Math.floor(finalStats.time % 60);
+
+    // Build SVG route from captured path coordinates
+    const routeSVG = (() => {
+      if (sessionType !== 'OUTDOOR' || finalPath.length < 2) return null;
+      const lats = finalPath.map(c => c[0]);
+      const lngs = finalPath.map(c => c[1]);
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+      const latRange = maxLat - minLat || 0.001;
+      const lngRange = maxLng - minLng || 0.001;
+      const W = 320, H = 180, pad = 24;
+      const pts = finalPath.map(([lat, lng]) => {
+        const x = pad + ((lng - minLng) / lngRange) * (W - 2 * pad);
+        const y = pad + ((maxLat - lat) / latRange) * (H - 2 * pad);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      });
+      const [sx, sy] = pts[0].split(',');
+      const [ex, ey] = pts[pts.length - 1].split(',');
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-2xl" style={{ background: '#0A0A0A', display: 'block' }}>
+          <polyline points={pts.join(' ')} fill="none" stroke="#233DFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+            style={{ filter: 'drop-shadow(0 0 6px #233DFF)' }} />
+          <circle cx={sx} cy={sy} r="6" fill="#233DFF" stroke="white" strokeWidth="2" />
+          <circle cx={ex} cy={ey} r="6" fill="white" stroke="#233DFF" strokeWidth="2" />
+        </svg>
+      );
+    })();
+
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-8">
-        <div className="w-24 h-24 bg-[#233DFF]/10 rounded-full flex items-center justify-center">
-          <Activity size={40} className="text-[#233DFF]" />
-        </div>
-        <div className="space-y-2">
+      <div className="flex-1 flex flex-col items-center px-6 py-8 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-6 overflow-y-auto">
+        <div className="space-y-1 pt-2">
           <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.sessionSummary}</h2>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.sessionSummaryDesc}</p>
         </div>
-        <div className="flex gap-8">
+
+        {routeSVG ? (
+          <div className="w-full">{routeSVG}</div>
+        ) : (
+          <div className="w-24 h-24 bg-[#233DFF]/10 rounded-full flex items-center justify-center">
+            <Activity size={40} className="text-[#233DFF]" />
+          </div>
+        )}
+
+        <div className="flex gap-8 justify-center">
           {sessionType === 'OUTDOOR' && (
             <div className="flex flex-col items-center">
               <span className="text-4xl font-semibold tabular-nums text-[#233DFF]">{finalStats.distance.toFixed(2)}</span>
@@ -933,6 +969,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             </div>
           )}
         </div>
+
         <p className="text-base font-medium italic text-gray-500 dark:text-gray-400 max-w-xs">{t.labels.wellDone}</p>
         <div className="w-full max-w-xs space-y-4">
           <button
