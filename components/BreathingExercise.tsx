@@ -14,6 +14,44 @@ interface BreathingExerciseProps {
 type BreathingMode = 'physiological' | 'box';
 type BreathPhase = 'PHYS_INHALE_1' | 'PHYS_INHALE_2' | 'PHYS_EXHALE' | 'INHALE' | 'HOLD_FULL' | 'EXHALE' | 'HOLD_EMPTY';
 
+// ---------------------------------------------------------------------------
+// Web Speech API fallback — speaks a phrase immediately with no network call.
+// Used when static WAV files are missing or the AudioContext is unavailable.
+// ---------------------------------------------------------------------------
+function speakFallback(text: string): void {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  // Cancel any in-flight speech immediately — critical for short phases
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.85;
+  utt.pitch = 1.0;
+  utt.volume = 1.0;
+  // Prefer a calm English/Spanish voice if one is available
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(
+    (v) =>
+      v.lang.startsWith('en') &&
+      (/samantha|karen|moira|daniel|susan|zoe/i.test(v.name))
+  ) || voices.find((v) => v.lang.startsWith('en')) || null;
+  if (preferred) utt.voice = preferred;
+  window.speechSynthesis.speak(utt);
+}
+
+function speakFallbackEs(text: string): void {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.85;
+  utt.pitch = 1.0;
+  utt.volume = 1.0;
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(
+    (v) => v.lang.startsWith('es') && (/mónica|paulina|jorge|juan/i.test(v.name))
+  ) || voices.find((v) => v.lang.startsWith('es')) || null;
+  if (preferred) utt.voice = preferred;
+  window.speechSynthesis.speak(utt);
+}
+
 const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) => {
   const [mode, setMode] = useState<BreathingMode>('physiological');
   const [phase, setPhase] = useState<BreathPhase>('PHYS_INHALE_1');
@@ -57,7 +95,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     } catch { /* audio unavailable — fail silently */ }
   }, []);
 
-  // Map each phase to calm, spoken-word TTS text (different from the display labels)
+  // Map each phase to calm, spoken-word text (used for Web Speech API fallback)
   const PHASE_TTS: Record<BreathPhase, { en: string; es: string }> = {
     PHYS_INHALE_1: { en: 'Inhale through your nose',          es: 'Inhala por la nariz' },
     PHYS_INHALE_2: { en: 'Second inhale, fill your lungs',     es: 'Segunda inhalación, llena tus pulmones' },
@@ -68,7 +106,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     HOLD_EMPTY:    { en: 'Rest',                               es: 'Descansa' },
   };
 
-  // Static audio file map — no API call needed, plays instantly from CDN
+  // Static audio file map — plays instantly from local public directory
   const STATIC_AUDIO: Record<BreathPhase, Record<Language, string>> = {
     PHYS_INHALE_1: { en: '/audio/breathing/en_phys_inhale_1.wav', es: '/audio/breathing/es_phys_inhale_1.wav' },
     PHYS_INHALE_2: { en: '/audio/breathing/en_phys_inhale_2.wav', es: '/audio/breathing/es_phys_inhale_2.wav' },
@@ -79,58 +117,140 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     HOLD_EMPTY:    { en: '/audio/breathing/en_rest.wav',          es: '/audio/breathing/es_rest.wav'          },
   };
 
-  // Load static WAV files into AudioBuffers — fetches from local CDN, no TTS API needed.
-  const preCachePhaseAudio = useCallback(async () => {
-    const phases: BreathPhase[] = mode === 'physiological'
-      ? ['PHYS_INHALE_1', 'PHYS_INHALE_2', 'PHYS_EXHALE']
-      : ['INHALE', 'HOLD_FULL', 'EXHALE', 'HOLD_EMPTY'];
-    try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
-    currentSourceRef.current = null;
-    audioCacheRef.current.clear();
-    setCacheReady(false);
-    let ctx: AudioContext;
-    try { ctx = await getAudioContext(44100); } catch { setCacheReady(true); return; }
-    await Promise.all(phases.map(async (p) => {
-      try {
-        const res = await fetch(STATIC_AUDIO[p][lang]);
-        if (!res.ok) return;
-        const arrayBuffer = await res.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        audioCacheRef.current.set(p, audioBuffer);
-      } catch { /* tones still play as fallback */ }
-    }));
-    setCacheReady(true);
-  }, [mode, lang]);
+  // Tracks which phases successfully cached a WAV buffer so we know when to
+  // fall back to Web Speech API instead of playing silence.
+  const cachedPhasesRef = useRef<Set<BreathPhase>>(new Set());
 
-  // Play cached TTS audio for the current phase (300 ms after the chime).
-  // Does NOT stop the previous source — lets it finish naturally so short phases
-  // (e.g. 2s physiological inhale) don't cut off mid-word.
-  const playPhaseAudio = useCallback(async (p: BreathPhase) => {
-    const buffer = audioCacheRef.current.get(p);
-    if (!buffer) return;
-    // Cancel any pending voice-delay timer from a previous phase change
+  // Stop any currently-playing AudioBufferSourceNode immediately and clean up.
+  // Must be called before starting a new source to prevent overlap.
+  const stopCurrentSource = useCallback(() => {
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.onended = null;
+        currentSourceRef.current.stop();
+      } catch { /* already ended — ignore */ }
+      currentSourceRef.current = null;
+    }
+  }, []);
+
+  // Cancel pending voice-delay timer without stopping a source that may have
+  // already started playing.
+  const cancelVoiceTimer = useCallback(() => {
     if (voiceDelayTimerRef.current !== null) {
       clearTimeout(voiceDelayTimerRef.current);
       voiceDelayTimerRef.current = null;
     }
+  }, []);
+
+  // Load static WAV files into AudioBuffers — fetches from local CDN.
+  // Falls back gracefully: any phase that fails to cache will use Web Speech API.
+  const preCachePhaseAudio = useCallback(async () => {
+    const phases: BreathPhase[] = mode === 'physiological'
+      ? ['PHYS_INHALE_1', 'PHYS_INHALE_2', 'PHYS_EXHALE']
+      : ['INHALE', 'HOLD_FULL', 'EXHALE', 'HOLD_EMPTY'];
+
+    // Full stop before clearing the cache
+    cancelVoiceTimer();
+    stopCurrentSource();
+    // Also cancel any in-flight Web Speech so mode switches are clean
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    audioCacheRef.current.clear();
+    cachedPhasesRef.current.clear();
+    setCacheReady(false);
+
+    let ctx: AudioContext;
     try {
-      const ctx = await getAudioContext(44100);
-      if (ctx.state === 'closed') return;
-      voiceDelayTimerRef.current = setTimeout(() => {
-        voiceDelayTimerRef.current = null;
-        if (ctx.state === 'closed') return;
+      ctx = await getAudioContext(44100);
+    } catch {
+      // AudioContext unavailable — set ready anyway so the button unlocks;
+      // Web Speech API will handle all voice cues.
+      setCacheReady(true);
+      return;
+    }
+
+    await Promise.all(phases.map(async (p) => {
+      try {
+        const res = await fetch(STATIC_AUDIO[p][lang]);
+        if (!res.ok) return; // WAV missing — Web Speech fallback will be used
+        const arrayBuffer = await res.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(p, audioBuffer);
+        cachedPhasesRef.current.add(p);
+      } catch { /* tones + Web Speech still play as fallback */ }
+    }));
+
+    setCacheReady(true);
+  }, [mode, lang, cancelVoiceTimer, stopCurrentSource]);
+
+  // Play cached WAV audio for the current phase (300 ms after the chime).
+  // Stops the previous source BEFORE starting the new one — no overlap.
+  // Falls back to Web Speech API immediately if the buffer is missing.
+  const playPhaseAudio = useCallback((p: BreathPhase) => {
+    // Always cancel any pending timer first so stale callbacks can't fire
+    cancelVoiceTimer();
+
+    const buffer = audioCacheRef.current.get(p);
+    const ttsText = PHASE_TTS[p][lang];
+
+    if (!buffer) {
+      // WAV not cached — use Web Speech API immediately (no timer delay needed,
+      // speech synthesis has its own tiny internal latency)
+      if (lang === 'es') {
+        speakFallbackEs(ttsText);
+      } else {
+        speakFallback(ttsText);
+      }
+      return;
+    }
+
+    // WAV buffer available — play it 300 ms after the chime
+    voiceDelayTimerRef.current = setTimeout(async () => {
+      voiceDelayTimerRef.current = null;
+
+      let ctx: AudioContext;
+      try {
+        ctx = await getAudioContext(44100);
+      } catch {
+        // AudioContext failed mid-session — fall back to Web Speech
+        if (lang === 'es') speakFallbackEs(ttsText);
+        else speakFallback(ttsText);
+        return;
+      }
+
+      if (ctx.state === 'closed') {
+        if (lang === 'es') speakFallbackEs(ttsText);
+        else speakFallback(ttsText);
+        return;
+      }
+
+      // Stop the previous source NOW (inside the timer callback) to prevent
+      // overlap when a new phase fires while the previous audio is still playing.
+      stopCurrentSource();
+
+      // Also cancel any Web Speech that might be running from a previous fallback
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      try {
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         src.start();
         currentSourceRef.current = src;
         src.onended = () => { currentSourceRef.current = null; };
-      }, 300);
-    } catch { /* fail silently */ }
-  }, []);
+      } catch {
+        // Source creation failed — fall back to Web Speech
+        currentSourceRef.current = null;
+        if (lang === 'es') speakFallbackEs(ttsText);
+        else speakFallback(ttsText);
+      }
+    }, 300);
+  }, [lang, cancelVoiceTimer, stopCurrentSource]);
 
-  // Pre-cache TTS on mount and whenever mode/lang changes so the first phase
-  // has a voice ready the instant the user presses Play — no delay on cycle 1.
+  // Pre-cache audio on mount and whenever mode/lang changes.
   useEffect(() => {
     preCachePhaseAudio();
   }, [preCachePhaseAudio]);
@@ -145,19 +265,18 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       releaseWakeLock();
     }
     return () => {
-      // Full stop on unmount (tab switch): cancel pending timers, stop all audio
-      if (voiceDelayTimerRef.current !== null) {
-        clearTimeout(voiceDelayTimerRef.current);
-        voiceDelayTimerRef.current = null;
+      // Full stop on unmount: cancel timers, stop audio, cancel speech
+      cancelVoiceTimer();
+      stopCurrentSource();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
-      try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
-      currentSourceRef.current = null;
       stopKeepAlive();
       releaseWakeLock();
     };
-  }, [isActive]);
+  }, [isActive, cancelVoiceTimer, stopCurrentSource]);
 
-  // Tone + cached TTS voice on phase change
+  // Tone + voice on phase change
   useEffect(() => {
     if (!isActive) return;
     if (prevPhaseRef.current === phase) return;
@@ -166,7 +285,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       playTone(PHASE_TONES[phase]);
       playPhaseAudio(phase);
     }
-  }, [phase, isActive, audioEnabled, playPhaseAudio]);
+  }, [phase, isActive, audioEnabled, playTone, playPhaseAudio]);
 
   // Reset phase/timer when switching modes
   const switchMode = (newMode: BreathingMode) => {
@@ -174,7 +293,13 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     setCycles(0);
     setCacheReady(false);
     prevPhaseRef.current = null;
+    cancelVoiceTimer();
+    stopCurrentSource();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     audioCacheRef.current.clear();
+    cachedPhasesRef.current.clear();
     if (newMode === 'physiological') {
       setPhase('PHYS_INHALE_1');
       setTimer(2);
@@ -312,14 +437,14 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
               setIsActive(false);
               setCycles(0);
               prevPhaseRef.current = null;
-              // Cancel any pending voice timer and stop playing audio before reset
-              if (voiceDelayTimerRef.current !== null) {
-                clearTimeout(voiceDelayTimerRef.current);
-                voiceDelayTimerRef.current = null;
+              // Cancel pending timer, stop playing audio, and cancel speech
+              cancelVoiceTimer();
+              stopCurrentSource();
+              if (typeof window !== 'undefined' && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
               }
-              try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
-              currentSourceRef.current = null;
               audioCacheRef.current.clear();
+              cachedPhasesRef.current.clear();
               if (mode === 'physiological') { setPhase('PHYS_INHALE_1'); setTimer(2); }
               else { setPhase('INHALE'); setTimer(4); }
             }}
@@ -363,13 +488,12 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
             onClick={() => {
               if (isActive) {
                 setIsActive(false);
-                // Stop any voice playing when pausing
-                if (voiceDelayTimerRef.current !== null) {
-                  clearTimeout(voiceDelayTimerRef.current);
-                  voiceDelayTimerRef.current = null;
+                // Stop everything when pausing
+                cancelVoiceTimer();
+                stopCurrentSource();
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                  window.speechSynthesis.cancel();
                 }
-                try { currentSourceRef.current?.stop(); } catch { /* already ended */ }
-                currentSourceRef.current = null;
               } else {
                 // Force re-trigger audio on the current phase by clearing prevPhaseRef
                 prevPhaseRef.current = null;

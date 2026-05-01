@@ -725,7 +725,13 @@ export const generateSegmentNarrative = async (params: {
       ...(params.elevationDelta !== undefined && { elevationDelta: Math.round(params.elevationDelta) }),
       ...(params.speed !== undefined && params.speed > 0 && { speed: params.speed }),
     });
-    if (data.preStartIntro) return data.preStartIntro;
+    if (params.isIntro && data.preStartIntro) return data.preStartIntro;
+    // For mid-walk segments, extract coaching content from the structured narrative
+    if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
+      const segIdx = Math.max(0, Math.min((params.segmentNumber || 1) - 1, data.segments.length - 1));
+      const seg = data.segments[segIdx];
+      if (seg) return Array.isArray(seg.scriptBeats) ? seg.scriptBeats.join(' ') : String(seg);
+    }
     return data.narration || "";
   } catch {
     return buildLocalNarrative({

@@ -43,17 +43,17 @@ function createRain(ctx: AudioContext): BgSoundNodes {
 
   const bandpass = ctx.createBiquadFilter();
   bandpass.type = 'bandpass';
-  bandpass.frequency.value = 1000;
-  bandpass.Q.value = 0.5;
+  bandpass.frequency.value = 3000;
+  bandpass.Q.value = 1.5;
 
-  // Gentle volume modulation
+  // Faster patter modulation for rain (not ocean-like slow waves)
   const modGain = ctx.createGain();
   modGain.gain.value = 0.8;
   const lfo = ctx.createOscillator();
   lfo.type = 'sine';
-  lfo.frequency.value = 0.3;
+  lfo.frequency.value = 0.8;
   const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.2;
+  lfoGain.gain.value = 0.1;
   lfo.connect(lfoGain);
   lfoGain.connect(modGain.gain);
 
@@ -242,6 +242,8 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const startTimeRef = useRef<number>(0);
   const pausedAtRef = useRef<number>(0);        // seconds into buffer where we paused
   const progressIntervalRef = useRef<any>(null);
+  const usingWebSpeechRef = useRef(false);
+  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const decode = (base64: string) => {
     const binaryString = atob(base64);
@@ -325,22 +327,28 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   }, [bgSound]);
 
   const stopAll = useCallback(() => {
-    // 1. Stop narration source
+    // 1. Stop Web Speech if active
+    if (usingWebSpeechRef.current) {
+      window.speechSynthesis?.cancel();
+      usingWebSpeechRef.current = false;
+      speechUtteranceRef.current = null;
+    }
+    // 2. Stop narration source
     if (sourceNodeRef.current) {
       try { sourceNodeRef.current.stop(); } catch(e) {}
       sourceNodeRef.current = null;
     }
-    // 2. Clear progress interval
+    // 3. Clear progress interval
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
       progressIntervalRef.current = null;
     }
-    // 3. Stop background sound synchronously
+    // 4. Stop background sound synchronously
     cleanupBgSound();
-    // 4. Stop keepalive and wake lock
+    // 5. Stop keepalive and wake lock
     stopKeepAlive();
     releaseWakeLock();
-    // 5. Reset all state
+    // 6. Reset all state
     setIsAudioPlaying(false);
     setIsPaused(false);
     setProgress(0);
@@ -350,6 +358,18 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
   const stopAudio = stopAll;
 
   const togglePause = useCallback(async () => {
+    // Web Speech path
+    if (usingWebSpeechRef.current) {
+      if (isPaused) {
+        window.speechSynthesis?.resume();
+        setIsPaused(false);
+      } else {
+        window.speechSynthesis?.pause();
+        setIsPaused(true);
+      }
+      return;
+    }
+
     const ctx = audioContextRef.current;
     if (!ctx || ctx.state === 'closed') return;
 
@@ -366,11 +386,20 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
       startTimeRef.current = ctx.currentTime - offset;
 
       source.onended = () => {
-        // Only mark done if we weren't paused again
         if (!isPaused) {
           setIsAudioPlaying(false);
           setIsPaused(false);
           clearInterval(progressIntervalRef.current);
+          const bgNodes = bgSoundNodesRef.current;
+          const fadCtx = audioContextRef.current;
+          if (bgNodes && fadCtx && fadCtx.state !== 'closed') {
+            const now = fadCtx.currentTime;
+            bgNodes.gain.gain.setValueAtTime(bgNodes.gain.gain.value, now);
+            bgNodes.gain.gain.linearRampToValueAtTime(0, now + 3);
+            setTimeout(() => { cleanupBgSound(); setSessionComplete(true); }, 3500);
+          } else {
+            setSessionComplete(true);
+          }
         }
       };
       sourceNodeRef.current = source;
@@ -388,7 +417,64 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     }
   }, [isPaused]);
 
-  const playMeditationAudio = async (text: string) => {
+  const playWithWebSpeech = useCallback((text: string) => {
+    if (!('speechSynthesis' in window)) {
+      setTtsUnavailable(true);
+      setIsAudioPlaying(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    usingWebSpeechRef.current = true;
+    setTtsUnavailable(false);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.82;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    utterance.lang = lang === 'es' ? 'es-US' : 'en-US';
+
+    // Prefer a calm female voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.lang.startsWith(lang === 'es' ? 'es' : 'en') &&
+      (v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Moira') || v.name.includes('Ava'))
+    ) || voices.find(v => v.lang.startsWith(lang === 'es' ? 'es' : 'en'));
+    if (preferred) utterance.voice = preferred;
+
+    setIsAudioPlaying(true);
+    setIsPaused(false);
+
+    utterance.onend = () => {
+      usingWebSpeechRef.current = false;
+      speechUtteranceRef.current = null;
+      setIsAudioPlaying(false);
+      setIsPaused(false);
+      clearInterval(progressIntervalRef.current);
+      const bgNodes = bgSoundNodesRef.current;
+      const fadCtx = audioContextRef.current;
+      if (bgNodes && fadCtx && fadCtx.state !== 'closed') {
+        const now = fadCtx.currentTime;
+        bgNodes.gain.gain.setValueAtTime(bgNodes.gain.gain.value, now);
+        bgNodes.gain.gain.linearRampToValueAtTime(0, now + 3);
+        setTimeout(() => { cleanupBgSound(); setSessionComplete(true); }, 3500);
+      } else {
+        setSessionComplete(true);
+      }
+    };
+
+    utterance.onerror = (e) => {
+      console.error('[Meditation] WebSpeech error:', e);
+      usingWebSpeechRef.current = false;
+      speechUtteranceRef.current = null;
+      setTtsUnavailable(true);
+      setIsAudioPlaying(false);
+    };
+
+    speechUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  }, [lang, cleanupBgSound]);
+
+  const playMeditationAudio = async (text: string, attempt = 0) => {
     // Stop any existing narration source, but don't kill bg sound
     if (sourceNodeRef.current) {
       try { sourceNodeRef.current.stop(); } catch(e) {}
@@ -423,7 +509,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         body: JSON.stringify({ text, lang, voice: 'Kore', calm: true }),
       }).then(r => { if (!r.ok) throw new Error('TTS proxy failed'); return r.json(); });
 
-      const response = await withTimeout(ttsPromise, 15000, 'TTS');
+      const response = await withTimeout(ttsPromise, 30000, 'TTS');
 
       const base64Audio = response.audio;
       if (base64Audio) {
@@ -448,23 +534,40 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
         source.onended = () => {
           setIsAudioPlaying(false);
           setIsPaused(false);
-          setSessionComplete(true);
           clearInterval(progressIntervalRef.current);
-          // Background sound keeps playing until explicitly stopped or component unmounts
+          // Fade out bg sound gracefully, then show session complete
+          const bgNodes = bgSoundNodesRef.current;
+          const fadCtx = audioContextRef.current;
+          if (bgNodes && fadCtx && fadCtx.state !== 'closed') {
+            const now = fadCtx.currentTime;
+            bgNodes.gain.gain.setValueAtTime(bgNodes.gain.gain.value, now);
+            bgNodes.gain.gain.linearRampToValueAtTime(0, now + 3);
+            setTimeout(() => { cleanupBgSound(); setSessionComplete(true); }, 3500);
+          } else {
+            setSessionComplete(true);
+          }
         };
         sourceNodeRef.current = source;
         source.start();
       } else {
-        // No audio data returned - show read-along
-        setTtsUnavailable(true);
-        setIsAudioPlaying(false);
+        // No audio returned — retry once, then fall back to Web Speech
+        if (attempt < 1) {
+          console.warn('[Meditation] No audio from Gemini TTS, retrying in 2s...');
+          setTimeout(() => playMeditationAudio(text, attempt + 1), 2000);
+          return;
+        }
+        console.warn('[Meditation] Gemini TTS returned no audio — falling back to Web Speech API');
+        playWithWebSpeech(text);
       }
     } catch (e) {
-      console.error("TTS failed", e);
-      // Don't snap back - keep the script visible, show TTS unavailable message
-      setTtsUnavailable(true);
-      setIsAudioPlaying(false);
-      setIsPaused(false);
+      console.error('[Meditation] TTS failed:', e);
+      if (attempt < 1) {
+        console.warn('[Meditation] TTS error, retrying in 2s...');
+        setTimeout(() => playMeditationAudio(text, attempt + 1), 2000);
+        return;
+      }
+      console.warn('[Meditation] Falling back to Web Speech API');
+      playWithWebSpeech(text);
     }
   };
 
@@ -495,6 +598,11 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
 
   useEffect(() => {
     return () => {
+      // Cancel Web Speech if active
+      if (usingWebSpeechRef.current) {
+        window.speechSynthesis?.cancel();
+        usingWebSpeechRef.current = false;
+      }
       // Forcefully stop ALL audio sources first (synchronous), then destroy context
       if (sourceNodeRef.current) {
         try { sourceNodeRef.current.stop(); } catch(e) {}

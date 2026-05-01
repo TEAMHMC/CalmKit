@@ -313,7 +313,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current) {
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current) {
         (async () => {
           const stats = sessionStatsRef.current;
           const seg = await generateSegmentNarrative({
@@ -526,28 +526,115 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     bgGainRef.current = null;
   };
 
+  // ── Web Speech API fallback — used when Gemini TTS is unavailable ──
+  // Speaks text natively via the browser's built-in speech engine.
+  // Sets currentSourceRef to a sentinel so the narrationLoop guard blocks re-entry,
+  // then calls narrationLoop() again on completion — seamless audio continuity.
+  // Plain function (not useCallback) — accesses only refs, never stale.
+  const speakWithWebSpeech = (text: string) => {
+    if (!window.speechSynthesis) {
+      // No speech API at all — retry loop after a short delay to avoid silence
+      setTimeout(narrationLoop, 1500);
+      return;
+    }
+    window.speechSynthesis.cancel(); // clear any leftover utterances
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.lang = lang === 'es' ? 'es-US' : 'en-US';
+
+    // Prefer a calm male voice when available
+    // getVoices() is populated asynchronously on some browsers — use what's available
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      const langCode = lang === 'es' ? 'es' : 'en';
+      // Score voices: prefer matching lang, prefer male-sounding names for calm persona
+      const maleKeywords = ['male', 'guy', 'man', 'daniel', 'alex', 'fred', 'jorge', 'diego', 'carlos', 'tom', 'arthur', 'luca', 'reed'];
+      const scored = voices
+        .filter(v => v.lang.toLowerCase().startsWith(langCode))
+        .map(v => ({
+          voice: v,
+          score: maleKeywords.some(k => v.name.toLowerCase().includes(k)) ? 1 : 0,
+        }))
+        .sort((a, b) => b.score - a.score);
+      if (scored.length > 0) utterance.voice = scored[0].voice;
+    }
+
+    // Use a sentinel object so narrationLoop guard (currentSourceRef.current check) blocks re-entry.
+    // The sentinel's stop() method cancels web speech on pause/stop — same contract as AudioBufferSourceNode.
+    const sentinel = { stop: () => { try { window.speechSynthesis.cancel(); } catch (e) {} } };
+    currentSourceRef.current = sentinel as unknown as AudioBufferSourceNode;
+
+    if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
+
+    utterance.onend = () => {
+      // Only clear the sentinel if it's still our utterance (not a newer one)
+      if (currentSourceRef.current === (sentinel as unknown as AudioBufferSourceNode)) {
+        currentSourceRef.current = null;
+      }
+      if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
+      if (isNarratingRef.current && !isPausedRef.current) {
+        narrationLoop();
+      }
+    };
+    utterance.onerror = (e) => {
+      // 'interrupted' fires when cancel() is called (e.g. on pause/stop) — not a real error
+      if ((e as SpeechSynthesisErrorEvent).error === 'interrupted') return;
+      if (currentSourceRef.current === (sentinel as unknown as AudioBufferSourceNode)) {
+        currentSourceRef.current = null;
+      }
+      // On web speech error, retry narration loop after brief pause
+      if (isNarratingRef.current && !isPausedRef.current) {
+        setTimeout(narrationLoop, 2000);
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   // ── TTS via server-side proxy — API key never in browser ──
-  const speakText = async (text: string) => {
+  // Falls back to Web Speech API if Gemini TTS fails or times out (10s).
+  // Returns an AudioBuffer for the buffer queue, or null if Web Speech fallback handled playback.
+  const speakText = async (text: string): Promise<AudioBuffer | null> => {
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
-    const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang, voice }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const base64 = data.audio;
-    if (!base64) return null;
 
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    try {
+      const controller = new AbortController();
+      const ttsTimeout = setTimeout(() => controller.abort(), 10000); // 10s hard timeout
 
-    const int16 = new Int16Array(bytes.buffer);
-    const buffer = audioCtxRef.current!.createBuffer(1, int16.length, 24000);
-    const channelData = buffer.getChannelData(0);
-    for (let i = 0; i < int16.length; i++) channelData[i] = int16[i] / 32768.0;
-    return buffer;
+      let res: Response;
+      try {
+        res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang, voice }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(ttsTimeout);
+      }
+
+      if (!res!.ok) throw new Error(`TTS ${res!.status}`);
+      const data = await res!.json();
+      const base64 = data.audio;
+      if (!base64) throw new Error('No audio in response');
+
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+      const int16 = new Int16Array(bytes.buffer);
+      if (!audioCtxRef.current) throw new Error('AudioContext gone');
+      const buffer = audioCtxRef.current.createBuffer(1, int16.length, 24000);
+      const channelData = buffer.getChannelData(0);
+      for (let i = 0; i < int16.length; i++) channelData[i] = int16[i] / 32768.0;
+      return buffer;
+    } catch (err) {
+      console.warn('[CalmKit TTS] Gemini TTS failed, using Web Speech fallback:', (err as Error).message);
+      // Web Speech handles playback and loop continuation — return null to skip buffer queue
+      speakWithWebSpeech(text);
+      return null;
+    }
   };
 
   // ── Nominatim Destination Search ──
@@ -729,46 +816,37 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }
 
-    // Fetch full 20-minute structured narrative before starting narration
-    try {
-      setIsBufferingAudio(true);
-      const hour = new Date().getHours();
-      const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
-      const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode,
-          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-          lang,
-          destinationName: sessionType === 'OUTDOOR' ? (destinationNameRef.current || undefined) : undefined,
-          targetThought: targetThoughtRef.current || undefined,
-          timeOfDay,
-          ...envDataRef.current,
-          ...(elevationGainRef.current > 0 && { elevationGain: Math.round(elevationGainRef.current) }),
-          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-        }),
-      });
+    // Start narration immediately — fallback handles the intro while structured narrative loads in background
+    narrationLoop();
+
+    // Fetch full 20-minute structured narrative in background (non-blocking)
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+    fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode,
+        activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+        indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+        lang,
+        destinationName: sessionType === 'OUTDOOR' ? (destinationNameRef.current || undefined) : undefined,
+        targetThought: targetThoughtRef.current || undefined,
+        timeOfDay,
+        ...envDataRef.current,
+        ...(elevationGainRef.current > 0 && { elevationGain: Math.round(elevationGainRef.current) }),
+        ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+      }),
+    }).then(async (res) => {
       const data = await res.json();
-      if (data.success && data.preStartIntro) {
+      if (data.success && data.segments && isNarratingRef.current && !narrativeDataRef.current) {
         narrativeDataRef.current = data;
         narrativeSegmentIndexRef.current = 0;
-        // Play intro, then blend sponsor in right after — before segments begin
-        const buf = await speakText(data.preStartIntro);
-        if (buf) audioBufferQueue.current.push(buf);
-        if (data.spokenSponsorMoment) {
-          const sponsorBuf = await speakText(data.spokenSponsorMoment);
-          if (sponsorBuf) audioBufferQueue.current.push(sponsorBuf);
-          sponsorPlayedRef.current = true;
-        }
+        // Don't queue preStartIntro — fallback already played a greeting
       }
-      setIsBufferingAudio(false);
-    } catch (e) {
-      console.warn('Failed to fetch narrative, falling back to loop:', e);
-      setIsBufferingAudio(false);
-    }
-    narrationLoop();
+    }).catch(e => {
+      console.warn('Failed to fetch narrative, using fallback loop:', e);
+    });
   };
 
   const handleStop = () => {
