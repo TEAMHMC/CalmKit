@@ -97,8 +97,8 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
 
   // Map each phase to calm, spoken-word text (used for Web Speech API fallback)
   const PHASE_TTS: Record<BreathPhase, { en: string; es: string }> = {
-    PHYS_INHALE_1: { en: 'Inhale through your nose',          es: 'Inhala por la nariz' },
-    PHYS_INHALE_2: { en: 'Second inhale, fill your lungs',     es: 'Segunda inhalación, llena tus pulmones' },
+    PHYS_INHALE_1: { en: 'Inhale',                            es: 'Inhala' },
+    PHYS_INHALE_2: { en: 'Inhale again',                      es: 'Inhala de nuevo' },
     PHYS_EXHALE:   { en: 'Long exhale through your mouth',    es: 'Exhala lentamente por la boca' },
     INHALE:        { en: 'Inhale',                             es: 'Inhala' },
     HOLD_FULL:     { en: 'Hold',                               es: 'Sostén' },

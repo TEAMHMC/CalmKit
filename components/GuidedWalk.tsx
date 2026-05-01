@@ -201,18 +201,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         const idx = narrativeSegmentIndexRef.current;
         if (idx < narrative.segments.length) {
           const seg = narrative.segments[idx];
-          if (currentMin >= (seg.minuteIndex || 0)) {
-            isFetchingRef.current = true;
-            setIsBufferingAudio(true);
-            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
-            narrativeSegmentIndexRef.current = idx + 1;
-            if (text.trim()) {
-              const buffer = await speakText(text);
-              if (buffer) audioBufferQueue.current.push(buffer);
-            }
-            isFetchingRef.current = false;
-            setIsBufferingAudio(false);
+          // Play segments sequentially — no time-gating so audio stays continuous
+          isFetchingRef.current = true;
+          setIsBufferingAudio(true);
+          const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
+          narrativeSegmentIndexRef.current = idx + 1;
+          if (text.trim()) {
+            const buffer = await speakText(text);
+            if (buffer) audioBufferQueue.current.push(buffer);
           }
+          isFetchingRef.current = false;
+          setIsBufferingAudio(false);
         } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
           isFetchingRef.current = true;
           const buffer = await speakText(narrative.spokenSponsorMoment);
@@ -602,7 +601,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     try {
       const controller = new AbortController();
-      const ttsTimeout = setTimeout(() => controller.abort(), 10000); // 10s hard timeout
+      const ttsTimeout = setTimeout(() => controller.abort(), 22000); // 22s — matches server-side 25s window
 
       let res: Response;
       try {
@@ -796,7 +795,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }, 1000);
 
-    if (!isIndoor && pathCoordsRef.current.length > 0) startTracking();
+    if (!isIndoor) startTracking();
     // No synthetic ambient noise — let the user's music or silence be the background
 
     // Fetch weather + air quality non-blocking (best-effort — if they fail, Echo still works)
@@ -862,6 +861,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     stopAmbience();
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    // Explicitly remove Leaflet map before showing summary — prevents marker from floating detached
+    if (mapRef.current) {
+      try { mapRef.current.remove(); } catch(e) {}
+      mapRef.current = null;
+      markerRef.current = null;
+      startMarkerRef.current = null;
+      pathRef.current = null;
+    }
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
     audioCtxRef.current = null;
