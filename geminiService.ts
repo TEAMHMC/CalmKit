@@ -33,13 +33,13 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 // Played once per session, naturally integrated.
 const SPONSOR_LINES = {
   en: [
-    "This session is part of Take Action LA 2026, presented by the LA County Department of Mental Health and Health Matters Clinic. Three free events in LA this May — MOVE, HEAL, TRANSFORM. Visit healthmatters.clinic.",
-    "This walk is brought to you by the LA County Department of Mental Health through Take Action LA 2026, in partnership with Health Matters Clinic. Wellness like this is free and open to everyone.",
-    "A note from your host — this moment is part of Unstoppable Season 2026, presented by LACDMH and Health Matters Clinic. Free mental health events in LA this May. You belong there. healthmatters.clinic.",
+    "This session is part of the Los Angeles County Department of Mental Health's Take Action LA campaign, in partnership with Health Matters Clinic. Three free wellness events in LA this May — MOVE, HEAL, TRANSFORM. Visit healthmatters.clinic.",
+    "This walk is brought to you through the Los Angeles County Department of Mental Health's Take Action LA campaign, in partnership with Health Matters Clinic. Wellness like this is free and open to everyone.",
+    "A note from your host — this moment is part of Unstoppable Season 2026, supported by the Los Angeles County Department of Mental Health's Take Action LA campaign and Health Matters Clinic. You belong here. healthmatters.clinic.",
   ],
   es: [
-    "Esta sesión es parte de Take Action LA 2026, presentada por el Departamento de Salud Mental del Condado de LA y Health Matters Clinic. Tres eventos gratuitos en LA este mayo — MOVE, HEAL, TRANSFORM. Visita healthmatters.clinic.",
-    "Esta caminata es presentada por el Departamento de Salud Mental del Condado de LA a través de Take Action LA 2026, en asociación con Health Matters Clinic. El bienestar como este es gratuito para todos.",
+    "Esta sesión es parte de la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles, en asociación con Health Matters Clinic. Tres eventos gratuitos en LA este mayo — MOVE, HEAL, TRANSFORM. Visita healthmatters.clinic.",
+    "Esta caminata es presentada a través de la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles, en asociación con Health Matters Clinic. El bienestar como este es gratuito para todos.",
   ],
 };
 

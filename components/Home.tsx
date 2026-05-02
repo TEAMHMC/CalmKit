@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppView, Language } from '../types';
 import { translations } from '../translations';
-import { generateAffirmation } from '../geminiService';
 import { RefreshCcw, Move, BookOpen, Zap, Wind, Sparkles } from 'lucide-react';
 
 interface HomeProps {
@@ -19,19 +18,21 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       "Your presence is your power.",
       "You were built for this season.",
       "Every step forward is proof of your strength.",
-      // Widely accepted quotes & proverbs
-      '"She is clothed with strength and dignity." — Proverbs 31:25',
-      '"I can do all things through Christ who strengthens me." — Philippians 4:13',
+      // Universal quotes — secular, non-gendered, broadly inspiring
       '"You have been assigned this mountain to show others it can be moved." — Unknown',
       '"The comeback is always stronger than the setback." — Unknown',
       '"It always seems impossible until it\'s done." — Nelson Mandela',
-      '"You were born to stand out." — Dr. Seuss',
-      '"She believed she could, so she did." — R.S. Grey',
       '"Our greatest glory is not in never falling, but in rising every time we fall." — Confucius',
-      '"Be still, and know that I am God." — Psalm 46:10',
       '"I am not what happened to me. I am what I choose to become." — Carl Jung',
       '"The struggle you\'re in today is developing the strength you need tomorrow." — Unknown',
-      '"You have within you right now, everything you need to deal with whatever the world can throw at you." — Brian Tracy',
+      '"You can\'t go back and change the beginning, but you can start where you are and change the ending." — C.S. Lewis',
+      '"In the middle of difficulty lies opportunity." — Albert Einstein',
+      '"You have power over your mind, not outside events. Realize this, and you will find strength." — Marcus Aurelius',
+      '"Do not judge me by my successes, judge me by how many times I fell down and got back up again." — Nelson Mandela',
+      '"The most courageous act is still to think for yourself. Aloud." — Coco Chanel',
+      '"If you don\'t like the road you\'re walking, start paving another one." — Dolly Parton',
+      '"The only way out is through." — Robert Frost',
+      '"You deserve to be here. You deserve to take up space." — Unknown',
     ],
     es: [
       "Eres imparable.",
@@ -39,12 +40,14 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
       "Tu presencia es tu poder.",
       "Fuiste hecho para esta temporada.",
       "Cada paso adelante es prueba de tu fortaleza.",
-      '"Está vestida de fuerza y dignidad." — Proverbios 31:25',
-      '"Todo lo puedo en Cristo que me fortalece." — Filipenses 4:13',
+      '"Te han asignado esta montaña para mostrarle a otros que se puede mover." — Desconocido',
       '"La recuperación siempre es más fuerte que la caída." — Desconocido',
       '"Siempre parece imposible hasta que se hace." — Nelson Mandela',
+      '"Nuestra mayor gloria no está en nunca caer, sino en levantarnos cada vez que caemos." — Confucio',
       '"No soy lo que me pasó. Soy lo que elijo ser." — Carl Jung',
       '"La lucha en la que estás hoy está desarrollando la fortaleza que necesitas mañana." — Desconocido',
+      '"No puedes volver y cambiar el principio, pero puedes empezar donde estás y cambiar el final." — C.S. Lewis',
+      '"En medio de la dificultad se encuentra la oportunidad." — Albert Einstein',
     ],
   };
 
@@ -54,21 +57,19 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   };
 
   const [affirmation, setAffirmation] = useState(() => getRandomDefault(lang));
-  const [loadingAff, setLoadingAff] = useState(false);
+  const lastAffirmationRef = React.useRef(affirmation);
   const t = translations[lang];
 
-  const fetchAffirmation = async () => {
-    // Show a random default immediately so user is never waiting
-    setAffirmation(getRandomDefault(lang));
-    setLoadingAff(true);
-    try {
-      const a = await generateAffirmation(lang);
-      if (a && a.trim()) setAffirmation(a);
-    } catch {
-      // Already showing a default — no action needed
-    } finally {
-      setLoadingAff(false);
+  const fetchAffirmation = () => {
+    // Pick from the local pool instantly — guaranteed unique from the last one shown
+    let next = getRandomDefault(lang);
+    let attempts = 0;
+    while (next === lastAffirmationRef.current && attempts < 10) {
+      next = getRandomDefault(lang);
+      attempts++;
     }
+    lastAffirmationRef.current = next;
+    setAffirmation(next);
   };
 
   useEffect(() => { fetchAffirmation(); }, [lang]);
@@ -96,10 +97,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
           <span className="text-[9px] font-medium uppercase tracking-wide text-black/40">
             {t.dailyStrengthLabel}
           </span>
-          <RefreshCcw
-            size={11}
-            className={`text-black/20 ${loadingAff ? 'animate-spin text-black/60' : ''}`}
-          />
+          <RefreshCcw size={11} className="text-black/20" />
         </div>
 
         <p className="text-base font-bold italic text-black leading-snug font-display">
