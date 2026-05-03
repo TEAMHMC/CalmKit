@@ -188,24 +188,31 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   // Stops the previous source BEFORE starting the new one — no overlap.
   // Falls back to Web Speech API immediately if the buffer is missing.
   const playPhaseAudio = useCallback((p: BreathPhase) => {
-    // Always cancel any pending timer first so stale callbacks can't fire
     cancelVoiceTimer();
+    // Stop the previous source immediately — not inside the delay timer —
+    // so short phases (2s) get their full allotted time minus the chime gap.
+    stopCurrentSource();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
     const buffer = audioCacheRef.current.get(p);
     const ttsText = PHASE_TTS[p][lang];
 
     if (!buffer) {
-      // WAV not cached — use Web Speech API immediately (no timer delay needed,
-      // speech synthesis has its own tiny internal latency)
-      if (lang === 'es') {
-        speakFallbackEs(ttsText);
-      } else {
-        speakFallback(ttsText);
-      }
+      if (lang === 'es') speakFallbackEs(ttsText);
+      else speakFallback(ttsText);
       return;
     }
 
-    // WAV buffer available — play it 300 ms after the chime
+    // Short phases (≤2s): play immediately so audio isn't cut off before it finishes.
+    // Longer phases: wait 300ms for the chime to settle first.
+    const PHASE_DURATIONS: Record<BreathPhase, number> = {
+      PHYS_INHALE_1: 2, PHYS_INHALE_2: 2, PHYS_EXHALE: 8,
+      INHALE: 4, HOLD_FULL: 4, EXHALE: 4, HOLD_EMPTY: 4,
+    };
+    const delay = PHASE_DURATIONS[p] <= 2 ? 0 : 300;
+
     voiceDelayTimerRef.current = setTimeout(async () => {
       voiceDelayTimerRef.current = null;
 
@@ -213,7 +220,6 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       try {
         ctx = await getAudioContext(44100);
       } catch {
-        // AudioContext failed mid-session — fall back to Web Speech
         if (lang === 'es') speakFallbackEs(ttsText);
         else speakFallback(ttsText);
         return;
@@ -225,15 +231,6 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         return;
       }
 
-      // Stop the previous source NOW (inside the timer callback) to prevent
-      // overlap when a new phase fires while the previous audio is still playing.
-      stopCurrentSource();
-
-      // Also cancel any Web Speech that might be running from a previous fallback
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-
       try {
         const src = ctx.createBufferSource();
         src.buffer = buffer;
@@ -242,12 +239,11 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
         currentSourceRef.current = src;
         src.onended = () => { currentSourceRef.current = null; };
       } catch {
-        // Source creation failed — fall back to Web Speech
         currentSourceRef.current = null;
         if (lang === 'es') speakFallbackEs(ttsText);
         else speakFallback(ttsText);
       }
-    }, 300);
+    }, delay);
   }, [lang, cancelVoiceTimer, stopCurrentSource]);
 
   // Pre-cache audio on mount and whenever mode/lang changes.

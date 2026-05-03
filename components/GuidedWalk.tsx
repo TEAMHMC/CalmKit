@@ -172,6 +172,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (narrationTimeoutRef.current) clearTimeout(narrationTimeoutRef.current);
       isNarratingRef.current = false;
+      audioBufferQueue.current = [];
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
       fullCleanup();
@@ -534,8 +536,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // then calls narrationLoop() again on completion — seamless audio continuity.
   // Plain function (not useCallback) — accesses only refs, never stale.
   const speakWithWebSpeech = (text: string) => {
+    // Never speak if the session has ended — prevents audio bleed into other views
+    if (!isNarratingRef.current) return;
     if (!window.speechSynthesis) {
-      // No speech API at all — retry loop after a short delay to avoid silence
       setTimeout(narrationLoop, 1500);
       return;
     }
@@ -633,8 +636,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       return buffer;
     } catch (err) {
       console.warn('[CalmKit TTS] Gemini TTS failed, using Web Speech fallback:', (err as Error).message);
-      // Web Speech handles playback and loop continuation — return null to skip buffer queue
-      speakWithWebSpeech(text);
+      // Guard: session may have ended while the TTS fetch was in-flight
+      if (isNarratingRef.current) speakWithWebSpeech(text);
       return null;
     }
   };
@@ -852,13 +855,20 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   };
 
   const handleStop = () => {
+    // Set flags first so any in-flight async callbacks (speakText, speakWithWebSpeech) see the stopped state
+    isNarratingRef.current = false;
+    isPausedRef.current = false;
+    isFetchingRef.current = false;
+    audioBufferQueue.current = [];
+    // Cancel Web Speech immediately — stops audio that came from the TTS fallback path
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
     if (currentSourceRef.current) {
       try { currentSourceRef.current.stop(); } catch(e) {}
       currentSourceRef.current = null;
     }
-    isNarratingRef.current = false;
-    isPausedRef.current = false;
-    if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
     stopAmbience();
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);

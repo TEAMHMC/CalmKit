@@ -101,7 +101,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </div>
 
         <p className="text-base font-bold italic text-black leading-snug font-display">
-          {`"${affirmation}"`}
+          {affirmation.startsWith('"') ? affirmation : `"${affirmation}"`}
         </p>
       </button>
 
