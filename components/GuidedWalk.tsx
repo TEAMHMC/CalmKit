@@ -1085,12 +1085,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             >
               {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
             </button>
-            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="flex-shrink-0 flex items-center justify-center" style={{ minWidth: 56 }}>
               {(() => {
                 const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
                 return (
                   <span style={{ color }}
-                    className="text-[9px] font-semibold tracking-wider uppercase text-center leading-tight break-words w-full">
+                    className="text-[8px] font-semibold tracking-normal uppercase whitespace-nowrap">
                     {MODES.find(m => m.id === mode)?.label}
                   </span>
                 );
