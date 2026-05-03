@@ -158,7 +158,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           console.warn('GPS error:', err.message);
           setGpsLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true }
       );
     }
     return () => {

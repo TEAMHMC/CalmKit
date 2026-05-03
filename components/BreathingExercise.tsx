@@ -108,8 +108,8 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
 
   // Static audio file map — plays instantly from local public directory
   const STATIC_AUDIO: Record<BreathPhase, Record<Language, string>> = {
-    PHYS_INHALE_1: { en: '/audio/breathing/en_phys_inhale_1.wav', es: '/audio/breathing/es_phys_inhale_1.wav' },
-    PHYS_INHALE_2: { en: '/audio/breathing/en_inhale.wav', es: '/audio/breathing/es_inhale.wav' },
+    PHYS_INHALE_1: { en: '/audio/breathing/en_inhale.wav', es: '/audio/breathing/es_inhale.wav' },
+    PHYS_INHALE_2: { en: '/audio/breathing/en_phys_inhale_1.wav', es: '/audio/breathing/es_phys_inhale_1.wav' },
     PHYS_EXHALE:   { en: '/audio/breathing/en_phys_exhale.wav',   es: '/audio/breathing/es_phys_exhale.wav'   },
     INHALE:        { en: '/audio/breathing/en_inhale.wav',        es: '/audio/breathing/es_inhale.wav'        },
     HOLD_FULL:     { en: '/audio/breathing/en_hold.wav',          es: '/audio/breathing/es_hold.wav'          },
