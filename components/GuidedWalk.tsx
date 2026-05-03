@@ -1190,7 +1190,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
             {/* Indoor: Activity Picker */}
             {sessionType === 'INDOOR' && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2.5">
                 {([
                   { id: 'STRETCH' as IndoorActivity, label: t.labels.stretch, desc: t.labels.stretchDesc },
                   { id: 'FLOW' as IndoorActivity, label: t.labels.flow, desc: t.labels.flowDesc },
@@ -1199,38 +1199,38 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                   <button
                     key={act.id}
                     onClick={() => setIndoorActivity(act.id)}
-                    className={`p-4 rounded-3xl text-center transition-all border active:scale-[0.97] ${
+                    className={`p-3 rounded-2xl text-center transition-all border active:scale-[0.97] ${
                       indoorActivity === act.id
                         ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
                         : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
                     }`}
                   >
                     <span className={`font-medium text-sm block ${indoorActivity === act.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{act.label}</span>
-                    <span className="text-[10px] text-gray-400 block mt-1 leading-relaxed">{act.desc}</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">{act.desc}</span>
                   </button>
                 ))}
               </div>
             )}
 
             {/* 2x2 Mode Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               {MODES.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
-                  className={`p-5 rounded-3xl text-left transition-all border active:scale-[0.97] ${
+                  className={`p-4 rounded-2xl text-left transition-all border active:scale-[0.97] ${
                     mode === m.id
                       ? 'border-[#233DFF] bg-[#233DFF]/5 ring-2 ring-[#233DFF]/10'
                       : 'border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5'
                   }`}
                 >
-                  <div className={`w-3.5 h-3.5 rounded-full mb-3 ${
+                  <div className={`w-3 h-3 rounded-full mb-2 ${
                     m.tone === 'blue' ? 'bg-[#233DFF]' :
                     m.tone === 'pink' ? 'bg-pink-400' :
                     m.tone === 'orange' ? 'bg-orange-400' : 'bg-yellow-400'
                   }`} />
                   <span className={`font-medium text-base block ${mode === m.id ? 'text-[#233DFF]' : 'dark:text-white'}`}>{m.label}</span>
-                  <span className="text-xs text-gray-400 block mt-1 leading-relaxed">{m.desc}</span>
+                  <span className="text-xs text-gray-400 block mt-0.5">{m.desc}</span>
                 </button>
               ))}
             </div>
