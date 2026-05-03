@@ -1137,8 +1137,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
-              onClick={async () => {
-                if (!userLocation && !gpsLoading) await requestGpsPermission();
+              onClick={() => {
+                if (!userLocation && !gpsLoading) requestGpsPermission();
                 setStep(1);
               }}
               disabled={!targetThought.trim()}
@@ -1148,9 +1148,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               {t.onboarding.next}
             </button>
             <button
-              onClick={async () => {
+              onClick={() => {
                 setTargetThought('');
-                if (!userLocation && !gpsLoading) await requestGpsPermission();
+                if (!userLocation && !gpsLoading) requestGpsPermission();
                 setStep(1);
               }}
               className="w-full py-3 text-sm font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

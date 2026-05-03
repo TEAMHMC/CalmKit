@@ -371,6 +371,14 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   };
 
   const v = getVisuals();
+
+  // Match animation duration to phase duration so the orb fully completes its expansion/contraction
+  const PHASE_ANIM_MS: Record<BreathPhase, number> = {
+    PHYS_INHALE_1: 1900, PHYS_INHALE_2: 1900, PHYS_EXHALE: 7500,
+    INHALE: 3800, HOLD_FULL: 3800, EXHALE: 3800, HOLD_EMPTY: 3800,
+  };
+  const animDuration = `${PHASE_ANIM_MS[phase]}ms`;
+
   const modeLabel = mode === 'physiological'
     ? ((t.labels as any).quickRelief || 'QUICK RELIEF')
     : t.labels.boxBreathingPhase;
@@ -457,10 +465,10 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
 
         {/* Breathing Orb Container */}
         <div className="relative w-full max-w-[220px] sm:max-w-[260px] aspect-square flex items-center justify-center mb-8">
-           <div className={`absolute inset-0 border-2 border-[#233DFF]/10 rounded-full transition-all duration-[4000ms] ease-in-out transform-gpu ${v.ringScale}`}></div>
-           <div className={`absolute inset-0 border border-dashed border-[#233DFF]/20 rounded-full transition-all duration-[3000ms] animate-[spin_30s_linear_infinite] transform-gpu ${v.scale}`}></div>
+           <div style={{ transitionDuration: animDuration }} className={`absolute inset-0 border-2 border-[#233DFF]/10 rounded-full transition-all ease-in-out transform-gpu ${v.ringScale}`}></div>
+           <div style={{ transitionDuration: animDuration }} className={`absolute inset-0 border border-dashed border-[#233DFF]/20 rounded-full transition-all animate-[spin_30s_linear_infinite] transform-gpu ${v.scale}`}></div>
 
-           <div className={`w-4/5 h-4/5 rounded-full transition-all duration-[4000ms] ease-in-out shadow-2xl flex items-center justify-center transform-gpu ${v.color} ${v.scale} ${v.opacity} ${v.shadow} ${v.pulse} z-10`}>
+           <div style={{ transitionDuration: animDuration }} className={`w-4/5 h-4/5 rounded-full transition-all ease-in-out shadow-2xl flex items-center justify-center transform-gpu ${v.color} ${v.scale} ${v.opacity} ${v.shadow} ${v.pulse} z-10`}>
               <div className="text-7xl sm:text-8xl font-[900] tabular-nums leading-none text-white drop-shadow-lg">
                 {timer}
               </div>
