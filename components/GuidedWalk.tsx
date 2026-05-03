@@ -1169,23 +1169,30 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           className="absolute bottom-0 left-0 right-0 px-3 z-20 pointer-events-auto"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', paddingTop: 16 }}
         >
-          <div className="bg-black/55 backdrop-blur-xl rounded-[28px] py-4 px-4 flex items-center justify-center gap-4 border border-white/5">
+          <div className="bg-black/60 backdrop-blur-xl rounded-[28px] py-4 px-5 flex items-center justify-between gap-4 border border-white/10">
             <button
               onClick={handleStop}
-              className="w-14 h-14 flex-shrink-0 bg-red-950/80 rounded-full border border-red-900/40 flex items-center justify-center active:scale-95 transition-all"
+              className="w-14 h-14 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex items-center justify-center active:scale-95 transition-all"
             >
-              <X size={20} className="text-red-400" />
+              <X size={20} className="text-white/60" />
             </button>
             <button
               onClick={togglePause}
-              className="w-20 h-20 flex-shrink-0 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(35,61,255,0.5)] border border-[#233DFF]/20 active:scale-95 transition-all"
+              className="w-20 h-20 flex-shrink-0 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(35,61,255,0.6)] border border-[#233DFF]/30 active:scale-95 transition-all"
             >
               {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
             </button>
             <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center">
-              <span className="text-[10px] font-medium text-white/30 uppercase tracking-wide text-center leading-tight">
-                {MODES.find(m => m.id === mode)?.label}
-              </span>
+              {(() => {
+                const m = MODES.find(m => m.id === mode);
+                const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
+                return (
+                  <span style={{ color, borderColor: `${color}33`, backgroundColor: `${color}18` }}
+                    className="text-[9px] font-semibold tracking-widest uppercase border rounded-full px-2 py-1 text-center leading-tight">
+                    {m?.label}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         </div>
