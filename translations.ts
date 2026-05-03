@@ -4,7 +4,7 @@ export const translations = {
     homeTitle: 'CalmKit',
     homeSubtitle: 'REGULATE. REFLECT. MOVE FORWARD.',
     aboutTitle: 'About CalmKit',
-    aboutCopy: 'CalmKit is a standalone wellness app, originally created from tools used in the Unstoppable Digital Companion and community workshops.\n\nIt is designed to help you regulate, reflect, and move forward in real time. \n\nImportant: This tool is not therapy and is not intended for clinical diagnosis.\n\nFor more: www.healthmatters.clinic',
+    aboutCopy: 'CalmKit is part of a suite of tools built for the Unstoppable Digital Companion -- designed to extend the experience beyond walks, runs, and wellness meetups into your everyday life.\n\nUse it to regulate, reflect, and move forward in real time, wherever you are.\n\nImportant: This tool is not therapy and is not intended for clinical diagnosis.\n\nUnstoppable Season: healthmatters.clinic/takeactionla\n\nFor more: www.healthmatters.clinic',
     nav: {
       home: 'HOME',
       breathe: 'BREATHE',
@@ -132,7 +132,7 @@ export const translations = {
     homeTitle: 'CalmKit',
     homeSubtitle: 'REGULA. REFLEXIONA. AVANZA.',
     aboutTitle: 'Sobre CalmKit',
-    aboutCopy: 'CalmKit es una aplicación de bienestar independiente, creada a partir de herramientas del Compañero Digital Unstoppable.\n\nDiseñada para ayudarte a regular, reflexionar y avanzar en tiempo real.\n\nImportante: Esta herramienta no es terapia y no tiene fines de diagnóstico clínico.\n\nPara más: www.healthmatters.clinic',
+    aboutCopy: 'CalmKit es parte de un conjunto de herramientas creadas para el Compañero Digital Unstoppable -- diseñadas para extender la experiencia mas alla de caminatas, carreras y reuniones de bienestar hacia tu vida diaria.\n\nUsala para regular, reflexionar y avanzar en tiempo real, donde sea que estes.\n\nImportante: Esta herramienta no es terapia y no tiene fines de diagnostico clinico.\n\nTemporada Unstoppable: healthmatters.clinic/takeactionla\n\nPara mas: www.healthmatters.clinic',
     nav: {
       home: 'INICIO',
       breathe: 'RESPIRA',

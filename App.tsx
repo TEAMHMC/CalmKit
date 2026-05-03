@@ -232,11 +232,11 @@ const App: React.FC = () => {
               <div className="flex gap-1">
                 {showInstall &&
                   <button onClick={handleInstall} aria-label="Install CalmKit app" className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Download size={16} /></button>}
-                <button onClick={() => safeSetView('ABOUT')} aria-label="About CalmKit" className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Info size={16} /></button>
-                <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} aria-label={prefs.lang === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'} className="w-11 h-11 flex items-center justify-center rounded-full text-xs font-bold hover:bg-gray-100 dark:hover:bg-white/10 dark:text-white transition-colors">
+                <button onClick={() => safeSetView('ABOUT')} aria-label="About CalmKit" className="w-11 h-11 flex items-center justify-center rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Info size={16} /></button>
+                <button onClick={() => setPrefs(p => ({ ...p, lang: p.lang === 'en' ? 'es' : 'en' }))} aria-label={prefs.lang === 'en' ? 'Switch to Spanish' : 'Cambiar a inglés'} className="w-11 h-11 flex items-center justify-center rounded-full text-xs font-bold hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors">
                   {prefs.lang.toUpperCase()}
                 </button>
-                <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} aria-label={prefs.darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => setPrefs(p => ({ ...p, darkMode: !p.darkMode }))} aria-label={prefs.darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="w-11 h-11 flex items-center justify-center rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
                   {prefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}
                 </button>
               </div>
