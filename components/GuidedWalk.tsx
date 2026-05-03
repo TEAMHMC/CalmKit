@@ -105,6 +105,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setGpsLoading(true);
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
+          // Reject stale cached positions — iOS often returns the last-known location
+          // (from a previous city) before acquiring a fresh satellite fix.
+          // Positions older than 60s have timestamps from before the current session.
+          const ageMs = Date.now() - pos.timestamp;
+          if (ageMs > 60000) {
+            console.log(`[GPS] Skipping stale cached position (${Math.round(ageMs / 1000)}s old)`);
+            return;
+          }
+
           const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
           setUserLocation(newLoc);
           setGpsAccuracy(pos.coords.accuracy);
@@ -803,8 +812,44 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }
 
-    // Start narration immediately — fallback handles the intro while structured narrative loads in background
-    narrationLoop();
+    // Instant coach cue via Web Speech (no network) so the user hears something within ~1 second.
+    // Simultaneously kick off the full AI generation — when it finishes it pushes to audioBufferQueue
+    // and narrationLoop plays it. This cuts perceived startup silence from 8-12s to near-zero.
+    const INSTANT_INTROS: Record<EchoPersona, { en: string; es: string }> = {
+      HOPE:         { en: "Let's begin. Breathe and find your pace.", es: "Comencemos. Respira y encuentra tu ritmo." },
+      HYPE:         { en: "Let's go! You've got this. Start moving!", es: "¡Vamos! ¡Tú puedes! ¡A moverse!" },
+      BREAKTHROUGH: { en: "Take a breath. This walk is your time for clarity.", es: "Respira hondo. Esta caminata es para ti." },
+      STRATEGY:     { en: "Ready to move and think. Let's get started.", es: "Listos para movernos y pensar. Comencemos." },
+    };
+    speakWithWebSpeech(INSTANT_INTROS[mode][lang]);
+
+    // Block narrationLoop re-entry while we prefetch the first full AI segment in background
+    isFetchingRef.current = true;
+    segmentCounterRef.current = 1;
+    fallbackIntroPlayedRef.current = true;
+    (async () => {
+      try {
+        const seg = await generateSegmentNarrative({
+          mode,
+          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+          lang, stats: sessionStatsRef.current,
+          isIntro: true, isFirstSegment: true, segmentNumber: 1,
+          destinationName: destinationNameRef.current || undefined,
+          targetThought: targetThoughtRef.current || undefined,
+          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+          userLat: userLocation?.[0], userLng: userLocation?.[1],
+        });
+        if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
+        sponsorPlayedRef.current = true;
+        const buf = await speakText(seg);
+        isFetchingRef.current = false;
+        if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
+        narrationLoop();
+      } catch {
+        isFetchingRef.current = false;
+        narrationLoop();
+      }
+    })();
 
     // Fetch full 20-minute structured narrative in background (non-blocking)
     const hour = new Date().getHours();

@@ -109,7 +109,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   // Static audio file map — plays instantly from local public directory
   const STATIC_AUDIO: Record<BreathPhase, Record<Language, string>> = {
     PHYS_INHALE_1: { en: '/audio/breathing/en_inhale.wav', es: '/audio/breathing/es_inhale.wav' },
-    PHYS_INHALE_2: { en: '/audio/breathing/en_phys_inhale_1.wav', es: '/audio/breathing/es_phys_inhale_1.wav' },
+    PHYS_INHALE_2: { en: '/audio/breathing/en_phys_inhale_2.wav', es: '/audio/breathing/es_phys_inhale_2.wav' },
     PHYS_EXHALE:   { en: '/audio/breathing/en_phys_exhale.wav',   es: '/audio/breathing/es_phys_exhale.wav'   },
     INHALE:        { en: '/audio/breathing/en_inhale.wav',        es: '/audio/breathing/es_inhale.wav'        },
     HOLD_FULL:     { en: '/audio/breathing/en_hold.wav',          es: '/audio/breathing/es_hold.wav'          },
@@ -208,7 +208,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     // Short phases (≤2s): play immediately so audio isn't cut off before it finishes.
     // Longer phases: wait 300ms for the chime to settle first.
     const PHASE_DURATIONS: Record<BreathPhase, number> = {
-      PHYS_INHALE_1: 2, PHYS_INHALE_2: 2, PHYS_EXHALE: 8,
+      PHYS_INHALE_1: 2, PHYS_INHALE_2: 3, PHYS_EXHALE: 8,
       INHALE: 4, HOLD_FULL: 4, EXHALE: 4, HOLD_EMPTY: 4,
     };
     const delay = PHASE_DURATIONS[p] <= 2 ? 0 : 300;
@@ -314,7 +314,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
           if (prev === 1) {
             switch (phase) {
               // Physiological sigh: 2s inhale → 2s top-up inhale → 8s slow exhale
-              case 'PHYS_INHALE_1': setPhase('PHYS_INHALE_2'); return 2;
+              case 'PHYS_INHALE_1': setPhase('PHYS_INHALE_2'); return 3;
               case 'PHYS_INHALE_2': setPhase('PHYS_EXHALE'); return 8;
               case 'PHYS_EXHALE': setPhase('PHYS_INHALE_1'); setCycles(c => c + 1); return 2;
               // Box breathing: 4-4-4-4
@@ -374,7 +374,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
 
   // Match animation duration to phase duration so the orb fully completes its expansion/contraction
   const PHASE_ANIM_MS: Record<BreathPhase, number> = {
-    PHYS_INHALE_1: 1900, PHYS_INHALE_2: 1900, PHYS_EXHALE: 7500,
+    PHYS_INHALE_1: 1900, PHYS_INHALE_2: 2900, PHYS_EXHALE: 7500,
     INHALE: 3800, HOLD_FULL: 3800, EXHALE: 3800, HOLD_EMPTY: 3800,
   };
   const animDuration = `${PHASE_ANIM_MS[phase]}ms`;
