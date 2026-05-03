@@ -212,12 +212,12 @@ const App: React.FC = () => {
               className="flex-shrink-0 px-5 flex justify-between items-center bg-white dark:bg-[#121212] border-b border-gray-100 dark:border-white/10"
               style={{ minHeight: 56, paddingTop: 'calc(env(safe-area-inset-top) + 8px)', paddingBottom: 8 }}
             >
-              <div onClick={() => safeSetView('HOME')} className="flex items-center gap-3">
+              <div onClick={() => safeSetView('HOME')} className="flex items-center gap-3 cursor-pointer">
                 <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png"
-                  className="w-8 h-8" alt="CalmKit by Health Matters Clinic" />
-                <div>
-                  <h2 className="text-xs font-bold dark:text-white">Your CalmKit</h2>
-                  <span className="text-[10px] text-[#233DFF]">UNSTOPPABLE</span>
+                  className="w-10 h-10 rounded-xl shadow-sm" alt="CalmKit by Health Matters Clinic" />
+                <div className="flex flex-col gap-0.5">
+                  <h2 className="text-sm font-bold tracking-tight dark:text-white leading-none">Your CalmKit</h2>
+                  <span className="text-[9px] font-semibold tracking-widest text-[#233DFF] bg-[#233DFF]/10 dark:bg-[#233DFF]/20 px-2 py-0.5 rounded-full w-fit leading-none">UNSTOPPABLE</span>
                 </div>
               </div>
 

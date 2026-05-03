@@ -99,7 +99,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
   const PHASE_TTS: Record<BreathPhase, { en: string; es: string }> = {
     PHYS_INHALE_1: { en: 'Inhale',                            es: 'Inhala' },
     PHYS_INHALE_2: { en: 'Inhale again',                      es: 'Inhala de nuevo' },
-    PHYS_EXHALE:   { en: 'Long exhale through your mouth',    es: 'Exhala lentamente por la boca' },
+    PHYS_EXHALE:   { en: 'Long exhale',                       es: 'Exhala lentamente' },
     INHALE:        { en: 'Inhale',                             es: 'Inhala' },
     HOLD_FULL:     { en: 'Hold',                               es: 'Sostén' },
     EXHALE:        { en: 'Exhale',                             es: 'Exhala' },
