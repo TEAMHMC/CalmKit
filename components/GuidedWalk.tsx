@@ -378,15 +378,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !isPreBufferingRef.current) {
-        isPreBufferingRef.current = true;
-        (async () => {
-          try {
-            const narrative = narrativeDataRef.current;
-            if (narrative && narrative.segments) {
-              // Pre-buffer next narrative segment
-              const nextIdx = narrativeSegmentIndexRef.current;
-              if (nextIdx < narrative.segments.length) {
+      // Pre-buffer only when structured narrative is loaded — fallback mode relies on
+      // the main narrationLoop fetch cycle to avoid stale segment numbers causing repeats.
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !isPreBufferingRef.current && narrativeDataRef.current) {
+        const narrative = narrativeDataRef.current;
+        if (narrative?.segments) {
+          const nextIdx = narrativeSegmentIndexRef.current;
+          if (nextIdx < narrative.segments.length) {
+            isPreBufferingRef.current = true;
+            (async () => {
+              try {
                 const nextSeg = narrative.segments[nextIdx];
                 const text = Array.isArray(nextSeg.scriptBeats) ? nextSeg.scriptBeats.filter(Boolean).join(' ') : String(nextSeg);
                 if (text.trim()) {
@@ -394,31 +395,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                   if (!isNarratingRef.current) return;
                   if (buf) audioBufferQueue.current.push(buf);
                 }
+              } finally {
+                isPreBufferingRef.current = false;
               }
-            } else {
-              // Pre-buffer next fallback segment
-              const stats = sessionStatsRef.current;
-              const seg = await generateSegmentNarrative({
-                mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK', lang, stats,
-                isIntro: false, isFirstSegment: false,
-                segmentNumber: segmentCounterRef.current + 1,
-                indoorActivity: indoorActivityRef.current || undefined,
-                destinationName: destinationNameRef.current || undefined,
-                targetThought: targetThoughtRef.current || undefined,
-                ...envDataRef.current,
-                ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-                ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-                ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-              });
-              if (!isNarratingRef.current) return;
-              const buf = await speakText(seg);
-              if (!isNarratingRef.current) return;
-              if (buf) audioBufferQueue.current.push(buf);
-            }
-          } finally {
-            isPreBufferingRef.current = false;
+            })();
           }
-        })();
+        }
       }
     } else {
       setTimeout(narrationLoop, 1000);
@@ -827,6 +809,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     audioBufferQueue.current = [];
     narrativeDataRef.current = null;
     narrativeSegmentIndexRef.current = 0;
+    segmentCounterRef.current = 0;
     sponsorPlayedRef.current = false;
     isFetchingRef.current = false;
     isPreBufferingRef.current = false;
@@ -1182,14 +1165,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             >
               {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
             </button>
-            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center">
+            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center overflow-hidden">
               {(() => {
-                const m = MODES.find(m => m.id === mode);
                 const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
                 return (
-                  <span style={{ color, borderColor: `${color}33`, backgroundColor: `${color}18` }}
-                    className="text-[9px] font-semibold tracking-widest uppercase border rounded-full px-2 py-1 text-center leading-tight">
-                    {m?.label}
+                  <span style={{ color }}
+                    className="text-[9px] font-semibold tracking-wider uppercase text-center leading-tight break-words w-full">
+                    {MODES.find(m => m.id === mode)?.label}
                   </span>
                 );
               })()}
