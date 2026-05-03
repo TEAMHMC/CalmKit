@@ -108,6 +108,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     preBufferedIntroBase64Ref.current = null;
     preBufferModeRef.current = mode;
 
+    // Warm up the server immediately so the TTS and narrative endpoints aren't cold when GO is pressed
+    fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: ' ', lang, voice: MODES.find(m => m.id === mode)?.voice || 'Kore' }),
+    }).catch(() => {});
+
     const timer = setTimeout(async () => {
       if (isPlaying || isPreBufferingRef.current) return;
       isPreBufferingRef.current = true;
@@ -138,7 +145,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         // Silent fail — GO still works, narrationLoop fetches fresh
       }
       isPreBufferingRef.current = false;
-    }, 2000);
+    }, 500);
 
     return () => {
       clearTimeout(timer);
