@@ -216,7 +216,7 @@ const App: React.FC = () => {
                 <img src="https://cdn.prod.website-files.com/67359e6040140078962e8a54/690707bad1dd547278086592_Untitled%20(256%20x%20256%20px)-2.png"
                   className="w-8 h-8" alt="CalmKit by Health Matters Clinic" />
                 <div>
-                  <h2 className="text-xs uppercase dark:text-white">CALMKIT</h2>
+                  <h2 className="text-xs font-bold dark:text-white">Your CalmKit</h2>
                   <span className="text-[10px] text-[#233DFF]">UNSTOPPABLE</span>
                 </div>
               </div>

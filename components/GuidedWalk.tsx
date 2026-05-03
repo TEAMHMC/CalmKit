@@ -189,7 +189,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
               const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
               const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              if (dist > 0.0012) {
+              if (dist > 0.005) {
                 pathCoordsRef.current.push(newLoc);
                 if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
                 lastPositionRef.current = newLoc;
@@ -818,8 +818,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Reset all session state so a second session starts clean
     setSessionStats({ distance: 0, time: 0, pace: '0:00' });
     audioBufferQueue.current = [];
+    narrativeDataRef.current = null;
+    narrativeSegmentIndexRef.current = 0;
+    sponsorPlayedRef.current = false;
+    isFetchingRef.current = false;
+    isPreBufferingRef.current = false;
+    fallbackIntroPlayedRef.current = false;
+    closingPlayedRef.current = false;
 
-    // Decode pre-buffered intro audio (fetched while user was on setup screen)
+    // Decode pre-buffered intro audio (fetched while user was on setup screen).
+    // Must come AFTER the reset block so the intro/sponsor flags stay true.
     if (preBufferedIntroBase64Ref.current && preBufferModeRef.current === mode && audioCtxRef.current) {
       try {
         const base64 = preBufferedIntroBase64Ref.current;
@@ -834,17 +842,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         fallbackIntroPlayedRef.current = true;
         sponsorPlayedRef.current = true;
       } catch (e) {
-        // Decode failed — narrationLoop will fetch fresh
+        // Decode failed — narrationLoop fetches fresh
       }
       preBufferedIntroBase64Ref.current = null;
     }
-    narrativeDataRef.current = null;
-    narrativeSegmentIndexRef.current = 0;
-    sponsorPlayedRef.current = false;
-    isFetchingRef.current = false;
-    isPreBufferingRef.current = false;
-    fallbackIntroPlayedRef.current = false;
-    closingPlayedRef.current = false;
 
     startKeepAlive();
     await sharedRequestWakeLock();
