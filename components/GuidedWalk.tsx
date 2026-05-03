@@ -141,7 +141,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
               const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
               const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              if (dist > 0.005) {
+              // 0.0005 mi ≈ 2.6 ft minimum movement; filter spikes > 0.05 mi (264 ft) as GPS noise
+              if (dist > 0.0005 && dist < 0.05) {
                 pathCoordsRef.current.push(newLoc);
                 if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
                 lastPositionRef.current = newLoc;
@@ -157,7 +158,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           console.warn('GPS error:', err.message);
           setGpsLoading(false);
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
     return () => {
@@ -740,12 +741,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const isIndoor = effectiveSessionType === 'INDOOR';
     indoorActivityRef.current = isIndoor ? indoorActivity : null;
 
-    // Seed path with GPS location if available
-    if (!isIndoor && userLocation) {
-      pathCoordsRef.current = [userLocation];
-      lastPositionRef.current = userLocation;
-    }
-
     // Reset all session state so a second session starts clean
     setSessionStats({ distance: 0, time: 0, pace: '0:00' });
     audioBufferQueue.current = [];
@@ -761,6 +756,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     await sharedRequestWakeLock();
     setIsPlaying(true);
     isNarratingRef.current = true;
+
+    // Seed path AFTER isNarratingRef is set — prevents race where watchPosition fires before session starts
+    if (!isIndoor && userLocation) {
+      pathCoordsRef.current = [userLocation];
+      lastPositionRef.current = userLocation;
+    } else {
+      pathCoordsRef.current = [];
+      lastPositionRef.current = null;
+    }
     const now = Date.now();
     startTimeRef.current = now;
 
