@@ -169,10 +169,18 @@ const App: React.FC = () => {
         return (
           <div className="flex-1 px-5 py-6 flex flex-col gap-5 overflow-hidden">
             <h2 className="text-3xl font-normal dark:text-white">{t.aboutTitle}</h2>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto flex flex-col gap-4">
               <p className="text-base leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                 {t.aboutCopy}
               </p>
+              <a
+                href="https://healthmatters.clinic/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[#233DFF] underline"
+              >
+                {prefs.lang === 'es' ? 'Política de Privacidad' : 'Privacy Policy'}
+              </a>
             </div>
             <button
               onClick={() => safeSetView('HOME')}

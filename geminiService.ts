@@ -130,7 +130,7 @@ const WEATHER_MID = {
 
 // ─────────────────────────────────────────────────────────────
 // HOPE — Positive reframing, abundance mindset, new season declarations.
-// Voice: Joel Osteen — warm, unwavering, declarative. Forward-facing, never dwelling.
+// Voice: Warm, unwavering, declarative. Forward-facing, never dwelling.
 // CBT: Positive reframing, future-self visualization, gratitude activation.
 // ─────────────────────────────────────────────────────────────
 const HOPE_SCRIPTS = {
@@ -146,7 +146,7 @@ const HOPE_SCRIPTS = {
       "Your steps are speaking right now. Every one of them is saying: I believe something better is ahead. That's not naive — that's the kind of thinking that changes outcomes. Keep moving.",
       "Shake off the thought that you're not enough. Not strong enough, not healed enough, not ready enough. You don't have to be finished to be moving. You just have to be moving. And you are.",
       "Look at where you are right now. A year ago, some of what you're carrying today didn't exist. And a year from now, you're going to be somewhere you can't fully see yet. Trust the direction you're walking.",
-      "I believe your latter will be greater than your former. That's not a wish — that's a declaration. Let it settle while you move. The best of what you have is not behind you.",
+      "Your latter will be greater than your former. That's not a wish — that's a declaration. Let it settle while you move. The best of what you have is not behind you.",
       "You are favored. Not because you earned it perfectly today — because of who you are and what you're built for. Let that truth walk with you. Every step you take, you take it as someone already in the middle of their breakthrough.",
       "Don't let the size of what you're facing talk you out of the size of what's in you. What you carry on the inside is greater than what's in front of you. The evidence is coming. Keep moving.",
       "New levels require new thinking. If you're still running last season's thoughts, you can't step into this season's possibilities. With every step, you're practicing a new thought: I am built for what's next.",
@@ -162,7 +162,7 @@ const HOPE_SCRIPTS = {
       "I want you to think about one thing you're grateful for that you usually rush past. The morning. Your legs working. The fact that you're out here. Take a real moment with it — gratitude isn't passive. It's a force.",
       "Every time you choose to move when you don't feel like it, you teach yourself something important: I follow through on myself. That's a powerful message to send your own spirit. You're sending it right now.",
       "You belong here. Not someday — now. Not when everything is figured out — now. Moving through your community, in this moment, exactly as you are. This is your time. This is your place. Walk it.",
-      "Joel says: favor is not about being perfect — it's about being pointed in the right direction. You are pointed in the right direction. Everything you need for the next step is already available to you.",
+      "Favor is not about being perfect — it's about being pointed in the right direction. You are pointed in the right direction. Everything you need for the next step is already available to you.",
     ],
     midpoint: [
       "Halfway — and you're still here. Which means you already proved what you came to prove: you show up for yourself. Now finish what you started. The second half is where the momentum pays off.",
@@ -214,32 +214,32 @@ const HOPE_SCRIPTS = {
 
 // ─────────────────────────────────────────────────────────────
 // HYPE — Activation, momentum, culturally grounded LA fire.
-// Voice: Eric Thomas + Les Brown — staccato, preacher energy, attributed.
+// Voice: Staccato, preacher energy, high activation.
 // CBT: Behavioral activation, identity reinforcement, momentum.
 // ─────────────────────────────────────────────────────────────
 const HYPE_SCRIPTS = {
   en: {
     greeting: [
       "Let's go. Right now. Your body knows what time it is — it's been waiting for you to say yes. You said yes today. You showed up. Now let's see what that's worth. Move.",
-      "Eric Thomas says when you want to succeed as bad as you want to breathe, then you'll be successful. So here's my question: how bad do you want it? Because you're breathing right now. That means you're already built for this. Let's go.",
-      "Les Brown says you have greatness within you. GREATNESS. Not potential. Not someday. Within you — right now, as you stand here. This walk is the place where you choose to let it out. Let's go.",
+      "When you want to succeed as bad as you want to breathe, you'll be successful. So here's my question: how bad do you want it? Because you're breathing right now. That means you're already built for this. Let's go.",
+      "You have greatness within you. GREATNESS. Not potential. Not someday. Within you — right now, as you stand here. This walk is the place where you choose to let it out. Let's go.",
       "Most people stayed comfortable today. They chose the couch, the excuse, the 'I'll do it tomorrow.' You chose the pavement. That decision is already the difference. Don't waste it. Push.",
-      "Les Brown says it's not over until you win. And you haven't won this one yet. So this — this walk — is how we get there. Block by block, breath by breath, decision by decision. Let's build.",
+      "It's not over until you win. And you haven't won this one yet. So this — this walk — is how we get there. Block by block, breath by breath, decision by decision. Let's build.",
     ],
     moving: [
       "This — right here — this pace, this breath, this decision — this is you building something brick by brick. Don't skip a brick.",
-      "Eric Thomas talks about the breathing room. When you're drowning, you don't ask to party — you just want one breath. When your success means that much to you, you find a way. That's where you are today. Find a way.",
-      "Les Brown says the graveyard is the richest place on earth — full of books never written, businesses never launched, gifts never given. Don't leave yours there. Use it today.",
+      "Think about the breathing room. When you're drowning, you don't ask to party — you just want one breath. When your success means that much to you, you find a way. That's where you are today. Find a way.",
+      "The graveyard is the richest place on earth — full of books never written, businesses never launched, gifts never given. Don't leave yours there. Use it today.",
       "You didn't come from nothing. You came from people who built something from nothing. That's in your blood, in your bones. Use what they gave you.",
       "Every step is a rep. You're training your mind right now as much as your body. What did you come in with? Leave it three blocks back.",
-      "ET says: I dare you to be great. Not to try. Not to think about it. To actually be great — right now, at whatever pace your body gives you. Great doesn't mean easy. It means refusing to stop.",
-      "Les Brown: someone's opinion of you does not have to become your reality. Every voice that told you you weren't enough — it doesn't get a vote on this block. Not today. Keep moving.",
+      "I dare you to be great. Not to try. Not to think about it. To actually be great — right now, at whatever pace your body gives you. Great doesn't mean easy. It means refusing to stop.",
+      "Someone's opinion of you does not have to become your reality. Every voice that told you you weren't enough — it doesn't get a vote on this block. Not today. Keep moving.",
       "You know what separates people who change their lives from people who don't? Not talent. Not luck. The decision to move when every part of them wanted to stay comfortable. That's you right now.",
-      "You gotta be hungry. That's what Les Brown says — you gotta be hungry. Not comfortable. Hungry. The comfortable people are still at home. You're out here. What are you hungry for?",
+      "You gotta be hungry. Not comfortable. Hungry. The comfortable people are still at home. You're out here. What are you hungry for?",
       "Head up. Shoulders back. You move through your community like someone who belongs here — because you do. Claim this space.",
       "Momentum is everything. A slow moment is still momentum. Don't let a slow moment become a stopped moment. No negotiations. Keep going.",
-      "ET's breathing metaphor — when you want to succeed as bad as you want to breathe, you stop making excuses. You stop asking for extensions. You just breathe and you move. That's it. Breathe and move.",
-      "Les Brown says if you fall, fall on your back — if you can look up, you can get up. You've looked up before. You got up before. Nothing about today is different. You're still someone who gets up.",
+      "When you want to succeed as bad as you want to breathe, you stop making excuses. You stop asking for extensions. You just breathe and you move. That's it. Breathe and move.",
+      "If you fall, fall on your back — if you can look up, you can get up. You've looked up before. You got up before. Nothing about today is different. You're still someone who gets up.",
       "Other people are choosing comfort right now. You chose something else. Remember that every time the comfortable choice shows up dressed as logic.",
       "What are you doing with everything that's in you — the gift, the story, the fight? This is the moment to use some of it. Right here. Don't save it all for a better day. This is the day.",
       "Your body adapted. Breath found its rhythm. Muscles are warm. This is where it gets good — push into it.",
@@ -251,82 +251,82 @@ const HYPE_SCRIPTS = {
     midpoint: [
       "More than halfway. Your body said yes when your mind wanted to negotiate. Listen to your body — it's smarter than the doubt. Keep going.",
       "Past the midpoint. You built momentum and you kept it. Most people don't make it here. That's the difference. Now finish what you started.",
-      "Les Brown says it's not over until you win. You haven't won this session yet — but you're close. Stay in it. No letting up.",
+      "It's not over until you win. You haven't won this session yet — but you're close. Stay in it. No letting up.",
       "Check in — you still locked in? Mind, body, focus? Good. Keep that energy through the finish. Don't coast this close to the end.",
     ],
     closing: [
       "That's how it's done. Show up, do the work, carry it with you. Don't let this energy disappear the second you stop moving — use it today. In everything.",
       "You just did something your future self needed. The version of you six months from now needed you to choose this today. You did. Remember that the next time the excuse shows up.",
-      "Done. ET says: I dare you to be great — you answered that dare today. Protect that energy. Take it into everything else you do.",
-      "Session complete. Les Brown says you have greatness within you — and today, you let some of it out. Don't walk away like it didn't matter. It mattered. You matter. Now go build.",
+      "Done. I dare you to be great — you answered that dare today. Protect that energy. Take it into everything else you do.",
+      "Session complete. You have greatness within you — and today, you let some of it out. Don't walk away like it didn't matter. It mattered. You matter. Now go build.",
     ],
   },
   es: {
     greeting: [
       "Vamos. Ahora mismo. Tu cuerpo sabe qué hora es — ha estado esperando que digas sí. Dijiste sí hoy. Te presentaste. Ahora veamos qué vale eso. Muévete.",
-      "Eric Thomas dice que cuando quieras tener éxito tanto como quieres respirar, tendrás éxito. ¿Cuánto lo quieres hoy? Porque estás respirando. Eso significa que ya estás hecho para esto.",
-      "Les Brown dice que tienes grandeza en ti. GRANDEZA. No potencial. No algún día. En ti — ahora mismo. La caminata es solo el lugar donde eliges dejarla salir.",
+      "Cuando quieras tener éxito tanto como quieres respirar, tendrás éxito. ¿Cuánto lo quieres hoy? Porque estás respirando. Eso significa que ya estás hecho para esto.",
+      "Tienes grandeza en ti. GRANDEZA. No potencial. No algún día. En ti — ahora mismo. La caminata es solo el lugar donde eliges dejarla salir.",
       "La mayoría de la gente eligió quedarse cómoda hoy. Tú elegiste el pavimento. Esa decisión ya es la diferencia. No la desperdicies.",
-      "Les Brown dice que no se termina hasta que ganes. Y todavía no has ganado esta. Así es como llegamos ahí. Bloque por bloque, respiración por respiración.",
+      "No se termina hasta que ganes. Y todavía no has ganado esta. Así es como llegamos ahí. Bloque por bloque, respiración por respiración.",
     ],
     moving: [
       "Esto — aquí mismo — este ritmo, esta respiración, esta decisión — esto eres tú construyendo algo ladrillo por ladrillo.",
       "No viniste de la nada. Viniste de personas que construyeron algo de la nada. Eso está en tu sangre. Úsalo hoy.",
-      "Les Brown dice que el cementerio es el lugar más rico de la tierra — lleno de libros que nunca se escribieron, dones que nunca se dieron. No dejes el tuyo ahí.",
+      "El cementerio es el lugar más rico de la tierra — lleno de libros que nunca se escribieron, dones que nunca se dieron. No dejes el tuyo ahí.",
       "Cada paso es una repetición. Estás entrenando tu mente tanto como tu cuerpo. ¿Con qué llegaste? Déjalo tres bloques atrás.",
-      "ET dice: me atrevo a que seas grande. No a intentarlo. A serlo — ahora mismo. Grande no significa fácil. Significa negarse a parar.",
-      "Les Brown: la opinión de alguien sobre ti no tiene que convertirse en tu realidad. Cada voz que te dijo que no eras suficiente — no tiene voto en este bloque. Sigue moviéndote.",
-      "Tienes que tener hambre. Eso es lo que dice Les Brown — tienes que tener hambre. No cómodo. Hambre. ¿Por qué tienes hambre?",
+      "Me atrevo a que seas grande. No a intentarlo. A serlo — ahora mismo. Grande no significa fácil. Significa negarse a parar.",
+      "La opinión de alguien sobre ti no tiene que convertirse en tu realidad. Cada voz que te dijo que no eras suficiente — no tiene voto en este bloque. Sigue moviéndote.",
+      "Tienes que tener hambre. No cómodo. Hambre. ¿Por qué tienes hambre?",
       "El impulso lo es todo. Un momento lento todavía es impulso. No dejes que un momento lento se convierta en un momento detenido.",
-      "Les Brown dice que si caes, cae de espaldas — si puedes mirar hacia arriba, puedes levantarte. Ya te has levantado antes. Hoy no es diferente.",
+      "Si caes, cae de espaldas — si puedes mirar hacia arriba, puedes levantarte. Ya te has levantado antes. Hoy no es diferente.",
       "El último tramo es donde la mayoría de las personas se retiran. No porque no puedan — sino porque piensan que ya hicieron suficiente. Casi llegas. Termina fuerte.",
     ],
     midpoint: [
       "Más de la mitad. Tu cuerpo dijo sí cuando tu mente quería negociar. Escucha a tu cuerpo — es más inteligente que la duda.",
       "Más allá del punto medio. Construiste impulso y lo mantuviste. La mayoría no llega aquí. Ahora termina lo que empezaste.",
-      "Les Brown dice que no se termina hasta que ganes. Todavía no has ganado esta sesión — pero estás cerca. Quédate en ella.",
+      "No se termina hasta que ganes. Todavía no has ganado esta sesión — pero estás cerca. Quédate en ella.",
       "Verifica — ¿sigues concentrado? Mente, cuerpo, enfoque. Bien. Mantén esa energía hasta el final.",
     ],
     closing: [
       "Así es como se hace. Preséntate, haz el trabajo, llévalo contigo. No dejes que esta energía desaparezca en el momento en que dejes de moverte.",
       "Acabas de hacer algo que tu yo futuro necesitaba. Recuerda eso la próxima vez que aparezca la excusa.",
       "Hecho. Protege esto. Lleva esa misma energía a todo lo demás hoy.",
-      "Sesión completa. Les Brown dice que tienes grandeza en ti — y hoy, dejaste salir un poco. No te vayas actuando como si no importara. Importó. Tú importas. Ahora ve a construir.",
+      "Sesión completa. Tienes grandeza en ti — y hoy, dejaste salir un poco. No te vayas actuando como si no importara. Importó. Tú importas. Ahora ve a construir.",
     ],
   },
 };
 
 // ─────────────────────────────────────────────────────────────
 // BREAKTHROUGH — Insight, pattern interruption, reframing.
-// Voice: Joel Osteen + TD Jakes + Toure Roberts + Sarah Jakes Roberts.
+// Voice: Resonant, questioning, emotionally intelligent.
 // CBT: Cognitive restructuring, schema challenges, perspective shifts.
 // ─────────────────────────────────────────────────────────────
 const BREAKTHROUGH_SCRIPTS = {
   en: {
     greeting: [
-      "Get ready. TD Jakes says: get ready, get ready, get ready. Not because everything is perfect — but because something is about to shift. You didn't come out here today by accident. There's something on the other side of this walk. Let's go find it.",
+      "Get ready. Get ready. Get ready. Not because everything is perfect — but because something is about to shift. You didn't come out here today by accident. There's something on the other side of this walk. Let's go find it.",
       "You're walking into a new season today. Not the season of waiting for everything to be okay — the season of moving while things unfold. Every step forward is an act of faith that something on the other side is worth getting to.",
       "You came out here with something on your mind. Good. Don't try to fix it — just bring it. Walk with it. Sometimes the breakthrough doesn't happen in the sitting still. It happens mid-stride, when you stop forcing it and start moving through it.",
-      "Here's what I know about you: you are not too far gone, not too broken, and nothing that has happened to you has the final word on who you are becoming. Sarah Jakes Roberts reminds us there is purpose in the broken places. Let's walk with that today.",
-      "The whole you showed up today. Not just the put-together part — all of you. Toure Roberts talks about wholeness — not the version of yourself you perform for the world, but the complete, unedited you. That's who moves through this session.",
+      "Here's what I know about you: you are not too far gone, not too broken, and nothing that has happened to you has the final word on who you are becoming. There is purpose in the broken places. Let's walk with that today.",
+      "The whole you showed up today. Not just the put-together part — all of you. The complete, unedited you. Not the version of yourself you perform for the world. That's who moves through this session.",
     ],
     moving: [
       "The thought you walked in with — is it actually true? Or has it been around so long it started to feel like a fact? Thoughts are not facts. They are proposals. You get to evaluate them.",
-      "TD Jakes says: get ready for what's next. Not what was. Not what hurt. What's next. What are you getting ready for? Walk toward it.",
-      "Joel Osteen talks about the setback being a setup for a comeback. What if what you're walking through right now isn't the end of your story — it's the setup for the next chapter? What does that change about how you see it?",
+      "Get ready for what's next. Not what was. Not what hurt. What's next. What are you getting ready for? Walk toward it.",
+      "What if the setback you're walking through right now isn't the end of your story — it's the setup for the next chapter? What does that change about how you see it?",
       "You've been in this situation before — different details, same feeling. What did that version of you figure out that this version hasn't remembered yet? That wisdom didn't leave you. It's still in there.",
       "Notice what you're carrying in your body. Tight jaw. High shoulders. Chest clenched. Your body is holding a belief. What is it? What does the tension say about what you think is true?",
-      "Toure Roberts talks about identity — the real one, not the one built by your circumstances. Who are you underneath the pressure, the labels, the history? That person is the one walking today.",
+      "Think about your identity — the real one, not the one built by your circumstances. Who are you underneath the pressure, the labels, the history? That person is the one walking today.",
       "The pattern that keeps showing up in your life — what if it's not evidence that you're broken, but a signal that something needs to be seen and healed? You can't fix what you won't look at.",
       "What are you protecting by staying exactly where you are? There's always a reason we stay stuck — it feels like safety. But is it? Or is it just familiar?",
-      "Sarah Jakes Roberts talks about not letting where you've been define where you're going. What would change if you genuinely believed that what's behind you doesn't determine what's ahead?",
+      "What would change if you genuinely believed that what's behind you doesn't determine what's ahead?",
       "Where in your life have you been waiting for permission? Who gave that person the authority to grant it? And what would you do right now if you decided you already had it?",
       "Look at the street around you. Different angle, different perspective than when you were sitting still. Sometimes the only thing that has to shift is the vantage point. What looks different from here?",
-      "God's favor is not reserved for people who have it all together. Joel Osteen reminds us — the favor is for the ones who keep going even when they don't. You're one of those people. Keep going.",
+      "Favor is not reserved for people who have it all together — it's for the ones who keep going even when they don't. You're one of those people. Keep going.",
       "Most resistance is just information in disguise. What are you resisting right now — not just physically, but mentally? What is the resistance actually telling you?",
       "The breakthrough doesn't always arrive like lightning. Sometimes it just feels like a thought you had on a walk you almost didn't take. Stay open. Something might be trying to surface.",
       "What would the person you are becoming do with what you're facing? Not who you've been. Who you're becoming. Walk as that person right now.",
-      "TD Jakes talks about pushing through — not around, not over, but through. You can't get to the other side without going through. What does going through actually look like for you right now?",
+      "Push through — not around, not over, but through. You can't get to the other side without going through. What does going through actually look like for you right now?",
       "The story you tell about yourself when things go wrong — where did you learn it? How old were you when you wrote that belief? And is it still true now?",
       "You've been out here a while. Has anything shifted? It doesn't have to be dramatic. Even the slightest change in how something feels — that's movement. Pay attention.",
       "What's one belief you walked in with today that you're willing to question before you walk back? Not throw away. Just question. Give it a little space to breathe.",
@@ -335,27 +335,27 @@ const BREAKTHROUGH_SCRIPTS = {
     midpoint: [
       "Pause here for a second. What's one belief about yourself that you'd be better off without? Not every belief we carry was chosen. Some were assigned. You have permission to return the ones that don't belong to you.",
       "What if the hardest thing happening in your life right now is also the thing doing the most work in you? What's the lesson underneath the struggle that you keep circling?",
-      "Halfway through. The walk has been doing its work — sometimes before you notice it. What's shifted, even a little? TD Jakes would say: get ready. Because something is already moving.",
+      "Halfway through. The walk has been doing its work — sometimes before you notice it. What's shifted, even a little? Get ready. Because something is already moving.",
       "You've been walking with something for a while now. Does it feel different in motion than it did standing still? That's not accidental — movement changes our relationship to what we're carrying.",
     ],
     closing: [
       "Take something true back with you. Not a decision, not a plan — just one thing you see more clearly than when you started. That clarity is a gift. Don't rush past it.",
       "The breakthrough doesn't always announce itself. Sometimes it's a quiet shift in how something feels. Pay attention today to any quiet shifts. Give them room — they matter more than they look like they do.",
-      "You don't have to have it all figured out today. But you are one walk closer to the next level. Joel Osteen says your best days are still in front of you. Believe that. Act like it's true.",
-      "Session done. TD Jakes says get ready — and part of getting ready is being willing to walk into what you can't fully see yet. You did that today. Let what started out here keep working. The breakthrough might still be on its way.",
+      "You don't have to have it all figured out today. But you are one walk closer to the next level. Your best days are still in front of you. Believe that. Act like it's true.",
+      "Session done. Part of getting ready is being willing to walk into what you can't fully see yet. You did that today. Let what started out here keep working. The breakthrough might still be on its way.",
     ],
   },
   es: {
     greeting: [
-      "Prepárate. TD Jakes dice: prepárate, prepárate, prepárate. No porque todo sea perfecto — sino porque algo está por cambiar. No saliste aquí hoy por accidente. Hay algo al otro lado de esta caminata. Vamos a encontrarlo.",
+      "Prepárate. Prepárate. Prepárate. No porque todo sea perfecto — sino porque algo está por cambiar. No saliste aquí hoy por accidente. Hay algo al otro lado de esta caminata. Vamos a encontrarlo.",
       "Estás entrando en una nueva temporada hoy. No la temporada de esperar a que todo esté bien — la temporada de moverte mientras las cosas se despliegan. Cada paso adelante es un acto de fe.",
       "Viniste aquí con algo en mente. Bien. No intentes arreglarlo — solo tráelo. Camina con ello. A veces el avance no sucede en la quietud. Sucede a medio paso.",
-      "Lo que sé sobre ti: no estás demasiado lejos, no estás demasiado roto, y nada de lo que te ha pasado tiene la última palabra sobre quién estás llegando a ser.",
+      "Lo que sé sobre ti: no estás demasiado lejos, no estás demasiado roto, y nada de lo que te ha pasado tiene la última palabra sobre quién estás llegando a ser. Hay propósito en los lugares rotos.",
       "El tú completo apareció hoy. No solo la parte bien presentada — todo tú. No la versión que realizas para el mundo, sino el tú completo. Eso es quien se mueve en esta sesión.",
     ],
     moving: [
       "El pensamiento con el que entraste — ¿es realmente verdad? ¿O ha estado tanto tiempo que empezó a sentirse como un hecho? Los pensamientos no son hechos. Son propuestas. Puedes evaluarlos.",
-      "TD Jakes dice: prepárate para lo que sigue. No lo que fue. No lo que dolió. Lo que sigue. ¿Para qué te estás preparando? Camina hacia ello.",
+      "Prepárate para lo que sigue. No lo que fue. No lo que dolió. Lo que sigue. ¿Para qué te estás preparando? Camina hacia ello.",
       "¿Y si lo que estás atravesando ahora no es el final de tu historia — sino la configuración para el próximo capítulo? ¿Qué cambia eso en cómo lo ves?",
       "Has estado en esta situación antes — detalles diferentes, mismo sentimiento. ¿Qué descubrió esa versión de ti que esta versión aún no ha recordado?",
       "Nota lo que estás cargando en tu cuerpo. Mandíbula tensa. Hombros altos. Tu cuerpo está sosteniendo una creencia. ¿Cuál es?",
@@ -363,57 +363,57 @@ const BREAKTHROUGH_SCRIPTS = {
       "¿Dónde en tu vida has estado esperando permiso? ¿Quién le dio a esa persona la autoridad para otorgarlo? ¿Y qué harías ahora si decidieras que ya lo tienes?",
       "La mayoría de la resistencia es solo información disfrazada. ¿Qué estás resistiendo ahora mismo — no solo físicamente, sino mentalmente?",
       "El avance no siempre llega como un relámpago. A veces se siente como un pensamiento que tuviste en una caminata que casi no tomaste. Mantente abierto.",
-      "TD Jakes habla de empujar a través — no alrededor, no por encima, sino a través. ¿Cómo se ve empujar a través para ti ahora mismo?",
+      "Empuja a través — no alrededor, no por encima, sino a través. ¿Cómo se ve empujar a través para ti ahora mismo?",
     ],
     midpoint: [
       "Detente aquí por un segundo. ¿Cuál es una creencia sobre ti mismo de la que estarías mejor sin ella? No tienes que tirarla. Solo cuestionarla.",
       "¿Y si la cosa más difícil que sucede en tu vida ahora mismo también es la que más está trabajando en ti? ¿Cuál es la lección debajo de la lucha?",
-      "A la mitad. La caminata ha estado haciendo su trabajo. ¿Qué cambió, aunque sea un poco? TD Jakes diría: prepárate. Porque algo ya está moviéndose.",
+      "A la mitad. La caminata ha estado haciendo su trabajo. ¿Qué cambió, aunque sea un poco? Prepárate. Porque algo ya está moviéndose.",
       "Has estado caminando con algo por un tiempo. ¿Se siente diferente en movimiento que cuando estabas quieto? Eso no es accidental — el movimiento cambia nuestra relación con lo que cargamos.",
     ],
     closing: [
       "Llévate algo verdadero contigo. No una decisión, no un plan — solo una cosa que ves con más claridad que cuando empezaste.",
       "El avance no siempre se anuncia. A veces es un cambio silencioso en cómo se siente algo. Presta atención hoy a cualquier cambio silencioso.",
       "No tienes que tenerlo todo resuelto hoy. Pero estás una caminata más cerca del siguiente nivel.",
-      "Sesión terminada. TD Jakes dice prepárate — y parte de prepararse es estar dispuesto a caminar hacia lo que no puedes ver completamente todavía. Hiciste eso hoy.",
+      "Sesión terminada. Parte de prepararse es estar dispuesto a caminar hacia lo que no puedes ver completamente todavía. Hiciste eso hoy.",
     ],
   },
 };
 
 // ─────────────────────────────────────────────────────────────
 // STRATEGY — Structured direction, CBT-adjacent, practical.
-// Voice: Lisa Nichols + Mel Robbins — decisive, activating, grounded.
+// Voice: Decisive, activating, grounded.
 // CBT: Problem-solving, behavioral planning, activation energy.
 // ─────────────────────────────────────────────────────────────
 const STRATEGY_SCRIPTS = {
   en: {
     greeting: [
-      "5 — 4 — 3 — 2 — 1. That's Mel Robbins' 5 Second Rule: the moment you have an instinct to act, count down and move before your brain talks you out of it. You already did it — you're here. Now let's use this walk to get the thinking right.",
-      "Lisa Nichols says: feed your faith and starve your fear. That's the whole playbook. Today we're going to talk about what you're feeding and what you're starving. Let's walk and let's think.",
+      "5 — 4 — 3 — 2 — 1. The moment you have an instinct to act, count down and move before your brain talks you out of it. You already did it — you're here. Now let's use this walk to get the thinking right.",
+      "Feed your faith and starve your fear. That's the whole playbook. Today we're going to talk about what you're feeding and what you're starving. Let's walk and let's think.",
       "Your mind works better when your body moves. That's neuroscience, not motivation. Body moving, problem in focus. By the end of this session, you walk away with at least one clear next step. Let's build it.",
-      "Lisa Nichols says: stop shrinking yourself to fit in places you've outgrown. Where have you been shrinking lately? We're going to name it on this walk — and then decide what to do about it.",
-      "Mel Robbins says you're always one decision away from a completely different life. One decision. Not a whole plan — one decision. What's the one you've been circling that would change things? Name it. We'll work with it.",
+      "Stop shrinking yourself to fit in places you've outgrown. Where have you been shrinking lately? We're going to name it on this walk — and then decide what to do about it.",
+      "You're always one decision away from a completely different life. One decision. Not a whole plan — one decision. What's the one you've been circling that would change things? Name it. We'll work with it.",
     ],
     moving: [
       "For whatever you're working through — what is actually in your control right now? Not eventually, not after things settle. Right now. Start there. Control is where strategy begins.",
-      "Mel Robbins talks about hesitation being the enemy. The moment you hesitate, your brain starts building a case against moving. So: what have you been hesitating on? Name it. Then count — 5, 4, 3, 2, 1. Move.",
+      "Think about hesitation — it's the enemy. The moment you hesitate, your brain starts building a case against moving. So: what have you been hesitating on? Name it. Then count — 5, 4, 3, 2, 1. Move.",
       "Separate urgent from important. Most of what feels urgent is someone else's timeline. What is actually important — to your goals, your life, your peace? Start there today.",
-      "Lisa Nichols says your mess is your message. What you've been through is not wasted — but you have to choose to use it. What in your hard places is actually a resource you've been leaving on the table?",
+      "Your mess is your message. What you've been through is not wasted — but you have to choose to use it. What in your hard places is actually a resource you've been leaving on the table?",
       "What's one decision you've been avoiding? Not because you don't know the answer — but because the answer is uncomfortable. Discomfort is not a stop sign. It's a signal. What is it signaling?",
       "Your attention is your most valuable resource. Where is it going right now that hasn't earned it? Where does it actually need to go? That's the strategic question for today.",
-      "Mel Robbins: you're always one decision away from a completely different life. You don't need a different job, a different city, a different everything. You need one decision made and acted on. What's yours?",
-      "Lisa Nichols says stop shrinking yourself to fit in places you've outgrown. Where are you still playing small in a space that can't hold who you're becoming? Name the space. Name the smallness.",
+      "You're always one decision away from a completely different life. You don't need a different job, a different city, a different everything. You need one decision made and acted on. What's yours?",
+      "Stop shrinking yourself to fit in places you've outgrown. Where are you still playing small in a space that can't hold who you're becoming? Name the space. Name the smallness.",
       "What are you tolerating right now that you know you shouldn't be? Not every problem deserves your patience. Some deserve a decision. Which category is yours?",
       "Think about what you would advise someone you love in your exact situation. That's usually the clearest version of the answer. Give yourself the advice you'd give them. Take it seriously.",
       "Define the win for today. Not the year, not the vision board — just today. What does 'good' look like at the end of today? Make it specific enough to actually check off.",
       "There's usually one bottleneck — one thing that, if it moved, would free up everything else. Have you named yours? If not, the problem isn't any single item on your list — it's that you haven't identified the lever.",
-      "Lisa Nichols talks about abundance — not just financially, but in confidence, in vision, in what you believe is possible for you. Where are you thinking small about yourself right now? Where are you operating on scarcity?",
+      "Think about abundance — not just financially, but in confidence, in vision, in what you believe is possible for you. Where are you thinking small about yourself right now? Where are you operating on scarcity?",
       "Systems beat willpower every time. What's one small structure — a routine, a trigger, a commitment — that would make the right behavior easier to do automatically? You don't have to white-knuckle this.",
       "What's the conversation you've been avoiding that you know you need to have? Most problems have a conversation at the center that nobody wants to start. What's stopping you from starting yours?",
       "You've been past the midpoint now. What do you know that you didn't when you started? Trust what emerged out here. The moving mind catches things the still mind misses.",
-      "Mel Robbins talks about activation energy — the first move. Once you start, momentum does the rest. What's the first move on the thing you've been putting off? Not the whole plan. The first move.",
+      "Think about activation energy — the first move. Once you start, momentum does the rest. What's the first move on the thing you've been putting off? Not the whole plan. The first move.",
       "What's worked before in a situation like this? You have a track record of solving hard things. Don't reinvent the playbook. What did that look like last time?",
-      "Lisa Nichols says: no matter what. No matter what the obstacle, no matter what the setback. What would your strategy look like if you adopted that as the operating premise?",
+      "No matter what. No matter what the obstacle, no matter what the setback. What would your strategy look like if you adopted that as the operating premise?",
       "What you keep thinking about on a walk is usually what most needs your attention. Whatever kept surfacing out here — that's the signal. Don't walk past it. Follow it.",
     ],
     midpoint: [
@@ -424,28 +424,28 @@ const STRATEGY_SCRIPTS = {
     ],
     closing: [
       "Leave this session with one action. Not a theme, not a vibe — one specific thing you will do differently based on what you worked through today. Name it before you walk back.",
-      "Mel Robbins' 5 Second Rule works because it interrupts the pattern before the brain stops you. 5 — 4 — 3 — 2 — 1. What's the one move you make as soon as this walk is over? Go.",
-      "Lisa Nichols says feed your faith and starve your fear. Today you fed something — your thinking, your clarity, your next step. Don't let it expire in the parking lot. Use it.",
+      "5 — 4 — 3 — 2 — 1. That countdown works because it interrupts the pattern before the brain stops you. What's the one move you make as soon as this walk is over? Go.",
+      "Feed your faith and starve your fear. Today you fed something — your thinking, your clarity, your next step. Don't let it expire in the parking lot. Use it.",
       "Session done. You came with a problem and you worked it. The clarity you found here is real — but clarity expires if it doesn't become action. One action. Today. That's the whole strategy.",
     ],
   },
   es: {
     greeting: [
-      "5 — 4 — 3 — 2 — 1. Esa es la Regla de los 5 Segundos de Mel Robbins: el momento en que tienes un instinto de actuar, cuenta hacia atrás y muévete antes de que tu cerebro te convenza de no hacerlo. Ya lo hiciste — estás aquí.",
-      "Lisa Nichols dice: alimenta tu fe y mata de hambre a tu miedo. Ese es todo el libro de jugadas. Hoy vamos a hablar de lo que estás alimentando y lo que estás matando de hambre.",
+      "5 — 4 — 3 — 2 — 1. El momento en que tienes un instinto de actuar, cuenta hacia atrás y muévete antes de que tu cerebro te convenza de no hacerlo. Ya lo hiciste — estás aquí.",
+      "Alimenta tu fe y mata de hambre a tu miedo. Ese es todo el libro de jugadas. Hoy vamos a hablar de lo que estás alimentando y lo que estás matando de hambre.",
       "Tu mente funciona mejor cuando tu cuerpo se mueve. Eso es neurociencia. Al final de esta sesión, te vas con al menos un próximo paso claro. Uno. Vamos a construirlo.",
-      "Lisa Nichols dice: deja de reducirte para encajar en lugares que has superado. ¿Dónde te has estado reduciendo últimamente? Lo nombraremos en esta caminata. Y luego decidiremos qué hacer al respecto.",
-      "Mel Robbins dice que siempre estás a una decisión de una vida completamente diferente. Una decisión. ¿Cuál es la que has estado evitando que cambiaría las cosas? Nómbrala.",
+      "Deja de reducirte para encajar en lugares que has superado. ¿Dónde te has estado reduciendo últimamente? Lo nombraremos en esta caminata. Y luego decidiremos qué hacer al respecto.",
+      "Siempre estás a una decisión de una vida completamente diferente. Una decisión. ¿Cuál es la que has estado evitando que cambiaría las cosas? Nómbrala.",
     ],
     moving: [
       "Para lo que estás trabajando — ¿qué está realmente en tu control ahora mismo? No eventualmente. Ahora mismo. El control es donde comienza la estrategia.",
-      "Mel Robbins habla de la vacilación como el enemigo. El momento en que dudas, tu cerebro empieza a construir un caso en contra del movimiento. ¿En qué has estado vacilando? Cuenta — 5, 4, 3, 2, 1. Muévete.",
+      "Piensa en la vacilación — es el enemigo. El momento en que dudas, tu cerebro empieza a construir un caso en contra del movimiento. ¿En qué has estado vacilando? Cuenta — 5, 4, 3, 2, 1. Muévete.",
       "Separa urgente de importante. La mayoría de lo que se siente urgente es el cronograma de otra persona. ¿Qué es realmente importante para tus metas, tu vida, tu paz?",
-      "Lisa Nichols dice que tu desastre es tu mensaje. Lo que has atravesado no es desperdiciado — pero tienes que elegir usarlo. ¿Qué en tu historia es un recurso que has dejado sobre la mesa?",
+      "Tu desastre es tu mensaje. Lo que has atravesado no es desperdiciado — pero tienes que elegir usarlo. ¿Qué en tu historia es un recurso que has dejado sobre la mesa?",
       "¿Cuál es una decisión que has estado evitando? No porque no sepas la respuesta — sino porque la respuesta es incómoda. La incomodidad no es una señal de stop. Es una señal.",
       "Tu atención es tu recurso más valioso. ¿Dónde está yendo ahora mismo que no la ha ganado? ¿Dónde realmente necesita ir?",
-      "Mel Robbins: siempre estás a una decisión de una vida completamente diferente. No necesitas un trabajo diferente, una ciudad diferente — necesitas una decisión tomada y actuada. ¿Cuál es la tuya?",
-      "Lisa Nichols dice que dejes de reducirte para encajar en lugares que has superado. ¿Dónde todavía estás jugando pequeño en un espacio que no puede contener quién te estás convirtiendo?",
+      "Siempre estás a una decisión de una vida completamente diferente. No necesitas un trabajo diferente, una ciudad diferente — necesitas una decisión tomada y actuada. ¿Cuál es la tuya?",
+      "Deja de reducirte para encajar en lugares que has superado. ¿Dónde todavía estás jugando pequeño en un espacio que no puede contener quién te estás convirtiendo?",
       "¿Qué has estado tolerando que sabes que no deberías? No todo problema merece tu paciencia. Algunos merecen una decisión.",
       "Por lo general hay un cuello de botella — una cosa que, si se moviera, liberaría todo lo demás. ¿Has nombrado el tuyo?",
     ],
@@ -457,8 +457,8 @@ const STRATEGY_SCRIPTS = {
     ],
     closing: [
       "Sal de esta sesión con una acción. No un tema, no un ambiente — una cosa específica que harás diferente. Nómbrala antes de volver.",
-      "La Regla de los 5 Segundos de Mel Robbins funciona porque interrumpe el patrón. 5 — 4 — 3 — 2 — 1. ¿Cuál es el movimiento que haces tan pronto como termina esta caminata?",
-      "Lisa Nichols dice alimenta tu fe y mata de hambre a tu miedo. Hoy alimentaste algo — tu pensamiento, tu claridad, tu próximo paso. No dejes que expire en el estacionamiento.",
+      "5 — 4 — 3 — 2 — 1. Esa cuenta regresiva funciona porque interrumpe el patrón. ¿Cuál es el movimiento que haces tan pronto como termina esta caminata?",
+      "Alimenta tu fe y mata de hambre a tu miedo. Hoy alimentaste algo — tu pensamiento, tu claridad, tu próximo paso. No dejes que expire en el estacionamiento.",
       "Sesión terminada. Llegaste con un problema y lo trabajaste. La claridad que encontraste aquí es real — pero la claridad expira si no se convierte en acción. Una acción. Hoy.",
     ],
   },
