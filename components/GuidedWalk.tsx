@@ -156,7 +156,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           console.warn('GPS error:', err.message);
           setGpsLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
       );
     }
     return () => {
@@ -1152,6 +1152,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
       {/* ── Step 1: Mode + Destination ── */}
       {step === 1 && (
+        <>
         <div className="flex-1 flex flex-col min-h-0">
           {/* Title */}
           <div className="space-y-2 mb-4 flex-shrink-0">
@@ -1241,16 +1242,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ))}
             </div>
           </div>
-
-          {/* Go Button — pinned to bottom */}
-          <button
-            onClick={handleStart}
-            className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-4"
-          >
-            <Play size={20} fill="currentColor" />
-            <span>{lang === 'es' ? 'IR' : 'GO'}</span>
-          </button>
         </div>
+
+        {/* Go Button — outside scroll container, always visible above tab bar */}
+        <button
+          onClick={handleStart}
+          className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3"
+        >
+          <Play size={20} fill="currentColor" />
+          <span>{lang === 'es' ? 'IR' : 'GO'}</span>
+        </button>
+        </>
       )}
     </div>
   );
