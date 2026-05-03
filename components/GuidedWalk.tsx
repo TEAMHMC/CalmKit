@@ -87,6 +87,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const elevationGainRef = useRef(0);
   const elevationDeltaRef = useRef<number | null>(null);
   const currentSpeedRef = useRef<number | null>(null);
+  const preBufferedIntroBase64Ref = useRef<string | null>(null);
+  const preBufferModeRef = useRef<EchoPersona | null>(null);
+  const isPreBufferingRef = useRef(false);
 
   const t = translations[lang];
 
@@ -96,6 +99,52 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
   useEffect(() => { envDataRef.current = envData; }, [envData]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
+
+  // Pre-fetch TTS audio for the intro segment while the user is on the setup screen.
+  // Stores raw base64 (not an AudioBuffer — AudioContext isn't ready yet).
+  // On GO, we decode it instantly so playback starts with zero dead air.
+  useEffect(() => {
+    if (isPlaying) return;
+    preBufferedIntroBase64Ref.current = null;
+    preBufferModeRef.current = mode;
+
+    const timer = setTimeout(async () => {
+      if (isPlaying || isPreBufferingRef.current) return;
+      isPreBufferingRef.current = true;
+      try {
+        const segment = await generateSegmentNarrative({
+          mode, activity: 'WALK', lang,
+          stats: { distance: 0, time: 0, pace: '0:00' },
+          isIntro: true, isFirstSegment: true, segmentNumber: 1,
+          targetThought: targetThoughtRef.current || undefined,
+        });
+        const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
+        const controller = new AbortController();
+        const ttsTimeout = setTimeout(() => controller.abort(), 22000);
+        const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: segment, lang, voice }),
+          signal: controller.signal,
+        });
+        clearTimeout(ttsTimeout);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audio && preBufferModeRef.current === mode && !isPlaying) {
+            preBufferedIntroBase64Ref.current = data.audio;
+          }
+        }
+      } catch (e) {
+        // Silent fail — GO still works, narrationLoop fetches fresh
+      }
+      isPreBufferingRef.current = false;
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      isPreBufferingRef.current = false;
+    };
+  }, [mode, lang, isPlaying]);
 
   // Try to get location on mount with high accuracy — silently continue if it fails
   // Instant lock on mount — watchPosition for continuous high-accuracy GPS from the moment MOVE tab opens
@@ -322,25 +371,46 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current) {
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !isPreBufferingRef.current) {
+        isPreBufferingRef.current = true;
         (async () => {
-          const stats = sessionStatsRef.current;
-          const seg = await generateSegmentNarrative({
-            mode, activity: 'WALK', lang, stats,
-            isIntro: false, isFirstSegment: false,
-            segmentNumber: segmentCounterRef.current,
-            indoorActivity: indoorActivityRef.current || undefined,
-            destinationName: destinationNameRef.current || undefined,
-            targetThought: targetThoughtRef.current || undefined,
-            ...envDataRef.current,
-            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-          });
-          if (!isNarratingRef.current) return;
-          const buf = await speakText(seg);
-          if (!isNarratingRef.current) return;
-          if (buf) audioBufferQueue.current.push(buf);
+          try {
+            const narrative = narrativeDataRef.current;
+            if (narrative && narrative.segments) {
+              // Pre-buffer next narrative segment
+              const nextIdx = narrativeSegmentIndexRef.current;
+              if (nextIdx < narrative.segments.length) {
+                const nextSeg = narrative.segments[nextIdx];
+                const text = Array.isArray(nextSeg.scriptBeats) ? nextSeg.scriptBeats.filter(Boolean).join(' ') : String(nextSeg);
+                if (text.trim()) {
+                  const buf = await speakText(text);
+                  if (!isNarratingRef.current) return;
+                  if (buf) audioBufferQueue.current.push(buf);
+                }
+              }
+            } else {
+              // Pre-buffer next fallback segment
+              const stats = sessionStatsRef.current;
+              const seg = await generateSegmentNarrative({
+                mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK', lang, stats,
+                isIntro: false, isFirstSegment: false,
+                segmentNumber: segmentCounterRef.current + 1,
+                indoorActivity: indoorActivityRef.current || undefined,
+                destinationName: destinationNameRef.current || undefined,
+                targetThought: targetThoughtRef.current || undefined,
+                ...envDataRef.current,
+                ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+                ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+                ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+              });
+              if (!isNarratingRef.current) return;
+              const buf = await speakText(seg);
+              if (!isNarratingRef.current) return;
+              if (buf) audioBufferQueue.current.push(buf);
+            }
+          } finally {
+            isPreBufferingRef.current = false;
+          }
         })();
       }
     } else {
@@ -748,10 +818,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Reset all session state so a second session starts clean
     setSessionStats({ distance: 0, time: 0, pace: '0:00' });
     audioBufferQueue.current = [];
+
+    // Decode pre-buffered intro audio (fetched while user was on setup screen)
+    if (preBufferedIntroBase64Ref.current && preBufferModeRef.current === mode && audioCtxRef.current) {
+      try {
+        const base64 = preBufferedIntroBase64Ref.current;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const int16 = new Int16Array(bytes.buffer);
+        const buffer = audioCtxRef.current.createBuffer(1, int16.length, 24000);
+        const channelData = buffer.getChannelData(0);
+        for (let i = 0; i < int16.length; i++) channelData[i] = int16[i] / 32768.0;
+        audioBufferQueue.current.push(buffer);
+        fallbackIntroPlayedRef.current = true;
+        sponsorPlayedRef.current = true;
+      } catch (e) {
+        // Decode failed — narrationLoop will fetch fresh
+      }
+      preBufferedIntroBase64Ref.current = null;
+    }
     narrativeDataRef.current = null;
     narrativeSegmentIndexRef.current = 0;
     sponsorPlayedRef.current = false;
     isFetchingRef.current = false;
+    isPreBufferingRef.current = false;
     fallbackIntroPlayedRef.current = false;
     closingPlayedRef.current = false;
 
