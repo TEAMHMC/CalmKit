@@ -156,7 +156,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           console.warn('GPS error:', err.message);
           setGpsLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
+        { enableHighAccuracy: true }
       );
     }
     return () => {
@@ -274,7 +274,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
       if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
 
+      let sourceEnded = false;
       source.onended = () => {
+        if (sourceEnded) return;
+        sourceEnded = true;
         currentSourceRef.current = null;
 
         if (narrationFreqRef.current === 'CONTINUOUS') {
