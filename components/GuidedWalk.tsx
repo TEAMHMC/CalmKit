@@ -124,31 +124,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             currentSpeedRef.current = pos.coords.speed * 2.237;
           }
 
-          // If map is active, update marker and track path
+          // Update map marker if rendered
           if (mapRef.current && markerRef.current) {
             markerRef.current.setLatLng(newLoc);
             if (!isPausedRef.current) {
               mapRef.current.panTo(newLoc, { animate: true });
             }
-            // 2-meter tracking sensitivity (0.0012 miles)
-            if (isNarratingRef.current) {
-              const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
-              if (last) {
-                const R = 3958.8;
-                const dLat = (newLoc[0] - last[0]) * Math.PI / 180;
-                const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
-                const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
-                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                if (dist > 0.0012) {
-                  pathCoordsRef.current.push(newLoc);
-                  if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
-                  lastPositionRef.current = newLoc;
-                  setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
-                }
-              } else {
+          }
+          // Track path independently of map rendering — works as soon as session starts
+          if (isNarratingRef.current && !isPausedRef.current) {
+            const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
+            if (last) {
+              const R = 3958.8;
+              const dLat = (newLoc[0] - last[0]) * Math.PI / 180;
+              const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
+              const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+              const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              if (dist > 0.0012) {
                 pathCoordsRef.current.push(newLoc);
+                if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
                 lastPositionRef.current = newLoc;
+                setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
+            } else {
+              pathCoordsRef.current.push(newLoc);
+              lastPositionRef.current = newLoc;
             }
           }
         },
@@ -187,6 +187,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrativeSegmentIndexRef = useRef(0);
   const isFetchingRef = useRef(false);
   const fallbackIntroPlayedRef = useRef(false);
+  const closingPlayedRef = useRef(false);
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
     if (isFetchingRef.current || currentSourceRef.current) return;
@@ -221,8 +222,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           isFetchingRef.current = false;
           if (buffer) audioBufferQueue.current.push(buffer);
           sponsorPlayedRef.current = true;
-        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length) {
+        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length && !closingPlayedRef.current) {
           isFetchingRef.current = true;
+          closingPlayedRef.current = true;
           const buffer = await speakText(narrative.closingTemplate);
           isFetchingRef.current = false;
           if (buffer) audioBufferQueue.current.push(buffer);
@@ -332,7 +334,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
             ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
           });
+          if (!isNarratingRef.current) return;
           const buf = await speakText(seg);
+          if (!isNarratingRef.current) return;
           if (buf) audioBufferQueue.current.push(buf);
         })();
       }
@@ -722,37 +726,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     };
   }, [isPlaying]);
 
-  // ── GPS Tracking ──
-  const startTracking = () => {
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        setGpsAccuracy(accuracy);
-        const current: [number, number] = [latitude, longitude];
-        setUserLocation(current);
-
-        if (accuracy > 40) return;
-
-        if (lastPositionRef.current) {
-          const prev = lastPositionRef.current;
-          const d = L.latLng(prev[0], prev[1]).distanceTo(L.latLng(current[0], current[1]));
-          if (d > 5) {
-            setSessionStats(prevStats => ({
-              ...prevStats,
-              distance: prevStats.distance + (d / 1609.34)
-            }));
-            pathCoordsRef.current.push(current);
-            lastPositionRef.current = current;
-          }
-        } else {
-          lastPositionRef.current = current;
-        }
-      },
-      (err) => { console.warn('GPS tracking error:', err.message); },
-      { enableHighAccuracy: true }
-    );
-  };
-
   // ── Handlers ──
   const handleStart = async () => {
     try { await initAudio(); } catch (e) { console.warn('Audio init failed, continuing:', e); }
@@ -777,6 +750,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     sponsorPlayedRef.current = false;
     isFetchingRef.current = false;
     fallbackIntroPlayedRef.current = false;
+    closingPlayedRef.current = false;
 
     startKeepAlive();
     await sharedRequestWakeLock();
@@ -799,7 +773,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }, 1000);
 
-    if (!isIndoor) startTracking();
     // No synthetic ambient noise — let the user's music or silence be the background
 
     // Fetch weather + air quality non-blocking (best-effort — if they fail, Echo still works)
@@ -1091,23 +1064,23 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
         {/* Bottom Controls */}
         <div
-          className="absolute bottom-0 left-0 right-0 px-5 z-20 pointer-events-auto"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)', paddingTop: 20 }}
+          className="absolute bottom-0 left-0 right-0 px-3 z-20 pointer-events-auto"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', paddingTop: 16 }}
         >
-          <div className="bg-black/55 backdrop-blur-xl rounded-[32px] p-5 flex items-center justify-center gap-5 border border-white/5">
+          <div className="bg-black/55 backdrop-blur-xl rounded-[28px] py-4 px-4 flex items-center justify-center gap-4 border border-white/5">
             <button
               onClick={handleStop}
-              className="w-16 h-16 bg-red-950/80 rounded-full border border-red-900/40 flex items-center justify-center active:scale-95 transition-all"
+              className="w-14 h-14 flex-shrink-0 bg-red-950/80 rounded-full border border-red-900/40 flex items-center justify-center active:scale-95 transition-all"
             >
-              <X size={22} className="text-red-400" />
+              <X size={20} className="text-red-400" />
             </button>
             <button
               onClick={togglePause}
-              className="w-24 h-24 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(35,61,255,0.5)] border border-[#233DFF]/20 active:scale-95 transition-all"
+              className="w-20 h-20 flex-shrink-0 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(35,61,255,0.5)] border border-[#233DFF]/20 active:scale-95 transition-all"
             >
-              {isPaused ? <Play size={32} fill="currentColor" className="text-white ml-1" /> : <Pause size={32} fill="currentColor" className="text-white" />}
+              {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
             </button>
-            <div className="w-16 h-16 flex items-center justify-center">
+            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center">
               <span className="text-[10px] font-medium text-white/30 uppercase tracking-wide text-center leading-tight">
                 {MODES.find(m => m.id === mode)?.label}
               </span>
