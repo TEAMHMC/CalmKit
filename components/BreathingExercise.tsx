@@ -211,7 +211,7 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
       PHYS_INHALE_1: 2, PHYS_INHALE_2: 3, PHYS_EXHALE: 8,
       INHALE: 4, HOLD_FULL: 4, EXHALE: 4, HOLD_EMPTY: 4,
     };
-    const delay = PHASE_DURATIONS[p] <= 2 ? 0 : 300;
+    const delay = PHASE_DURATIONS[p] <= 3 ? 0 : 300;
 
     voiceDelayTimerRef.current = setTimeout(async () => {
       voiceDelayTimerRef.current = null;
