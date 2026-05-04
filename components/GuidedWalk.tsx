@@ -87,6 +87,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const elevationGainRef = useRef(0);
   const elevationDeltaRef = useRef<number | null>(null);
   const currentSpeedRef = useRef<number | null>(null);
+  // Pre-warm: text generated on step 1 so only TTS runs at session start
+  const preloadedIntroTextRef = useRef<string | null>(null);
+  const preloadKeyRef = useRef<string>('');
+  // Inactivity auto-stop: timestamp of last recorded GPS movement
+  const lastGPSMovementRef = useRef<number>(Date.now());
 
   const t = translations[lang];
 
@@ -97,6 +102,29 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { envDataRef.current = envData; }, [envData]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
+  // Pre-warm: generate intro text as soon as user reaches step 1 so only TTS runs at Start
+  useEffect(() => {
+    if (step !== 1) return;
+    const key = `${mode}-${lang}-${sessionType}-${indoorActivity}`;
+    if (preloadKeyRef.current === key && preloadedIntroTextRef.current) return;
+    preloadedIntroTextRef.current = null;
+    preloadKeyRef.current = key;
+    let cancelled = false;
+    generateSegmentNarrative({
+      mode,
+      activity: sessionType === 'INDOOR' ? (indoorActivity || 'STRETCH') : 'WALK',
+      lang,
+      stats: { distance: 0, time: 0, pace: '0:00' },
+      isIntro: true, isFirstSegment: true, segmentNumber: 1,
+      destinationName: destinationName || undefined,
+      targetThought: targetThought || undefined,
+      indoorActivity: sessionType === 'INDOOR' ? (indoorActivity || undefined) : undefined,
+      userLat: userLocation?.[0], userLng: userLocation?.[1],
+    }).then(text => {
+      if (!cancelled && preloadKeyRef.current === key) preloadedIntroTextRef.current = text;
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [step, mode, lang, sessionType, indoorActivity]);
 
   // Try to get location on mount with high accuracy — silently continue if it fails
   // Instant lock on mount — watchPosition for continuous high-accuracy GPS from the moment MOVE tab opens
@@ -155,6 +183,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 pathCoordsRef.current.push(newLoc);
                 if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
                 lastPositionRef.current = newLoc;
+                lastGPSMovementRef.current = Date.now();
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
             } else {
@@ -789,6 +818,22 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           pace: prev.distance > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00'
         };
       });
+      // Auto-stop after 10 min with no GPS movement (OUTDOOR only) — prevents runaway sessions
+      if (sessionType !== 'INDOOR' && !isPausedRef.current) {
+        const idleSec = (Date.now() - lastGPSMovementRef.current) / 1000;
+        if (idleSec > 600) {
+          clearInterval(timerIntervalRef.current!);
+          timerIntervalRef.current = null;
+          isNarratingRef.current = false;
+          if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
+          setFinalPath([...pathCoordsRef.current]);
+          setSessionStats(s => { setFinalStats({ ...s }); return s; });
+          setIsPlaying(false);
+          setIsPaused(false);
+          fullCleanup();
+          setShowSummary(true);
+        }
+      }
     }, 1000);
 
     // No synthetic ambient noise — let the user's music or silence be the background
@@ -815,22 +860,28 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Show buffering indicator immediately while AI voice is being generated
     setIsBufferingAudio(true);
 
-    // Block narrationLoop re-entry while we prefetch the first full AI segment in background
+    // Block narrationLoop re-entry while we fetch the first AI segment.
+    // If intro text was pre-warmed on step 1, skip generation and go straight to TTS (~3s).
     isFetchingRef.current = true;
     segmentCounterRef.current = 1;
     fallbackIntroPlayedRef.current = true;
+    lastGPSMovementRef.current = Date.now();
     (async () => {
       try {
-        const seg = await generateSegmentNarrative({
-          mode,
-          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-          lang, stats: sessionStatsRef.current,
-          isIntro: true, isFirstSegment: true, segmentNumber: 1,
-          destinationName: destinationNameRef.current || undefined,
-          targetThought: targetThoughtRef.current || undefined,
-          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-          userLat: userLocation?.[0], userLng: userLocation?.[1],
-        });
+        const preKey = `${mode}-${lang}-${sessionType}-${indoorActivity}`;
+        let seg = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current)
+          ? preloadedIntroTextRef.current
+          : await generateSegmentNarrative({
+              mode,
+              activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+              lang, stats: sessionStatsRef.current,
+              isIntro: true, isFirstSegment: true, segmentNumber: 1,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined,
+              indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+              userLat: userLocation?.[0], userLng: userLocation?.[1],
+            });
+        preloadedIntroTextRef.current = null; // consume
         if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
         sponsorPlayedRef.current = true;
         const buf = await speakText(seg);
