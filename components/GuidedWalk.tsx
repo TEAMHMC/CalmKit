@@ -133,12 +133,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setGpsLoading(true);
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          // Reject stale cached positions — iOS often returns the last-known location
-          // (from a previous city) before acquiring a fresh satellite fix.
-          // Positions older than 60s have timestamps from before the current session.
+          // Reject only truly stale cached positions (hours old, e.g. from a different city).
+          // 5-min threshold allows normal GPS cold-start (30-60s) without blocking tracking.
           const ageMs = Date.now() - pos.timestamp;
-          if (ageMs > 60000) {
-            console.log(`[GPS] Skipping stale cached position (${Math.round(ageMs / 1000)}s old)`);
+          if (ageMs > 300000) {
+            console.log(`[GPS] Skipping very stale position (${Math.round(ageMs / 1000)}s old)`);
             return;
           }
 
@@ -792,6 +791,46 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     startKeepAlive();
     await sharedRequestWakeLock();
+
+    // Restart GPS watch if a previous session cleared it
+    if (watchIdRef.current === null && navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const ageMs = Date.now() - pos.timestamp;
+          if (ageMs > 300000) return;
+          const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          setUserLocation(newLoc);
+          setGpsAccuracy(pos.coords.accuracy);
+          if (mapRef.current && markerRef.current) {
+            markerRef.current.setLatLng(newLoc);
+            if (!isPausedRef.current) mapRef.current.panTo(newLoc, { animate: true });
+          }
+          if (isNarratingRef.current && !isPausedRef.current) {
+            const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
+            if (last) {
+              const R = 3958.8;
+              const dLat = (newLoc[0] - last[0]) * Math.PI / 180;
+              const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
+              const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+              const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              if (dist > 0.0005 && dist < 0.05) {
+                pathCoordsRef.current.push(newLoc);
+                if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
+                lastPositionRef.current = newLoc;
+                lastGPSMovementRef.current = Date.now();
+                setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
+              }
+            } else {
+              pathCoordsRef.current.push(newLoc);
+              lastPositionRef.current = newLoc;
+            }
+          }
+        },
+        () => {},
+        { enableHighAccuracy: true }
+      );
+    }
+
     setIsPlaying(true);
     isNarratingRef.current = true;
 
@@ -940,7 +979,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       currentSourceRef.current = null;
     }
     stopAmbience();
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     // Explicitly remove Leaflet map before showing summary — prevents marker from floating detached
     if (mapRef.current) {
