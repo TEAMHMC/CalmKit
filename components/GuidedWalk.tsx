@@ -812,16 +812,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
     }
 
-    // Instant coach cue via Web Speech (no network) so the user hears something within ~1 second.
-    // Simultaneously kick off the full AI generation — when it finishes it pushes to audioBufferQueue
-    // and narrationLoop plays it. This cuts perceived startup silence from 8-12s to near-zero.
-    const INSTANT_INTROS: Record<EchoPersona, { en: string; es: string }> = {
-      HOPE:         { en: "Let's begin. Breathe and find your pace.", es: "Comencemos. Respira y encuentra tu ritmo." },
-      HYPE:         { en: "Let's go! You've got this. Start moving!", es: "¡Vamos! ¡Tú puedes! ¡A moverse!" },
-      BREAKTHROUGH: { en: "Take a breath. This walk is your time for clarity.", es: "Respira hondo. Esta caminata es para ti." },
-      STRATEGY:     { en: "Ready to move and think. Let's get started.", es: "Listos para movernos y pensar. Comencemos." },
-    };
-    speakWithWebSpeech(INSTANT_INTROS[mode][lang]);
+    // Show buffering indicator immediately while AI voice is being generated
+    setIsBufferingAudio(true);
 
     // Block narrationLoop re-entry while we prefetch the first full AI segment in background
     isFetchingRef.current = true;
@@ -1115,6 +1107,18 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             )}
           </div>
         </div>
+
+        {/* Coach preparing toast */}
+        {isBufferingAudio && (
+          <div className="absolute bottom-[100px] left-0 right-0 z-20 flex justify-center pointer-events-none">
+            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-xl rounded-full px-5 py-2.5 border border-white/10">
+              <Loader2 size={13} className="text-[#233DFF] animate-spin flex-shrink-0" />
+              <span className="text-xs font-semibold text-white/80 tracking-wide">
+                {lang === 'es' ? 'Preparando tu guía...' : 'Preparing your coach...'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Bottom Controls */}
         <div
