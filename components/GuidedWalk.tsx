@@ -78,6 +78,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const startMarkerRef = useRef<any>(null);
   const isReturningRef = useRef(false);
   const indoorActivityRef = useRef<IndoorActivity | null>(null);
+  const gpsTimeoutRef = useRef<any>(null);
   const segmentCounterRef = useRef(0);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
@@ -142,9 +143,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
 
           const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setUserLocation(newLoc);
           setGpsAccuracy(pos.coords.accuracy);
-          setGpsLoading(false);
+
+          // Only accept as valid starting location once GPS is accurate enough (≤150m).
+          // Cell-tower fixes can be 1-2km off and corrupt the entire route.
+          if (pos.coords.accuracy <= 150) {
+            setUserLocation(newLoc);
+            setGpsLoading(false);
+            if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
+          }
 
           // Capture altitude for uphill/downhill detection
           if (pos.coords.altitude !== null) {
@@ -197,9 +204,15 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         },
         { enableHighAccuracy: true, maximumAge: 5000 }
       );
+      // Fallback: if GPS hasn't achieved ≤150m accuracy in 25s, unblock GO anyway
+      gpsTimeoutRef.current = setTimeout(() => {
+        setGpsLoading(false);
+        gpsTimeoutRef.current = null;
+      }, 25000);
     }
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
     };
   }, []);
 
@@ -1413,10 +1426,20 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         {/* Go Button — outside scroll container, always visible above tab bar */}
         <button
           onClick={handleStart}
-          className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3"
+          disabled={sessionType === 'OUTDOOR' && gpsLoading}
+          className={`w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3 ${sessionType === 'OUTDOOR' && gpsLoading ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
         >
-          <Play size={20} fill="currentColor" />
-          <span>{lang === 'es' ? 'IR' : 'GO'}</span>
+          {sessionType === 'OUTDOOR' && gpsLoading ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              <span>{lang === 'es' ? 'Obteniendo GPS...' : 'Acquiring GPS...'}</span>
+            </>
+          ) : (
+            <>
+              <Play size={20} fill="currentColor" />
+              <span>{lang === 'es' ? 'IR' : 'GO'}</span>
+            </>
+          )}
         </button>
         </>
       )}
