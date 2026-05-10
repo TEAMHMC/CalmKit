@@ -833,6 +833,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     setIsPlaying(true);
     isNarratingRef.current = true;
+    const _g = (window as any).gtag;
+    if (_g) _g('event', 'calmkit_walk_start', { mode, session_type: effectiveSessionType, destination: destinationName || 'none', lang });
 
     // Seed path AFTER isNarratingRef is set — prevents race where watchPosition fires before session starts
     if (!isIndoor && userLocation) {
@@ -964,6 +966,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   };
 
   const handleStop = () => {
+    const _g = (window as any).gtag;
+    if (_g) _g('event', 'calmkit_walk_complete', { mode, elapsed_seconds: sessionStats.time, distance_miles: parseFloat(sessionStats.distance.toFixed(2)) });
     // Set flags first so any in-flight async callbacks (speakText, speakWithWebSpeech) see the stopped state
     isNarratingRef.current = false;
     isPausedRef.current = false;
