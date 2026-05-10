@@ -1282,6 +1282,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             />
           </div>
 
+          <div className="mb-2 flex-shrink-0 bg-yellow-50 dark:bg-yellow-400/10 border border-yellow-300 dark:border-yellow-400/30 rounded-2xl px-4 py-3">
+            <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300 leading-snug">
+              {lang === 'es'
+                ? 'Si estás en peligro inmediato, llama al 911 o ve a la sala de emergencias más cercana.'
+                : 'If you are in immediate danger, call 911 or go to your nearest emergency room.'}
+            </p>
+          </div>
+
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
               onClick={() => {
