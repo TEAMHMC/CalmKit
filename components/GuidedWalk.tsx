@@ -772,11 +772,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
       markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
 
-      // Show destination pin if user selected one
+      // Show destination pin if user selected one — static blue dot (no ping) to distinguish from moving position
       if (destinationCoords) {
         const destIcon = L.divIcon({
           className: '',
-          html: `<div style="width:20px;height:20px;background:#f97316;border-radius:50%;border:3px solid white;box-shadow:0 0 12px #f97316"></div>`,
+          html: `<div style="width:20px;height:20px;background:#233DFF;border-radius:50%;border:3px solid white;box-shadow:0 0 16px #233DFF"></div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10]
         });
