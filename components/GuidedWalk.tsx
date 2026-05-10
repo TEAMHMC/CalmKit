@@ -79,6 +79,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const isReturningRef = useRef(false);
   const indoorActivityRef = useRef<IndoorActivity | null>(null);
   const gpsTimeoutRef = useRef<any>(null);
+  const pausedDurationRef = useRef(0);       // ms of total paused time this session
+  const pauseStartRef = useRef<number | null>(null); // wall-clock when last pause began
+  const destinationMarkerRef = useRef<any>(null);
   const segmentCounterRef = useRef(0);
   const sessionStatsRef = useRef(sessionStats);
   const destinationNameRef = useRef(destinationName);
@@ -710,7 +713,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       url += `&lat=${lat}&lon=${lon}&viewbox=${lon - 0.15},${lat + 0.15},${lon + 0.15},${lat - 0.15}&bounded=1`;
     }
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'CalmKit/1.0 (healthmatters.clinic)' } });
       const data = await res.json();
       setSuggestions(data);
     } catch (e) {
@@ -768,6 +771,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         iconAnchor: [24, 24]
       });
       markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
+
+      // Show destination pin if user selected one
+      if (destinationCoords) {
+        const destIcon = L.divIcon({
+          className: '',
+          html: `<div style="width:20px;height:20px;background:#f97316;border-radius:50%;border:3px solid white;box-shadow:0 0 12px #f97316"></div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        destinationMarkerRef.current = L.marker([destinationCoords[0], destinationCoords[1]], { icon: destIcon }).addTo(mapRef.current);
+      }
     }
 
     return () => {
@@ -776,6 +790,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         mapRef.current = null;
         markerRef.current = null;
         startMarkerRef.current = null;
+        destinationMarkerRef.current = null;
         pathRef.current = null;
       }
     };
@@ -859,10 +874,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
     const now = Date.now();
     startTimeRef.current = now;
+    pausedDurationRef.current = 0;
+    pauseStartRef.current = null;
 
     timerIntervalRef.current = setInterval(() => {
+      if (isPausedRef.current) return;
       setSessionStats(prev => {
-        const elapsed = (Date.now() - now) / 1000;
+        const elapsed = (Date.now() - now - pausedDurationRef.current) / 1000;
         const paceRaw = prev.distance > 0 ? (elapsed / 60) / prev.distance : 0;
         const mins = Math.floor(paceRaw);
         const secs = Math.floor((paceRaw - mins) * 60);
@@ -1022,6 +1040,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     setIsPaused(newPaused);
     isPausedRef.current = newPaused;
     if (newPaused) {
+      pauseStartRef.current = Date.now();
       if (currentSourceRef.current) {
         try { currentSourceRef.current.stop(); } catch(e) {}
         currentSourceRef.current = null;
@@ -1032,6 +1051,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
       audioCtxRef.current?.suspend();
     } else {
+      if (pauseStartRef.current !== null) {
+        pausedDurationRef.current += Date.now() - pauseStartRef.current;
+        pauseStartRef.current = null;
+      }
       audioCtxRef.current?.resume();
       if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
       narrationLoop();
@@ -1326,9 +1349,20 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         <>
         <div className="flex-1 flex flex-col min-h-0">
           {/* Title */}
-          <div className="space-y-2 mb-4 flex-shrink-0">
+          <div className="space-y-2 mb-3 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([
+                { icon: <Navigation size={10} />, label: lang === 'es' ? 'GPS' : 'GPS Tracked' },
+                { icon: <Activity size={10} />, label: lang === 'es' ? 'Ritmo en vivo' : 'Live Pace' },
+                { icon: <Zap size={10} />, label: lang === 'es' ? 'Coaching CBT' : 'CBT Coaching' },
+                { icon: <MapPin size={10} />, label: lang === 'es' ? 'Mapa de ruta' : 'Route Map' },
+              ] as { icon: React.ReactNode; label: string }[]).map(f => (
+                <span key={f.label} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 text-[10px] font-medium text-gray-400 dark:text-gray-500">
+                  {f.icon}{f.label}
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* Scrollable content area */}
