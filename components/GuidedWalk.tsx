@@ -137,8 +137,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
   const t = translations[lang];
 
+  // userLocationRef keeps the latest GPS fix readable inside async closures (map init, etc.)
+  const userLocationRef = useRef<[number, number] | null>(null);
+
   // Keep refs in sync
   useEffect(() => { sessionStatsRef.current = sessionStats; }, [sessionStats]);
+  useEffect(() => { userLocationRef.current = userLocation; }, [userLocation]);
   useEffect(() => { destinationNameRef.current = destinationName; }, [destinationName]);
   useEffect(() => { targetThoughtRef.current = targetThought; }, [targetThought]);
   useEffect(() => { envDataRef.current = envData; }, [envData]);
@@ -226,20 +230,19 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             currentSpeedRef.current = pos.coords.speed * 2.237;
           }
 
-          // Update map marker if rendered
+          // Clear the "Finding your location" overlay as soon as ANY position arrives —
+          // independent of whether Google Maps has finished loading yet.
+          if (!sessionGpsAcquiredRef.current) {
+            sessionGpsAcquiredRef.current = true;
+            setSessionGpsAcquired(true);
+          }
+
+          // Update map marker if the Google Maps instance is ready
           if (mapRef.current && markerRef.current) {
             const gmPos = { lat: newLoc[0], lng: newLoc[1] };
             markerRef.current.setPosition(gmPos);
-            if (!sessionGpsAcquiredRef.current) {
-              // First real fix during session — place marker on map and fly to actual location
-              sessionGpsAcquiredRef.current = true;
-              setSessionGpsAcquired(true);
-              markerRef.current.setMap(mapRef.current);
-              mapRef.current.setCenter(gmPos);
-              mapRef.current.setZoom(16);
-            } else if (!isPausedRef.current) {
-              mapRef.current.panTo(gmPos);
-            }
+            markerRef.current.setMap(mapRef.current);
+            if (!isPausedRef.current) mapRef.current.panTo(gmPos);
           }
           // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
           // route because the spike filter then rejects every real GPS update as too far.
@@ -928,15 +931,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         });
       }
 
-      // If GPS fix already arrived before map init, snap to real location now
-      if (userLocation && markerRef.current) {
-        const pos = { lat: userLocation[0], lng: userLocation[1] };
+      // Read from ref (not the stale closure) — GPS may have fired while Maps API was loading
+      const currentLoc = userLocationRef.current;
+      if (currentLoc && markerRef.current) {
+        const pos = { lat: currentLoc[0], lng: currentLoc[1] };
         markerRef.current.setPosition(pos);
         markerRef.current.setMap(mapRef.current);
         mapRef.current.setCenter(pos);
         mapRef.current.setZoom(16);
-        sessionGpsAcquiredRef.current = true;
-        setSessionGpsAcquired(true);
       }
     }).catch(e => console.warn('Google Maps init failed:', e));
 
