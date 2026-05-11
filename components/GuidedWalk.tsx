@@ -30,27 +30,33 @@ const DARK_MAP_STYLE = [
 
 let _mapsApiPromise: Promise<void> | null = null;
 const ensureGoogleMaps = (): Promise<void> => {
-  if ((window as any).google?.maps) return Promise.resolve();
+  if ((window as any).google?.maps?.Map) return Promise.resolve();
   if (_mapsApiPromise) return _mapsApiPromise;
   _mapsApiPromise = new Promise((resolve, reject) => {
     const key = process.env.GOOGLE_MAPS_API_KEY || '';
+    if (!key) console.warn('[CalmKit] GOOGLE_MAPS_API_KEY is not set — map will show watermark');
+    // Reuse existing script tag if already injected (e.g. hot reload)
+    const existing = document.getElementById('gm-script');
+    if (existing) {
+      const poll = setInterval(() => {
+        if ((window as any).google?.maps?.Map) { clearInterval(poll); resolve(); }
+      }, 100);
+      setTimeout(() => { clearInterval(poll); resolve(); }, 15000);
+      return;
+    }
     const s = document.createElement('script');
-    // loading=async tells the Maps bootstrap to not block the page
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry&loading=async`;
+    s.id = 'gm-script';
+    // v=weekly — latest stable; loading=async — non-blocking; libraries needed for Places + polylines
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&libraries=places,geometry&loading=async`;
     s.async = true;
     s.defer = true;
-    // Match the referrer policy set in index.html so HTTP-referrer key restrictions pass
     s.referrerPolicy = 'strict-origin-when-cross-origin';
     s.onload = () => {
-      // Poll until google.maps is truly available (the bootstrap loads sub-modules asynchronously)
+      // With loading=async, google.maps namespace exists but Map class may not yet be ready — poll for it
       const poll = setInterval(() => {
-        if ((window as any).google?.maps) {
-          clearInterval(poll);
-          resolve();
-        }
-      }, 50);
-      // Safety timeout after 10s
-      setTimeout(() => { clearInterval(poll); resolve(); }, 10000);
+        if ((window as any).google?.maps?.Map) { clearInterval(poll); resolve(); }
+      }, 100);
+      setTimeout(() => { clearInterval(poll); resolve(); }, 15000);
     };
     s.onerror = () => reject(new Error('Google Maps failed to load'));
     document.head.appendChild(s);
@@ -874,8 +880,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     ensureGoogleMaps().then(() => {
       if (cancelled || !container || mapRef.current) return;
+      const gm = (window as any).google.maps;
 
-      mapRef.current = new google.maps.Map(container, {
+      mapRef.current = new gm.Map(container, {
         center: initialCenter,
         zoom: initialZoom,
         mapTypeId: 'roadmap',
@@ -885,7 +892,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       });
 
       // Neon blue route polyline
-      pathRef.current = new google.maps.Polyline({
+      pathRef.current = new gm.Polyline({
         map: mapRef.current,
         path: [],
         strokeColor: '#233DFF',
@@ -893,66 +900,50 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         strokeOpacity: 0.95,
       });
 
-      // Pulsing user position marker (SVG with animation)
-      const makeUserIcon = () => ({
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48">
-            <circle cx="24" cy="24" r="20" fill="rgba(35,61,255,0.2)">
-              <animate attributeName="r" values="14;22;14" dur="2s" repeatCount="indefinite"/>
-              <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite"/>
-            </circle>
-            <circle cx="24" cy="24" r="12" fill="#233DFF" stroke="white" stroke-width="3" filter="url(#glow)"/>
-            <defs>
-              <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-          </svg>`
-        ),
-        scaledSize: new google.maps.Size(48, 48),
-        anchor: new google.maps.Point(24, 24),
+      // Pulsing user position marker using Maps SymbolPath (no SVG data URI needed)
+      const userIcon = {
+        path: gm.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#233DFF',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 3,
+      };
+
+      // Read from ref — GPS may have already fired while the Maps API was loading
+      const currentLoc = userLocationRef.current;
+      const markerPos = currentLoc
+        ? { lat: currentLoc[0], lng: currentLoc[1] }
+        : null;
+
+      markerRef.current = new gm.Marker({
+        map: markerPos ? mapRef.current : null, // only add to map if we have real location
+        position: markerPos || initialCenter,
+        icon: userIcon,
+        optimized: false,
+        zIndex: 999,
       });
 
-      if (hasLocation) {
-        markerRef.current = new google.maps.Marker({
-          map: mapRef.current,
-          position: initialCenter,
-          icon: makeUserIcon(),
-          optimized: false,
-        });
-      } else {
-        // Create marker off-screen, invisible — GPS callback will place it
-        markerRef.current = new google.maps.Marker({
-          position: { lat: 0, lng: 0 },
-          icon: makeUserIcon(),
-          optimized: false,
-        });
+      // If GPS was already acquired, center map on real location
+      if (markerPos) {
+        mapRef.current.setCenter(markerPos);
+        mapRef.current.setZoom(16);
       }
 
       // Destination pin
       if (capturedDest) {
-        destinationMarkerRef.current = new google.maps.Marker({
+        destinationMarkerRef.current = new gm.Marker({
           map: mapRef.current,
           position: { lat: capturedDest[0], lng: capturedDest[1] },
           icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
-              `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
-                <circle cx="10" cy="10" r="8" fill="#233DFF" stroke="white" stroke-width="2"/>
-              </svg>`
-            ),
-            scaledSize: new google.maps.Size(20, 20),
-            anchor: new google.maps.Point(10, 10),
+            path: gm.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: '#233DFF',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
           },
         });
-      }
-
-      // Read from ref (not the stale closure) — GPS may have fired while Maps API was loading
-      const currentLoc = userLocationRef.current;
-      if (currentLoc && markerRef.current) {
-        const pos = { lat: currentLoc[0], lng: currentLoc[1] };
-        markerRef.current.setPosition(pos);
-        markerRef.current.setMap(mapRef.current);
-        mapRef.current.setCenter(pos);
-        mapRef.current.setZoom(16);
       }
     }).catch(e => console.warn('Google Maps init failed:', e));
 
