@@ -93,8 +93,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const elevationGainRef = useRef(0);
   const elevationDeltaRef = useRef<number | null>(null);
   const currentSpeedRef = useRef<number | null>(null);
-  // Pre-warm: text generated on step 1 so only TTS runs at session start
+  // Pre-warm: text + raw TTS audio bytes fetched on step 1 so GO plays instantly
   const preloadedIntroTextRef = useRef<string | null>(null);
+  const preloadedIntroBase64Ref = useRef<string | null>(null);
   const preloadKeyRef = useRef<string>('');
   // Inactivity auto-stop: timestamp of last recorded GPS movement
   const lastGPSMovementRef = useRef<number>(Date.now());
@@ -108,12 +109,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { envDataRef.current = envData; }, [envData]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
-  // Pre-warm: generate intro text as soon as user reaches step 1 so only TTS runs at Start
+  // Pre-warm: generate intro text AND pre-fetch TTS audio bytes on step 1.
+  // By GO time the audio is already decoded — coach plays in < 200ms.
   useEffect(() => {
     if (step !== 1) return;
     const key = `${mode}-${lang}-${sessionType}-${indoorActivity}`;
-    if (preloadKeyRef.current === key && preloadedIntroTextRef.current) return;
+    if (preloadKeyRef.current === key && preloadedIntroBase64Ref.current) return;
     preloadedIntroTextRef.current = null;
+    preloadedIntroBase64Ref.current = null;
     preloadKeyRef.current = key;
     let cancelled = false;
     generateSegmentNarrative({
@@ -126,8 +129,25 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       targetThought: targetThought || undefined,
       indoorActivity: sessionType === 'INDOOR' ? (indoorActivity || undefined) : undefined,
       userLat: userLocation?.[0], userLng: userLocation?.[1],
-    }).then(text => {
-      if (!cancelled && preloadKeyRef.current === key) preloadedIntroTextRef.current = text;
+    }).then(async text => {
+      if (cancelled || preloadKeyRef.current !== key) return;
+      preloadedIntroTextRef.current = text;
+      // Fire TTS fetch immediately — store raw base64 so AudioContext isn't needed yet
+      const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
+      try {
+        const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang, voice }),
+        });
+        if (cancelled || preloadKeyRef.current !== key) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.audio && !cancelled && preloadKeyRef.current === key) {
+            preloadedIntroBase64Ref.current = data.audio;
+          }
+        }
+      } catch (_) { /* fall through — handleStart will fetch normally */ }
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [step, mode, lang, sessionType, indoorActivity]);
@@ -972,25 +992,48 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     (async () => {
       try {
         const preKey = `${mode}-${lang}-${sessionType}-${indoorActivity}`;
-        let seg = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current)
-          ? preloadedIntroTextRef.current
-          : await generateSegmentNarrative({
-              mode,
-              activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-              lang, stats: sessionStatsRef.current,
-              isIntro: true, isFirstSegment: true, segmentNumber: 1,
-              destinationName: destinationNameRef.current || undefined,
-              targetThought: targetThoughtRef.current || undefined,
-              indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-              userLat: userLocation?.[0], userLng: userLocation?.[1],
-            });
-        preloadedIntroTextRef.current = null; // consume
-        if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
-        sponsorPlayedRef.current = true;
-        const buf = await speakText(seg);
-        isFetchingRef.current = false;
-        if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
-        narrationLoop();
+        const hasPreloadedAudio = preloadKeyRef.current === preKey && preloadedIntroBase64Ref.current;
+
+        if (hasPreloadedAudio && audioCtxRef.current) {
+          // Fast path: TTS was pre-fetched on step 1 — decode in < 100ms, no network round-trip
+          const base64 = preloadedIntroBase64Ref.current!;
+          preloadedIntroBase64Ref.current = null;
+          preloadedIntroTextRef.current = null;
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const int16 = new Int16Array(bytes.buffer);
+          const buf = audioCtxRef.current.createBuffer(1, int16.length, 24000);
+          const ch = buf.getChannelData(0);
+          for (let i = 0; i < int16.length; i++) ch[i] = int16[i] / 32768.0;
+          sponsorPlayedRef.current = true;
+          isFetchingRef.current = false;
+          if (isNarratingRef.current) audioBufferQueue.current.push(buf);
+          setIsBufferingAudio(false);
+          narrationLoop();
+        } else {
+          // Slow path: text may be pre-warmed but audio still needs a TTS fetch
+          let seg = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current)
+            ? preloadedIntroTextRef.current
+            : await generateSegmentNarrative({
+                mode,
+                activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+                lang, stats: sessionStatsRef.current,
+                isIntro: true, isFirstSegment: true, segmentNumber: 1,
+                destinationName: destinationNameRef.current || undefined,
+                targetThought: targetThoughtRef.current || undefined,
+                indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+                userLat: userLocation?.[0], userLng: userLocation?.[1],
+              });
+          preloadedIntroTextRef.current = null;
+          preloadedIntroBase64Ref.current = null;
+          if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
+          sponsorPlayedRef.current = true;
+          const buf = await speakText(seg);
+          isFetchingRef.current = false;
+          if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
+          narrationLoop();
+        }
       } catch {
         isFetchingRef.current = false;
         narrationLoop();
