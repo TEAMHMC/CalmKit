@@ -130,13 +130,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     return () => { cancelled = true; };
   }, [step, mode, lang, sessionType, indoorActivity]);
 
-  // Try to get location on mount with high accuracy — silently continue if it fails
-  // Instant lock on mount — watchPosition for continuous high-accuracy GPS from the moment MOVE tab opens
-  useEffect(() => {
-    if (navigator.geolocation) {
-      setGpsLoading(true);
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
+  // GPS watch callback — shared by mount watch and requestGpsPermission
+  const startGpsWatch = () => {
+    if (watchIdRef.current !== null) return; // already watching
+    setGpsLoading(true);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
           // Reject only truly stale cached positions (hours old, e.g. from a different city).
           // 5-min threshold allows normal GPS cold-start (30-60s) without blocking tracking.
           const ageMs = Date.now() - pos.timestamp;
@@ -207,12 +206,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         },
         { enableHighAccuracy: true, maximumAge: 5000 }
       );
-      // Fallback: if GPS hasn't achieved ≤150m accuracy in 25s, unblock GO anyway
+      // Fallback: if GPS hasn't resolved in 25s, unblock GO anyway
       gpsTimeoutRef.current = setTimeout(() => {
         setGpsLoading(false);
         gpsTimeoutRef.current = null;
       }, 25000);
+  };
+
+  // Try to get location on mount with high accuracy — silently continue if it fails
+  // On iOS Safari PWA, watchPosition on mount fails without a prior user gesture.
+  // Check permission state first; only start immediately if already granted.
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(status => {
+        if (status.state === 'granted') startGpsWatch();
+        // 'prompt' or 'denied': defer to Next button → requestGpsPermission
+      }).catch(() => {
+        // permissions API unavailable — start watch immediately (non-Safari fallback)
+        startGpsWatch();
+      });
+    } else {
+      startGpsWatch();
     }
+
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
       if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
@@ -454,6 +472,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setUserLocation([pos.coords.latitude, pos.coords.longitude]);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
+          // Permission now granted — start continuous watch if not already running
+          startGpsWatch();
           resolve(true);
         },
         (err) => {
@@ -737,58 +757,83 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
   // ── Map (Ghost Mode) ──
   useEffect(() => {
-    if (isPlaying && mapContainerRef.current && !mapRef.current) {
-      const initialLoc = userLocation || [34.05, -118.24];
-      mapRef.current = L.map(mapContainerRef.current, {
-        zoomControl: false,
-        attributionControl: false,
-        dragging: true,
-        touchZoom: true,
-        scrollWheelZoom: false,
-        doubleClickZoom: false
-      }).setView(initialLoc, 16);
-
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-        subdomains: 'abcd',
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap &copy; CartoDB'
-      }).addTo(mapRef.current);
-
-      // Force Leaflet to recalculate container size — required when container appears dynamically
-      setTimeout(() => { mapRef.current?.invalidateSize(); }, 100);
-
-      // Neon polyline for walked path
-      pathRef.current = L.polyline([], {
-        color: '#233DFF',
-        weight: 8,
-        opacity: 0.95,
-        lineJoin: 'round',
-        className: 'glowing-path'
-      }).addTo(mapRef.current);
-
-      // Create neon marker immediately at current location
-      const icon = L.divIcon({
-        className: 'user-marker',
-        html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
-        iconSize: [48, 48],
-        iconAnchor: [24, 24]
-      });
-      markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
-
-      // Show destination pin if user selected one — static blue dot (no ping) to distinguish from moving position
-      if (destinationCoords) {
-        const destIcon = L.divIcon({
-          className: '',
-          html: `<div style="width:20px;height:20px;background:#233DFF;border-radius:50%;border:3px solid white;box-shadow:0 0 16px #233DFF"></div>`,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10]
-        });
-        destinationMarkerRef.current = L.marker([destinationCoords[0], destinationCoords[1]], { icon: destIcon }).addTo(mapRef.current);
+    if (!isPlaying || !mapContainerRef.current || mapRef.current) {
+      if (!isPlaying && mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+        startMarkerRef.current = null;
+        destinationMarkerRef.current = null;
+        pathRef.current = null;
       }
+      return;
     }
 
+    const container = mapContainerRef.current;
+    const initialLoc = userLocation || [34.05, -118.24];
+    const capturedDest = destinationCoords;
+
+    // Double RAF: guarantees layout is complete so Leaflet reads real pixel dimensions
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!container || mapRef.current) return;
+
+        mapRef.current = L.map(container, {
+          zoomControl: false,
+          attributionControl: false,
+          dragging: true,
+          touchZoom: true,
+          scrollWheelZoom: false,
+          doubleClickZoom: false
+        }).setView(initialLoc, 16);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+          subdomains: 'abcd',
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap &copy; CartoDB'
+        }).addTo(mapRef.current);
+
+        mapRef.current.invalidateSize();
+
+        // Neon polyline for walked path
+        pathRef.current = L.polyline([], {
+          color: '#233DFF',
+          weight: 8,
+          opacity: 0.95,
+          lineJoin: 'round',
+          className: 'glowing-path'
+        }).addTo(mapRef.current);
+
+        // Create neon marker immediately at current location
+        const icon = L.divIcon({
+          className: 'user-marker',
+          html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+        markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
+
+        // Show destination pin if user selected one — static blue dot (no ping) to distinguish from moving position
+        if (capturedDest) {
+          const destIcon = L.divIcon({
+            className: '',
+            html: `<div style="width:20px;height:20px;background:#233DFF;border-radius:50%;border:3px solid white;box-shadow:0 0 16px #233DFF"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          destinationMarkerRef.current = L.marker([capturedDest[0], capturedDest[1]], { icon: destIcon }).addTo(mapRef.current);
+        }
+
+        // If a real GPS fix arrived before the map finished init, move the marker now
+        if (userLocation && markerRef.current) {
+          markerRef.current.setLatLng(userLocation);
+          mapRef.current.setView(userLocation, 16);
+        }
+      });
+    });
+
     return () => {
-      if (!isPlaying && mapRef.current) {
+      if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
         markerRef.current = null;
@@ -862,8 +907,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       );
     }
 
-    setIsPlaying(true);
     isNarratingRef.current = true;
+    setIsPlaying(true);
     const _g = (window as any).gtag;
     if (_g) _g('event', 'calmkit_walk_start', { mode, session_type: effectiveSessionType, destination: destinationName || 'none', lang });
 
