@@ -557,7 +557,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+          userLocationRef.current = loc;  // update ref immediately so handleStart can read it synchronously
+          setUserLocation(loc);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
           // Permission now granted — start continuous watch if not already running
@@ -1000,6 +1002,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     if (!isIndoor && userLocationRef.current && !sessionGpsAcquiredRef.current) {
       sessionGpsAcquiredRef.current = true;
       setSessionGpsAcquired(true);
+    }
+
+    // Safety net: if GPS hasn't resolved within 30s, clear the overlay anyway so the
+    // user isn't permanently blocked by a slow or unavailable signal.
+    if (!isIndoor) {
+      setTimeout(() => {
+        if (!sessionGpsAcquiredRef.current) {
+          sessionGpsAcquiredRef.current = true;
+          setSessionGpsAcquired(true);
+        }
+      }, 30000);
     }
 
     isNarratingRef.current = true;
