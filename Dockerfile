@@ -27,6 +27,10 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
+# Entrypoint: inject runtime env vars into config.js, then start nginx
+RUN printf '#!/bin/sh\nenvsubst < /usr/share/nginx/html/config.js.template > /usr/share/nginx/html/config.js\nexec nginx -g "daemon off;"\n' \
+    > /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/docker-entrypoint.sh"]

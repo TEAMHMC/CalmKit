@@ -33,7 +33,8 @@ const ensureGoogleMaps = (): Promise<void> => {
   if ((window as any).google?.maps?.Map) return Promise.resolve();
   if (_mapsApiPromise) return _mapsApiPromise;
   _mapsApiPromise = new Promise((resolve, reject) => {
-    const key = process.env.GOOGLE_MAPS_API_KEY || '';
+    // Prefer runtime key injected by nginx (Cloud Run env var) over build-time bake-in
+    const key = (window as any).GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
     if (!key) console.warn('[CalmKit] GOOGLE_MAPS_API_KEY is not set — map will show watermark');
     // Reuse existing script tag if already injected (e.g. hot reload)
     const existing = document.getElementById('gm-script');
