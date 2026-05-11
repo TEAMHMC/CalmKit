@@ -35,10 +35,23 @@ const ensureGoogleMaps = (): Promise<void> => {
   _mapsApiPromise = new Promise((resolve, reject) => {
     const key = process.env.GOOGLE_MAPS_API_KEY || '';
     const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry`;
+    // loading=async tells the Maps bootstrap to not block the page
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry&loading=async`;
     s.async = true;
     s.defer = true;
-    s.onload = () => resolve();
+    // Match the referrer policy set in index.html so HTTP-referrer key restrictions pass
+    s.referrerPolicy = 'strict-origin-when-cross-origin';
+    s.onload = () => {
+      // Poll until google.maps is truly available (the bootstrap loads sub-modules asynchronously)
+      const poll = setInterval(() => {
+        if ((window as any).google?.maps) {
+          clearInterval(poll);
+          resolve();
+        }
+      }, 50);
+      // Safety timeout after 10s
+      setTimeout(() => { clearInterval(poll); resolve(); }, 10000);
+    };
     s.onerror = () => reject(new Error('Google Maps failed to load'));
     document.head.appendChild(s);
   });
@@ -865,6 +878,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       mapRef.current = new google.maps.Map(container, {
         center: initialCenter,
         zoom: initialZoom,
+        mapTypeId: 'roadmap',
         disableDefaultUI: true,
         gestureHandling: 'greedy',
         styles: DARK_MAP_STYLE,
@@ -987,6 +1001,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     // Restart GPS watch if a previous session cleared it
     startGpsWatch();
+
+    // If we already have a GPS fix (e.g. location was acquired before GO was pressed),
+    // immediately mark the overlay as cleared. watchPosition only fires on movement, so
+    // a stationary user would see the "Finding location" overlay forever without this.
+    if (!isIndoor && userLocationRef.current && !sessionGpsAcquiredRef.current) {
+      sessionGpsAcquiredRef.current = true;
+      setSessionGpsAcquired(true);
+    }
 
     isNarratingRef.current = true;
     setIsPlaying(true);
