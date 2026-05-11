@@ -1238,9 +1238,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
         </div>
 
-        {/* Coach preparing toast */}
+        {/* Coach preparing toast — sits above bottom controls bar */}
         {isBufferingAudio && (
-          <div className="absolute bottom-[100px] left-0 right-0 z-20 flex justify-center pointer-events-none">
+          <div className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none" style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 140px)' }}>
             <div className="flex items-center gap-2 bg-black/70 backdrop-blur-xl rounded-full px-5 py-2.5 border border-white/10">
               <Loader2 size={13} className="text-[#233DFF] animate-spin flex-shrink-0" />
               <span className="text-xs font-semibold text-white/80 tracking-wide">
@@ -1349,20 +1349,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         <>
         <div className="flex-1 flex flex-col min-h-0">
           {/* Title */}
-          <div className="space-y-2 mb-3 flex-shrink-0">
+          <div className="space-y-2 mb-4 flex-shrink-0">
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.readyToBegin}</h2>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {([
-                { icon: <Navigation size={10} />, label: lang === 'es' ? 'GPS' : 'GPS Tracked' },
-                { icon: <Activity size={10} />, label: lang === 'es' ? 'Ritmo en vivo' : 'Live Pace' },
-                { icon: <Zap size={10} />, label: lang === 'es' ? 'Coaching CBT' : 'CBT Coaching' },
-                { icon: <MapPin size={10} />, label: lang === 'es' ? 'Mapa de ruta' : 'Route Map' },
-              ] as { icon: React.ReactNode; label: string }[]).map(f => (
-                <span key={f.label} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                  {f.icon}{f.label}
-                </span>
-              ))}
-            </div>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.selectMode}</p>
           </div>
 
           {/* Scrollable content area */}
