@@ -746,13 +746,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         touchZoom: true,
         scrollWheelZoom: false,
         doubleClickZoom: false
-      }).setView(initialLoc, 19);
+      }).setView(initialLoc, 16);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
         subdomains: 'abcd',
-        maxZoom: 20,
+        maxZoom: 19,
         attribution: '&copy; OpenStreetMap &copy; CartoDB'
       }).addTo(mapRef.current);
+
+      // Force Leaflet to recalculate container size — required when container appears dynamically
+      setTimeout(() => { mapRef.current?.invalidateSize(); }, 100);
 
       // Neon polyline for walked path
       pathRef.current = L.polyline([], {
@@ -1096,7 +1099,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       <div className="flex-1 flex flex-col items-center px-6 py-8 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-6 overflow-y-auto">
         <div className="space-y-1 pt-2">
           <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.sessionSummary}</h2>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{t.labels.sessionSummaryDesc}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{routeSVG ? t.labels.sessionSummaryDesc : (lang === 'es' ? 'SESIÓN COMPLETADA' : 'SESSION COMPLETE')}</p>
         </div>
 
         {routeSVG ? (
@@ -1234,18 +1237,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             )}
           </div>
         </div>
-
-        {/* Coach preparing toast — sits above bottom controls bar */}
-        {isBufferingAudio && (
-          <div className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none" style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 140px)' }}>
-            <div className="flex items-center gap-2 bg-black/70 backdrop-blur-xl rounded-full px-5 py-2.5 border border-white/10">
-              <Loader2 size={13} className="text-[#233DFF] animate-spin flex-shrink-0" />
-              <span className="text-xs font-semibold text-white/80 tracking-wide">
-                {lang === 'es' ? 'Preparando tu guía...' : 'Preparing your coach...'}
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Bottom Controls */}
         <div
