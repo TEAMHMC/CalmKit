@@ -8,7 +8,42 @@ import {
 } from 'lucide-react';
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio } from '../audioManager';
 
-declare const L: any;
+declare const google: any;
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#5f6368' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#1c2526' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#0f0f0f' }] },
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c1c2e' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a0a' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#3d3d3d' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1a1a40' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a1a' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#0f0f0f' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#050a14' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1a2a3a' }] },
+];
+
+let _mapsApiPromise: Promise<void> | null = null;
+const ensureGoogleMaps = (): Promise<void> => {
+  if ((window as any).google?.maps) return Promise.resolve();
+  if (_mapsApiPromise) return _mapsApiPromise;
+  _mapsApiPromise = new Promise((resolve, reject) => {
+    const key = process.env.GOOGLE_MAPS_API_KEY || '';
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry`;
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Google Maps failed to load'));
+    document.head.appendChild(s);
+  });
+  return _mapsApiPromise;
+};
 
 const MODES: { id: EchoPersona; label: string; desc: string; voice: string; tone: string }[] = [
   { id: 'HOPE', label: 'Hope', desc: 'Safety & Self-Compassion', voice: 'Orus', tone: 'blue' },
@@ -193,16 +228,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
           // Update map marker if rendered
           if (mapRef.current && markerRef.current) {
-            markerRef.current.setLatLng(newLoc);
+            const gmPos = { lat: newLoc[0], lng: newLoc[1] };
+            markerRef.current.setPosition(gmPos);
             if (!sessionGpsAcquiredRef.current) {
-              // First real fix during session — make marker visible and fly to actual location
+              // First real fix during session — place marker on map and fly to actual location
               sessionGpsAcquiredRef.current = true;
               setSessionGpsAcquired(true);
-              if (!markerRef.current._map) markerRef.current.addTo(mapRef.current);
-              markerRef.current.setOpacity(1);
-              mapRef.current.setView(newLoc, 16, { animate: true });
+              markerRef.current.setMap(mapRef.current);
+              mapRef.current.setCenter(gmPos);
+              mapRef.current.setZoom(16);
             } else if (!isPausedRef.current) {
-              mapRef.current.panTo(newLoc, { animate: true });
+              mapRef.current.panTo(gmPos);
             }
           }
           // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
@@ -218,7 +254,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               // 0.0005 mi ≈ 2.6 ft minimum movement; filter spikes > 0.05 mi (264 ft) as GPS noise
               if (dist > 0.0005 && dist < 0.05) {
                 pathCoordsRef.current.push(newLoc);
-                if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
+                if (pathRef.current) pathRef.current.setPath(pathCoordsRef.current.map(([lat, lng]: [number, number]) => ({ lat, lng })));
                 lastPositionRef.current = newLoc;
                 lastGPSMovementRef.current = Date.now();
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
@@ -753,126 +789,163 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
   };
 
-  // ── Nominatim Destination Search ──
-  const fetchSuggestions = async (q: string) => {
+  // ── Google Places Destination Search ──
+  const fetchSuggestions = (q: string) => {
     if (q.length < 3) { setSuggestions([]); return; }
-    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1&countrycodes=us`;
-    if (userLocation) {
-      const [lat, lon] = userLocation;
-      url += `&lat=${lat}&lon=${lon}&viewbox=${lon - 0.15},${lat + 0.15},${lon + 0.15},${lat - 0.15}&bounded=1`;
-    }
-    try {
-      const res = await fetch(url, { headers: { 'User-Agent': 'CalmKit/1.0 (healthmatters.clinic)' } });
-      const data = await res.json();
-      setSuggestions(data);
-    } catch (e) {
-      setSuggestions([]);
-    }
+    ensureGoogleMaps().then(() => {
+      const svc = new google.maps.places.AutocompleteService();
+      const opts: any = {
+        input: q,
+        types: ['establishment', 'geocode'],
+      };
+      if (userLocation) {
+        opts.locationBias = new google.maps.Circle({
+          center: { lat: userLocation[0], lng: userLocation[1] },
+          radius: 16000,
+        });
+      }
+      svc.getPlacePredictions(opts, (predictions: any[], status: string) => {
+        if (status === 'OK' && predictions) setSuggestions(predictions);
+        else setSuggestions([]);
+      });
+    }).catch(() => setSuggestions([]));
   };
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 600);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 400);
   };
 
   const selectSuggestion = (s: any) => {
-    const name = s.display_name.split(',')[0];
-    setDestinationName(name);
-    setDestinationCoords([parseFloat(s.lat), parseFloat(s.lon)]);
+    const name = s.structured_formatting?.main_text || s.description.split(',')[0];
     setSearchQuery(name);
     setSuggestions([]);
+    ensureGoogleMaps().then(() => {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ placeId: s.place_id }, (results: any[], status: string) => {
+        if (status === 'OK' && results[0]) {
+          const loc = results[0].geometry.location;
+          setDestinationName(name);
+          setDestinationCoords([loc.lat(), loc.lng()]);
+        }
+      });
+    });
   };
 
   // ── Map (Ghost Mode) ──
   useEffect(() => {
     if (!isPlaying || !mapContainerRef.current || mapRef.current) {
       if (!isPlaying && mapRef.current) {
-        mapRef.current.remove();
+        // Clean up Google Maps resources
+        if (markerRef.current) { markerRef.current.setMap(null); markerRef.current = null; }
+        if (destinationMarkerRef.current) { destinationMarkerRef.current.setMap(null); destinationMarkerRef.current = null; }
+        if (pathRef.current) { pathRef.current.setMap(null); pathRef.current = null; }
         mapRef.current = null;
-        markerRef.current = null;
-        startMarkerRef.current = null;
-        destinationMarkerRef.current = null;
-        pathRef.current = null;
       }
       return;
     }
 
     const container = mapContainerRef.current;
-    // If no GPS yet, start at a zoomed-out US view — the first real GPS fix will fly to
-    // the actual location. Never plant the dot at LA as a fake "current location".
     const hasLocation = !!userLocation;
-    const initialLoc: [number, number] = hasLocation ? userLocation! : [39.5, -98.35];
+    const initialCenter = hasLocation
+      ? { lat: userLocation![0], lng: userLocation![1] }
+      : { lat: 39.5, lng: -98.35 };
     const initialZoom = hasLocation ? 16 : 4;
     const capturedDest = destinationCoords;
 
-    // Double RAF: guarantees layout is complete so Leaflet reads real pixel dimensions
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!container || mapRef.current) return;
+    let cancelled = false;
 
-        mapRef.current = L.map(container, {
-          zoomControl: false,
-          attributionControl: false,
-          dragging: true,
-          touchZoom: true,
-          scrollWheelZoom: false,
-          doubleClickZoom: false
-        }).setView(initialLoc, initialZoom);
+    ensureGoogleMaps().then(() => {
+      if (cancelled || !container || mapRef.current) return;
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-          subdomains: 'abcd',
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap &copy; CartoDB'
-        }).addTo(mapRef.current);
-
-        mapRef.current.invalidateSize();
-
-        // Neon polyline for walked path
-        pathRef.current = L.polyline([], {
-          color: '#233DFF',
-          weight: 8,
-          opacity: 0.95,
-          lineJoin: 'round',
-          className: 'glowing-path'
-        }).addTo(mapRef.current);
-
-        // Only place the user marker if we have a real GPS fix — never at a fake location
-        const icon = L.divIcon({
-          className: 'user-marker',
-          html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
-        });
-        if (hasLocation) {
-          markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
-        } else {
-          // Create marker off-screen — GPS callback will move it to real location
-          markerRef.current = L.marker([0, 0], { icon, opacity: 0 });
-        }
-
-        // Show destination pin if user selected one
-        if (capturedDest) {
-          const destIcon = L.divIcon({
-            className: '',
-            html: `<div style="width:20px;height:20px;background:#233DFF;border-radius:50%;border:3px solid white;box-shadow:0 0 16px #233DFF"></div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-          });
-          destinationMarkerRef.current = L.marker([capturedDest[0], capturedDest[1]], { icon: destIcon }).addTo(mapRef.current);
-        }
+      mapRef.current = new google.maps.Map(container, {
+        center: initialCenter,
+        zoom: initialZoom,
+        disableDefaultUI: true,
+        gestureHandling: 'greedy',
+        styles: DARK_MAP_STYLE,
       });
-    });
+
+      // Neon blue route polyline
+      pathRef.current = new google.maps.Polyline({
+        map: mapRef.current,
+        path: [],
+        strokeColor: '#233DFF',
+        strokeWeight: 6,
+        strokeOpacity: 0.95,
+      });
+
+      // Pulsing user position marker (SVG with animation)
+      const makeUserIcon = () => ({
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48">
+            <circle cx="24" cy="24" r="20" fill="rgba(35,61,255,0.2)">
+              <animate attributeName="r" values="14;22;14" dur="2s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="24" cy="24" r="12" fill="#233DFF" stroke="white" stroke-width="3" filter="url(#glow)"/>
+            <defs>
+              <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+          </svg>`
+        ),
+        scaledSize: new google.maps.Size(48, 48),
+        anchor: new google.maps.Point(24, 24),
+      });
+
+      if (hasLocation) {
+        markerRef.current = new google.maps.Marker({
+          map: mapRef.current,
+          position: initialCenter,
+          icon: makeUserIcon(),
+          optimized: false,
+        });
+      } else {
+        // Create marker off-screen, invisible — GPS callback will place it
+        markerRef.current = new google.maps.Marker({
+          position: { lat: 0, lng: 0 },
+          icon: makeUserIcon(),
+          optimized: false,
+        });
+      }
+
+      // Destination pin
+      if (capturedDest) {
+        destinationMarkerRef.current = new google.maps.Marker({
+          map: mapRef.current,
+          position: { lat: capturedDest[0], lng: capturedDest[1] },
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+              `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <circle cx="10" cy="10" r="8" fill="#233DFF" stroke="white" stroke-width="2"/>
+              </svg>`
+            ),
+            scaledSize: new google.maps.Size(20, 20),
+            anchor: new google.maps.Point(10, 10),
+          },
+        });
+      }
+
+      // If GPS fix already arrived before map init, snap to real location now
+      if (userLocation && markerRef.current) {
+        const pos = { lat: userLocation[0], lng: userLocation[1] };
+        markerRef.current.setPosition(pos);
+        markerRef.current.setMap(mapRef.current);
+        mapRef.current.setCenter(pos);
+        mapRef.current.setZoom(16);
+        sessionGpsAcquiredRef.current = true;
+        setSessionGpsAcquired(true);
+      }
+    }).catch(e => console.warn('Google Maps init failed:', e));
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
-        startMarkerRef.current = null;
-        destinationMarkerRef.current = null;
-        pathRef.current = null;
-      }
+      cancelled = true;
+      if (markerRef.current) { markerRef.current.setMap(null); markerRef.current = null; }
+      if (destinationMarkerRef.current) { destinationMarkerRef.current.setMap(null); destinationMarkerRef.current = null; }
+      if (pathRef.current) { pathRef.current.setMap(null); pathRef.current = null; }
+      mapRef.current = null;
     };
   }, [isPlaying]);
 
@@ -1090,14 +1163,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     stopAmbience();
     if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    // Explicitly remove Leaflet map before showing summary — prevents marker from floating detached
-    if (mapRef.current) {
-      try { mapRef.current.remove(); } catch(e) {}
-      mapRef.current = null;
-      markerRef.current = null;
-      startMarkerRef.current = null;
-      pathRef.current = null;
-    }
+    // Clean up Google Maps before showing summary
+    if (markerRef.current) { try { markerRef.current.setMap(null); } catch(e) {} markerRef.current = null; }
+    if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(e) {} destinationMarkerRef.current = null; }
+    if (pathRef.current) { try { pathRef.current.setMap(null); } catch(e) {} pathRef.current = null; }
+    mapRef.current = null;
+    startMarkerRef.current = null;
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
     audioCtxRef.current = null;
