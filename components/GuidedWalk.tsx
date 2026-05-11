@@ -146,15 +146,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
 
           const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setGpsAccuracy(pos.coords.accuracy);
+          const accuracy = pos.coords.accuracy;
 
-          // Only accept as valid starting location once GPS is accurate enough (≤150m).
-          // Cell-tower fixes can be 1-2km off and corrupt the entire route.
-          if (pos.coords.accuracy <= 150) {
-            setUserLocation(newLoc);
-            setGpsLoading(false);
-            if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
-          }
+          // Always update location — map shows where you are immediately.
+          // Cell-tower accuracy is filtered below in path tracking, not here.
+          setUserLocation(newLoc);
+          setGpsAccuracy(accuracy);
+          setGpsLoading(false);
+          if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
 
           // Capture altitude for uphill/downhill detection
           if (pos.coords.altitude !== null) {
@@ -178,8 +177,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               mapRef.current.panTo(newLoc, { animate: true });
             }
           }
-          // Track path independently of map rendering — works as soon as session starts
-          if (isNarratingRef.current && !isPausedRef.current) {
+          // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
+          // route because the spike filter then rejects every real GPS update as too far.
+          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 100) {
             const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
             if (last) {
               const R = 3958.8;
@@ -833,7 +833,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             markerRef.current.setLatLng(newLoc);
             if (!isPausedRef.current) mapRef.current.panTo(newLoc, { animate: true });
           }
-          if (isNarratingRef.current && !isPausedRef.current) {
+          if (isNarratingRef.current && !isPausedRef.current && pos.coords.accuracy <= 100) {
             const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
             if (last) {
               const R = 3958.8;
@@ -864,14 +864,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const _g = (window as any).gtag;
     if (_g) _g('event', 'calmkit_walk_start', { mode, session_type: effectiveSessionType, destination: destinationName || 'none', lang });
 
-    // Seed path AFTER isNarratingRef is set — prevents race where watchPosition fires before session starts
-    if (!isIndoor && userLocation) {
-      pathCoordsRef.current = [userLocation];
-      lastPositionRef.current = userLocation;
-    } else {
-      pathCoordsRef.current = [];
-      lastPositionRef.current = null;
-    }
+    // Always start with empty path — let the first accurate GPS update (≤100m) during
+    // the session seed it. Seeding from a pre-session fix risks using a cell-tower position
+    // that's miles off, which then breaks the spike filter for every real GPS update.
+    pathCoordsRef.current = [];
+    lastPositionRef.current = null;
     const now = Date.now();
     startTimeRef.current = now;
     pausedDurationRef.current = 0;
@@ -1441,20 +1438,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         {/* Go Button — outside scroll container, always visible above tab bar */}
         <button
           onClick={handleStart}
-          disabled={sessionType === 'OUTDOOR' && gpsLoading}
-          className={`w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3 ${sessionType === 'OUTDOOR' && gpsLoading ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
+          className="w-full rounded-full bg-[#233DFF] text-white border border-[#233DFF] font-normal h-16 text-base shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 flex-shrink-0 mt-3"
         >
-          {sessionType === 'OUTDOOR' && gpsLoading ? (
-            <>
-              <Loader2 size={20} className="animate-spin" />
-              <span>{lang === 'es' ? 'Obteniendo GPS...' : 'Acquiring GPS...'}</span>
-            </>
-          ) : (
-            <>
-              <Play size={20} fill="currentColor" />
-              <span>{lang === 'es' ? 'IR' : 'GO'}</span>
-            </>
-          )}
+          <Play size={20} fill="currentColor" />
+          <span>{lang === 'es' ? 'IR' : 'GO'}</span>
         </button>
         </>
       )}
