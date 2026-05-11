@@ -44,6 +44,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [sessionType, setSessionType] = useState<SessionType>('OUTDOOR');
   const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
   const [showSummary, setShowSummary] = useState(false);
+  const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
+  const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
   const [finalPath, setFinalPath] = useState<[number, number][]>([]);
   const [envData, setEnvData] = useState<{
@@ -172,7 +174,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           // Update map marker if rendered
           if (mapRef.current && markerRef.current) {
             markerRef.current.setLatLng(newLoc);
-            if (!isPausedRef.current) {
+            if (!sessionGpsAcquiredRef.current) {
+              // First real fix during session — make marker visible and fly to actual location
+              sessionGpsAcquiredRef.current = true;
+              setSessionGpsAcquired(true);
+              if (!markerRef.current._map) markerRef.current.addTo(mapRef.current);
+              markerRef.current.setOpacity(1);
+              mapRef.current.setView(newLoc, 16, { animate: true });
+            } else if (!isPausedRef.current) {
               mapRef.current.panTo(newLoc, { animate: true });
             }
           }
@@ -770,7 +779,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
 
     const container = mapContainerRef.current;
-    const initialLoc = userLocation || [34.05, -118.24];
+    // If no GPS yet, start at a zoomed-out US view — the first real GPS fix will fly to
+    // the actual location. Never plant the dot at LA as a fake "current location".
+    const hasLocation = !!userLocation;
+    const initialLoc: [number, number] = hasLocation ? userLocation! : [39.5, -98.35];
+    const initialZoom = hasLocation ? 16 : 4;
     const capturedDest = destinationCoords;
 
     // Double RAF: guarantees layout is complete so Leaflet reads real pixel dimensions
@@ -785,7 +798,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           touchZoom: true,
           scrollWheelZoom: false,
           doubleClickZoom: false
-        }).setView(initialLoc, 16);
+        }).setView(initialLoc, initialZoom);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
           subdomains: 'abcd',
@@ -804,16 +817,21 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           className: 'glowing-path'
         }).addTo(mapRef.current);
 
-        // Create neon marker immediately at current location
+        // Only place the user marker if we have a real GPS fix — never at a fake location
         const icon = L.divIcon({
           className: 'user-marker',
           html: `<div class="relative w-12 h-12 flex items-center justify-center"><div class="absolute inset-0 bg-[#233DFF]/25 rounded-full animate-ping"></div><div class="w-6 h-6 bg-[#233DFF] rounded-full border-[3px] border-white shadow-[0_0_20px_#233DFF]"></div></div>`,
           iconSize: [48, 48],
           iconAnchor: [24, 24]
         });
-        markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
+        if (hasLocation) {
+          markerRef.current = L.marker(initialLoc, { icon }).addTo(mapRef.current);
+        } else {
+          // Create marker off-screen — GPS callback will move it to real location
+          markerRef.current = L.marker([0, 0], { icon, opacity: 0 });
+        }
 
-        // Show destination pin if user selected one — static blue dot (no ping) to distinguish from moving position
+        // Show destination pin if user selected one
         if (capturedDest) {
           const destIcon = L.divIcon({
             className: '',
@@ -822,12 +840,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             iconAnchor: [10, 10]
           });
           destinationMarkerRef.current = L.marker([capturedDest[0], capturedDest[1]], { icon: destIcon }).addTo(mapRef.current);
-        }
-
-        // If a real GPS fix arrived before the map finished init, move the marker now
-        if (userLocation && markerRef.current) {
-          markerRef.current.setLatLng(userLocation);
-          mapRef.current.setView(userLocation, 16);
         }
       });
     });
@@ -868,44 +880,18 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     startKeepAlive();
     await sharedRequestWakeLock();
 
-    // Restart GPS watch if a previous session cleared it
-    if (watchIdRef.current === null && navigator.geolocation) {
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          const ageMs = Date.now() - pos.timestamp;
-          if (ageMs > 300000) return;
-          const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setUserLocation(newLoc);
-          setGpsAccuracy(pos.coords.accuracy);
-          if (mapRef.current && markerRef.current) {
-            markerRef.current.setLatLng(newLoc);
-            if (!isPausedRef.current) mapRef.current.panTo(newLoc, { animate: true });
-          }
-          if (isNarratingRef.current && !isPausedRef.current && pos.coords.accuracy <= 100) {
-            const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
-            if (last) {
-              const R = 3958.8;
-              const dLat = (newLoc[0] - last[0]) * Math.PI / 180;
-              const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
-              const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
-              const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              if (dist > 0.0005 && dist < 0.05) {
-                pathCoordsRef.current.push(newLoc);
-                if (pathRef.current) pathRef.current.setLatLngs(pathCoordsRef.current);
-                lastPositionRef.current = newLoc;
-                lastGPSMovementRef.current = Date.now();
-                setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
-              }
-            } else {
-              pathCoordsRef.current.push(newLoc);
-              lastPositionRef.current = newLoc;
-            }
-          }
-        },
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 5000 }
-      );
+    // Reset per-session GPS state
+    sessionGpsAcquiredRef.current = false;
+    setSessionGpsAcquired(false);
+
+    // For outdoor: request location on the GO gesture — this is what triggers the iOS
+    // native permission prompt. If already granted, resolves instantly.
+    if (!isIndoor && !userLocation && navigator.geolocation) {
+      await requestGpsPermission();
     }
+
+    // Restart GPS watch if a previous session cleared it
+    startGpsWatch();
 
     isNarratingRef.current = true;
     setIsPlaying(true);
@@ -1247,6 +1233,21 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           );
         })()}
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/65 pointer-events-none z-[1]" />
+
+        {/* Finding location overlay — shown until first real GPS fix */}
+        {sessionType === 'OUTDOOR' && !sessionGpsAcquired && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+            <div className="bg-black/75 backdrop-blur-xl rounded-3xl px-8 py-6 flex flex-col items-center gap-3 border border-white/10 mx-8">
+              <Loader2 size={28} className="text-[#233DFF] animate-spin" />
+              <p className="text-white font-medium text-sm text-center">
+                {lang === 'es' ? 'Encontrando tu ubicación...' : 'Finding your location...'}
+              </p>
+              <p className="text-white/40 text-xs text-center">
+                {lang === 'es' ? 'Tu sesión ya comenzó' : 'Your session has started'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* MILES — large card, upper center */}
         {sessionType === 'OUTDOOR' && (
