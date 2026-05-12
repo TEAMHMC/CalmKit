@@ -168,6 +168,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => { envDataRef.current = envData; }, [envData]);
   useEffect(() => { narrationFreqRef.current = narrationFreq; }, [narrationFreq]);
 
+  // Notify App.tsx when immersive mode (active walk, no summary) starts or ends
+  useEffect(() => {
+    onImmersiveChange?.(isPlaying && !showSummary);
+    return () => onImmersiveChange?.(false);
+  }, [isPlaying, showSummary, onImmersiveChange]);
+
   // Pre-warm: generate intro text AND pre-fetch TTS audio bytes on step 1.
   // By GO time the audio is already decoded — coach plays in < 200ms.
   useEffect(() => {
@@ -875,8 +881,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const hasLocation = !!userLocation;
     const initialCenter = hasLocation
       ? { lat: userLocation![0], lng: userLocation![1] }
-      : { lat: 39.5, lng: -98.35 };
-    const initialZoom = hasLocation ? 16 : 4;
+      : { lat: 33.9617, lng: -118.3531 };
+    const initialZoom = hasLocation ? 16 : 13;
     const capturedDest = destinationCoords;
 
     let cancelled = false;
@@ -1386,15 +1392,18 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 {lang === 'es' ? 'Encontrando tu ubicación...' : 'Finding your location...'}
               </p>
               <p className="text-white/40 text-xs text-center">
-                {lang === 'es' ? 'Tu sesión ya comenzó' : 'Your session has started'}
+                {gpsAccuracy !== null && gpsAccuracy > 100
+                  ? (lang === 'es' ? 'Poca precisión — sal al exterior para mejor seguimiento' : 'Low accuracy — move outdoors for better tracking')
+                  : (lang === 'es' ? 'Tu sesión ya comenzó' : 'Your session has started')}
               </p>
             </div>
           </div>
         )}
 
-        {/* MILES — large card, upper center */}
-        {sessionType === 'OUTDOOR' && (
-          <div className="absolute top-5 left-5 right-5 z-20 pointer-events-none">
+        {/* Top HUD — distance card + stat pill stacked */}
+        <div className="absolute top-5 left-5 right-5 z-20 pointer-events-none flex flex-col gap-3">
+          {/* MILES — large card, outdoor only */}
+          {sessionType === 'OUTDOOR' && (
             <div className="bg-black/55 backdrop-blur-xl rounded-[28px] px-8 py-7 flex flex-col items-center border border-white/5 shadow-2xl">
               <span className="text-[80px] font-black text-white tabular-nums leading-none tracking-tighter">
                 {sessionStats.distance.toFixed(2)}
@@ -1403,11 +1412,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 {t.labels.miles}
               </span>
             </div>
-          </div>
-        )}
-
-        {/* TIME + PACE — combined pill */}
-        <div className={`absolute ${sessionType === 'OUTDOOR' ? 'top-[222px]' : 'top-5'} left-5 right-5 z-20 pointer-events-none`}>
+          )}
+          {/* TIME + PACE pill */}
           <div className="bg-black/55 backdrop-blur-xl rounded-full px-8 py-4 flex items-center justify-center gap-4 border border-white/5">
             <Clock size={17} className="text-[#233DFF] flex-shrink-0" />
             <span className="text-xl font-bold text-white tabular-nums">{timeStr}</span>
@@ -1430,7 +1436,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         {/* Bottom Controls */}
         <div
           className="absolute bottom-0 left-0 right-0 px-3 z-20 pointer-events-auto"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)', paddingTop: 16 }}
+          style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 28px)', paddingTop: 16 }}
         >
           <div className="bg-black/60 backdrop-blur-xl rounded-[28px] py-4 px-5 flex items-center justify-between gap-4 border border-white/10">
             <button
