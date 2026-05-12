@@ -1,4 +1,4 @@
-# Deploy: gcloud builds submit --config cloudbuild.yaml --substitutions=_GEMINI_API_KEY="your-key"
+# Deploy: gcloud builds submit --config cloudbuild.yaml --substitutions=_GEMINI_API_KEY="your-key",_GOOGLE_MAPS_API_KEY="your-maps-key"
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -32,9 +32,12 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+      - '--set-env-vars'
+      - 'GOOGLE_MAPS_API_KEY=$_GOOGLE_MAPS_API_KEY'
 
 substitutions:
   _GEMINI_API_KEY: ''
+  _GOOGLE_MAPS_API_KEY: ''
 
 images:
   - 'gcr.io/$PROJECT_ID/hmc-calmkit:$COMMIT_SHA'
