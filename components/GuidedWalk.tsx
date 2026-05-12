@@ -1207,8 +1207,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
     audioCtxRef.current = null;
-    // Go straight back to the app — don't show summary screen
-    onBack();
+    setIsPlaying(false);
+    setIsPaused(false);
+    // Snapshot the walked path and stats before showing summary
+    setFinalPath([...pathCoordsRef.current]);
+    setFinalStats({ ...sessionStats });
+    setShowSummary(true);
   };
 
   const togglePause = () => {
