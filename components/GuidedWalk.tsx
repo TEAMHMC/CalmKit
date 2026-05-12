@@ -11,20 +11,20 @@ import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, re
 declare const google: any;
 
 const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#5f6368' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#1c2526' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#0f0f0f' }] },
+  { elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1f2e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8fa8' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2c3347' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1f2535' }] },
   { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c1c2e' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#3d3d3d' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1a1a40' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a1a' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#0f0f0f' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#050a14' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e3450' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1f2e' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#233dff' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1a2acc' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1f2535' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1520' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1a2a3a' }] },
 ];
 
@@ -1381,7 +1381,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             </div>
           );
         })()}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/65 pointer-events-none z-[1]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/50 pointer-events-none z-[1]" />
 
         {/* Finding location overlay — shown until first real GPS fix */}
         {sessionType === 'OUTDOOR' && !sessionGpsAcquired && (
