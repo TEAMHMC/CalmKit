@@ -11,21 +11,21 @@ import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, re
 declare const google: any;
 
 const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#4a4a5a' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a2a' }] },
-  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#111118' }] },
+  { elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1f2e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8fa8' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2c3347' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1f2535' }] },
   { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a0a' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#4a4a5a' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e3450' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1f2e' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
   { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#233dff' }] },
   { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1a2acc' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#0f0f18' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#050510' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#0a0a1a' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1f2535' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1520' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1a2a3a' }] },
 ];
 
 let _mapsApiPromise: Promise<void> | null = null;
