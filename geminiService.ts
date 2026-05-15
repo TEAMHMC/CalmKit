@@ -2,7 +2,8 @@
 import { Language, EchoPersona, ActivityType } from "./types";
 
 // Backend proxy, used when available; rich local library is always the fallback
-const PROXY_URL = 'https://volunteer.healthmatters.clinic/api/calmkit';
+const PROXY_URL = (typeof window !== 'undefined' && (window as any).CALMKIT_PROXY_URL)
+  || 'https://volunteer.healthmatters.clinic/api/calmkit';
 
 const proxyCall = async (endpoint: string, body: Record<string, any>): Promise<any> => {
   const res = await fetch(`${PROXY_URL}/${endpoint}`, {
