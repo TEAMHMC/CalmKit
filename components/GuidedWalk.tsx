@@ -21,8 +21,8 @@ const DARK_MAP_STYLE = [
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e3450' }] },
   { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1f2e' }] },
   { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6b7280' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#233dff' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1a2acc' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a4568' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#252e4a' }] },
   { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1f2535' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1520' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1a2a3a' }] },
@@ -292,7 +292,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
           // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
           // route because the spike filter then rejects every real GPS update as too far.
-          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 20) {
+          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 50) {
             const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
             if (last) {
               const R = 3958.8;
