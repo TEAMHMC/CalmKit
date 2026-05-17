@@ -99,6 +99,13 @@ function clearMediaSession(): void {
   } catch (_) {}
 }
 
+export function updateMediaSessionMetadata(title: string, artist: string): void {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: 'CalmKit' });
+  } catch (_) {}
+}
+
 // ---------------------------------------------------------------------------
 // AudioContext health check — every 5 s, resume if suspended
 // ---------------------------------------------------------------------------

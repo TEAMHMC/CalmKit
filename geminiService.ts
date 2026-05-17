@@ -697,6 +697,7 @@ export const generateSegmentNarrative = async (params: {
   elevationGain?: number;
   elevationDelta?: number;
   speed?: number;
+  coachingHistory?: string[];
 }) => {
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
@@ -725,6 +726,7 @@ export const generateSegmentNarrative = async (params: {
       ...(params.elevationGain !== undefined && params.elevationGain > 0 && { elevationGain: Math.round(params.elevationGain) }),
       ...(params.elevationDelta !== undefined && { elevationDelta: Math.round(params.elevationDelta) }),
       ...(params.speed !== undefined && params.speed > 0 && { speed: params.speed }),
+      ...(params.coachingHistory?.length && { coachingHistory: params.coachingHistory }),
     });
     if (params.isIntro && data.preStartIntro) return data.preStartIntro;
     // For mid-walk segments, extract coaching content from the structured narrative

@@ -6,7 +6,7 @@ import { generateSegmentNarrative } from '../geminiService';
 import {
   Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap
 } from 'lucide-react';
-import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio } from '../audioManager';
+import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio, updateMediaSessionMetadata } from '../audioManager';
 
 declare const google: any;
 
@@ -99,6 +99,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [sessionType, setSessionType] = useState<SessionType>('OUTDOOR');
   const [indoorActivity, setIndoorActivity] = useState<IndoorActivity>('STRETCH');
   const [showSummary, setShowSummary] = useState(false);
+  const [lastSpokenText, setLastSpokenText] = useState('');
+  const [isCheckInLoading, setIsCheckInLoading] = useState(false);
+  const [displaySpeedMph, setDisplaySpeedMph] = useState<number | null>(null);
   const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
   const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
@@ -154,6 +157,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const preloadKeyRef = useRef<string>('');
   // Inactivity auto-stop: timestamp of last recorded GPS movement
   const lastGPSMovementRef = useRef<number>(Date.now());
+  const coachingHistoryRef = useRef<string[]>([]);
+  const isCheckInLoadingRef = useRef(false);
 
   const t = translations[lang];
 
@@ -217,6 +222,20 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     return () => { cancelled = true; };
   }, [step, mode, lang, sessionType, indoorActivity]);
 
+  // Wrapper that calls generateSegmentNarrative, injects coaching history to prevent
+  // repetition, then tracks the returned text so future segments stay fresh.
+  const genAndTrack = useCallback(async (params: Parameters<typeof generateSegmentNarrative>[0]) => {
+    const text = await generateSegmentNarrative({
+      ...params,
+      coachingHistory: coachingHistoryRef.current.slice(-8),
+    });
+    if (text) {
+      coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10);
+      setLastSpokenText(text);
+    }
+    return text;
+  }, []);
+
   // GPS watch callback — shared by mount watch and requestGpsPermission
   const startGpsWatch = () => {
     if (watchIdRef.current !== null) return; // already watching
@@ -254,6 +273,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           // Capture speed (m/s → mph)
           if (pos.coords.speed !== null && pos.coords.speed >= 0) {
             currentSpeedRef.current = pos.coords.speed * 2.237;
+            setDisplaySpeedMph(pos.coords.speed * 2.237);
           }
 
           // Clear the "Finding your location" overlay as soon as ANY position arrives —
@@ -272,7 +292,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
           // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
           // route because the spike filter then rejects every real GPS update as too far.
-          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 100) {
+          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 20) {
             const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
             if (last) {
               const R = 3958.8;
@@ -403,7 +423,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         segmentCounterRef.current++;
         const isIntro = !fallbackIntroPlayedRef.current;
         fallbackIntroPlayedRef.current = true;
-        const segment = await generateSegmentNarrative({
+        const segment = await genAndTrack({
           mode,
           activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
           lang,
@@ -462,8 +482,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             if (!isNarratingRef.current) return;
             isReturningRef.current = true;
             const stats = sessionStatsRef.current;
-            const seg = await generateSegmentNarrative({
-              mode, activity: 'WALK', lang, stats,
+            const seg = await genAndTrack({
+              mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK', lang, stats,
               isIntro: false, isFirstSegment: false, isReturning: true,
               segmentNumber: segmentCounterRef.current,
               indoorActivity: indoorActivityRef.current || undefined,
@@ -492,7 +512,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current) {
         (async () => {
           const stats = sessionStatsRef.current;
-          const seg = await generateSegmentNarrative({
+          const seg = await genAndTrack({
             mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK', lang, stats,
             isIntro: false, isFirstSegment: false,
             segmentNumber: segmentCounterRef.current,
@@ -977,6 +997,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     // Reset all session state so a second session starts clean
     setSessionStats({ distance: 0, time: 0, pace: '0:00' });
+    coachingHistoryRef.current = [];
+    setLastSpokenText('');
+    setDisplaySpeedMph(null);
     audioBufferQueue.current = [];
     narrativeDataRef.current = null;
     narrativeSegmentIndexRef.current = 0;
@@ -987,6 +1010,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     closingPlayedRef.current = false;
 
     startKeepAlive();
+    updateMediaSessionMetadata(
+      `CalmKit — ${MODES.find(m => m.id === mode)?.label || 'Guided Session'}`,
+      sessionType === 'INDOOR'
+        ? (indoorActivity === 'SWEAT' ? 'Strength Session' : indoorActivity === 'FLOW' ? 'Flow Session' : 'Stretch Session')
+        : 'Guided Walk'
+    );
     await sharedRequestWakeLock();
 
     // Reset per-session GPS state
@@ -1036,6 +1065,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     pausedDurationRef.current = 0;
     pauseStartRef.current = null;
 
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = setInterval(() => {
       if (isPausedRef.current) return;
       setSessionStats(prev => {
@@ -1105,8 +1135,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         if (hasPreloadedAudio && audioCtxRef.current) {
           // Fast path: TTS was pre-fetched on step 1 — decode in < 100ms, no network round-trip
           const base64 = preloadedIntroBase64Ref.current!;
+          const preloadedText = preloadedIntroTextRef.current;
           preloadedIntroBase64Ref.current = null;
           preloadedIntroTextRef.current = null;
+          if (preloadedText) {
+            coachingHistoryRef.current = [preloadedText];
+            setLastSpokenText(preloadedText);
+          }
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -1121,9 +1156,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           narrationLoop();
         } else {
           // Slow path: text may be pre-warmed but audio still needs a TTS fetch
-          let seg = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current)
-            ? preloadedIntroTextRef.current
-            : await generateSegmentNarrative({
+          const preloadedText = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current) ? preloadedIntroTextRef.current : null;
+          let seg = preloadedText
+            ? preloadedText
+            : await genAndTrack({
                 mode,
                 activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
                 lang, stats: sessionStatsRef.current,
@@ -1133,6 +1169,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
                 userLat: userLocation?.[0], userLng: userLocation?.[1],
               });
+          if (preloadedText) {
+            coachingHistoryRef.current = [preloadedText];
+            setLastSpokenText(preloadedText);
+          }
           preloadedIntroTextRef.current = null;
           preloadedIntroBase64Ref.current = null;
           if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
@@ -1209,11 +1249,43 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     audioCtxRef.current = null;
     setIsPlaying(false);
     setIsPaused(false);
-    // Snapshot the walked path and stats before showing summary
-    setFinalPath([...pathCoordsRef.current]);
-    setFinalStats({ ...sessionStats });
-    setShowSummary(true);
+    onBack();
   };
+
+  const requestCheckIn = useCallback(async () => {
+    if (!isNarratingRef.current || isPausedRef.current || isCheckInLoadingRef.current) return;
+    isCheckInLoadingRef.current = true;
+    setIsCheckInLoading(true);
+    try {
+      if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch (_) {} currentSourceRef.current = null; }
+      if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
+      audioBufferQueue.current = [];
+      segmentCounterRef.current++;
+      const text = await genAndTrack({
+        mode,
+        activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+        lang,
+        stats: sessionStatsRef.current,
+        isIntro: false, isFirstSegment: false,
+        segmentNumber: segmentCounterRef.current,
+        indoorActivity: indoorActivityRef.current || undefined,
+        destinationName: destinationNameRef.current || undefined,
+        targetThought: targetThoughtRef.current || undefined,
+        ...envDataRef.current,
+        ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+        ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+        ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+      });
+      const buf = await speakText(text);
+      if (buf && isNarratingRef.current && !isPausedRef.current) {
+        audioBufferQueue.current = [buf];
+        narrationLoop();
+      }
+    } catch (_) {} finally {
+      isCheckInLoadingRef.current = false;
+      setIsCheckInLoading(false);
+    }
+  }, [mode, lang, sessionType]);
 
   const togglePause = () => {
     const newPaused = !isPaused;
@@ -1413,24 +1485,40 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               </span>
             </div>
           )}
-          {/* TIME + PACE pill */}
-          <div className="bg-black/55 backdrop-blur-xl rounded-full px-8 py-4 flex items-center justify-center gap-4 border border-white/5">
-            <Clock size={17} className="text-[#233DFF] flex-shrink-0" />
-            <span className="text-xl font-bold text-white tabular-nums">{timeStr}</span>
+          {/* TIME + PACE + SPEED pill */}
+          <div className="bg-black/55 backdrop-blur-xl rounded-full px-6 py-4 flex items-center justify-center gap-3 border border-white/5">
+            <Clock size={15} className="text-[#233DFF] flex-shrink-0" />
+            <span className="text-lg font-bold text-white tabular-nums">{timeStr}</span>
             {sessionType === 'OUTDOOR' && (
               <>
-                <div className="w-px h-5 bg-white/25 flex-shrink-0" />
-                <Zap size={17} className="text-[#233DFF] flex-shrink-0" fill="currentColor" />
-                <span className="text-xl font-bold text-white tabular-nums">{paceStr}</span>
+                <div className="w-px h-4 bg-white/25 flex-shrink-0" />
+                <Zap size={15} className="text-[#233DFF] flex-shrink-0" fill="currentColor" />
+                <span className="text-lg font-bold text-white tabular-nums">{paceStr}</span>
+                {displaySpeedMph !== null && displaySpeedMph > 0.1 && (
+                  <>
+                    <div className="w-px h-4 bg-white/25 flex-shrink-0" />
+                    <span className="text-lg font-bold text-white/70 tabular-nums">{displaySpeedMph.toFixed(1)}</span>
+                    <span className="text-[10px] font-medium text-white/40 -ml-1.5">mph</span>
+                  </>
+                )}
               </>
             )}
             {isBufferingAudio && (
               <>
-                <div className="w-px h-5 bg-white/25 flex-shrink-0" />
-                <Loader2 size={15} className="text-[#233DFF] animate-spin flex-shrink-0" />
+                <div className="w-px h-4 bg-white/25 flex-shrink-0" />
+                <Loader2 size={13} className="text-[#233DFF] animate-spin flex-shrink-0" />
               </>
             )}
           </div>
+
+          {/* Last spoken coaching text */}
+          {lastSpokenText ? (
+            <div className="bg-black/50 backdrop-blur-xl rounded-2xl px-4 py-3 border border-white/5">
+              <p className="text-white/65 text-[13px] font-normal italic leading-snug line-clamp-2">
+                "{lastSpokenText}"
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* Bottom Controls */}
@@ -1451,17 +1539,26 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             >
               {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
             </button>
-            <div className="flex-shrink-0 flex items-center justify-center" style={{ minWidth: 56 }}>
-              {(() => {
-                const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
-                return (
-                  <span style={{ color }}
-                    className="text-[8px] font-semibold tracking-normal uppercase whitespace-nowrap">
-                    {MODES.find(m => m.id === mode)?.label}
-                  </span>
-                );
-              })()}
-            </div>
+            {(() => {
+              const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
+              return (
+                <button
+                  onClick={requestCheckIn}
+                  disabled={isCheckInLoading || isPaused}
+                  className="flex-shrink-0 w-14 h-14 bg-white/5 rounded-full border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  {isCheckInLoading
+                    ? <Loader2 size={15} className="animate-spin" style={{ color }} />
+                    : <>
+                        <Zap size={15} style={{ color }} fill="currentColor" />
+                        <span style={{ color, fontSize: 7 }} className="font-semibold tracking-wide uppercase leading-none">
+                          {MODES.find(m => m.id === mode)?.label}
+                        </span>
+                      </>
+                  }
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
