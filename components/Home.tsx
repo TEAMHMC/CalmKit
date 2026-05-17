@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AppView, Language } from '../types';
 import { translations } from '../translations';
-import { RefreshCcw, Move, BookOpen, Zap, Wind, Sparkles } from 'lucide-react';
+import { RefreshCcw, Move, BookOpen, Zap, Wind, Sparkles, Activity } from 'lucide-react';
+import { getStreak, getWeekStats, getSessions } from '../sessionHistory';
 
 interface HomeProps {
   onSelectView: (view: AppView) => void;
@@ -60,6 +61,17 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   const lastAffirmationRef = React.useRef(affirmation);
   const t = translations[lang];
 
+  const [streak, setStreak] = useState(0);
+  const [weekStats, setWeekStats] = useState({ count: 0, totalMinutes: 0, totalMiles: 0 });
+  const [hasSessions, setHasSessions] = useState(false);
+
+  useEffect(() => {
+    const sessions = getSessions();
+    setHasSessions(sessions.length > 0);
+    setStreak(getStreak());
+    setWeekStats(getWeekStats());
+  }, []);
+
   const fetchAffirmation = () => {
     // Pick from the local pool instantly — guaranteed unique from the last one shown
     let next = getRandomDefault(lang);
@@ -87,6 +99,34 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
           {t.homeSubtitle}
         </p>
       </div>
+
+      {/* PROGRESS — only shown after first session */}
+      {hasSessions && (
+        <div className="flex-shrink-0 bg-white dark:bg-white/5 rounded-xl px-4 py-3 border border-black/5 dark:border-white/10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#233DFF]/10 flex items-center justify-center flex-shrink-0">
+              <Activity size={15} className="text-[#233DFF]" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-bold dark:text-white leading-none">
+                {streak > 0 ? `${streak}-day streak` : `${weekStats.count} session${weekStats.count !== 1 ? 's' : ''} this week`}
+              </span>
+              <span className="text-[9px] font-medium text-gray-400 mt-0.5">
+                {weekStats.totalMinutes}m · {weekStats.totalMiles}mi
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            {[1, 2, 3, 4, 5, 6, 7].map(d => (
+              <div
+                key={d}
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ background: d <= streak ? '#233DFF' : 'rgba(35,61,255,0.12)' }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AFFIRMATION */}
       <button

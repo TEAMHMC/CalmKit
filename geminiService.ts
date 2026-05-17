@@ -6,13 +6,20 @@ const PROXY_URL = (typeof window !== 'undefined' && (window as any).CALMKIT_PROX
   || 'https://volunteer.healthmatters.clinic/api/calmkit';
 
 const proxyCall = async (endpoint: string, body: Record<string, any>): Promise<any> => {
-  const res = await fetch(`${PROXY_URL}/${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Proxy ${endpoint} failed: ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000); // 10s — fail fast, use local fallback
+  try {
+    const res = await fetch(`${PROXY_URL}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Proxy ${endpoint} failed: ${res.status}`);
+    return res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -674,6 +681,15 @@ const buildLocalNarrative = (params: {
 // ─────────────────────────────────────────────────────────────
 // PUBLIC API
 // ─────────────────────────────────────────────────────────────
+
+// Returns instant local intro text — no API call, no latency.
+// Used in GuidedWalk to start coaching immediately on GO.
+export const getLocalIntro = (params: {
+  mode: EchoPersona;
+  lang: Language;
+  timeOfDay: string;
+  targetThought?: string;
+}): string => buildLocalNarrative({ ...params, isIntro: true });
 
 export const generateSegmentNarrative = async (params: {
   mode: EchoPersona;

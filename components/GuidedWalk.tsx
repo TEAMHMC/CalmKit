@@ -2,11 +2,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity } from '../types';
 import { translations } from '../translations';
-import { generateSegmentNarrative } from '../geminiService';
+import { generateSegmentNarrative, getLocalIntro } from '../geminiService';
 import {
-  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap
+  Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap, Volume2, Gauge
 } from 'lucide-react';
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio, updateMediaSessionMetadata } from '../audioManager';
+import { saveSession } from '../sessionHistory';
+import type { SessionRecord } from '../types';
 
 declare const google: any;
 
@@ -103,6 +105,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [isCheckInLoading, setIsCheckInLoading] = useState(false);
   const [displaySpeedMph, setDisplaySpeedMph] = useState<number | null>(null);
   const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
+  const [showMoodCheck, setShowMoodCheck] = useState(false);
+  const pendingSessionRef = useRef<{ path: [number, number][]; stats: { distance: number; time: number; pace: string } } | null>(null);
   const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
   const [finalPath, setFinalPath] = useState<[number, number][]>([]);
@@ -1155,32 +1159,44 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setIsBufferingAudio(false);
           narrationLoop();
         } else {
-          // Slow path: text may be pre-warmed but audio still needs a TTS fetch
+          // Slow path: use instant local intro via Web Speech — coaching starts in <1s.
+          // TTS audio for subsequent segments is fetched in background.
           const preloadedText = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current) ? preloadedIntroTextRef.current : null;
-          let seg = preloadedText
-            ? preloadedText
-            : await genAndTrack({
-                mode,
-                activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-                lang, stats: sessionStatsRef.current,
-                isIntro: true, isFirstSegment: true, segmentNumber: 1,
-                destinationName: destinationNameRef.current || undefined,
-                targetThought: targetThoughtRef.current || undefined,
-                indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-                userLat: userLocation?.[0], userLng: userLocation?.[1],
-              });
-          if (preloadedText) {
-            coachingHistoryRef.current = [preloadedText];
-            setLastSpokenText(preloadedText);
-          }
           preloadedIntroTextRef.current = null;
           preloadedIntroBase64Ref.current = null;
-          if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
+
+          const hour2 = new Date().getHours();
+          const tod2 = hour2 < 12 ? 'morning' : hour2 < 17 ? 'afternoon' : 'evening';
+          const introText = preloadedText ?? getLocalIntro({
+            mode, lang, timeOfDay: tod2,
+            targetThought: targetThoughtRef.current || undefined,
+          });
+          if (introText) {
+            coachingHistoryRef.current = [introText];
+            setLastSpokenText(introText);
+          }
           sponsorPlayedRef.current = true;
-          const buf = await speakText(seg);
           isFetchingRef.current = false;
-          if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
-          narrationLoop();
+          setIsBufferingAudio(false);
+          if (!isNarratingRef.current) return;
+          // Start Web Speech immediately — user hears coaching at once
+          speakWithWebSpeech(introText);
+          // Fetch TTS for the second segment in background while Web Speech plays
+          (async () => {
+            if (!isNarratingRef.current) return;
+            const seg2 = await genAndTrack({
+              mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+              lang, stats: sessionStatsRef.current,
+              isIntro: false, isFirstSegment: false, segmentNumber: 2,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined,
+              indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+              userLat: userLocationRef.current?.[0], userLng: userLocationRef.current?.[1],
+            });
+            if (!isNarratingRef.current) return;
+            const buf2 = await speakText(seg2);
+            if (buf2 && isNarratingRef.current) audioBufferQueue.current.push(buf2);
+          })();
         }
       } catch {
         isFetchingRef.current = false;
@@ -1249,7 +1265,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     audioCtxRef.current = null;
     setIsPlaying(false);
     setIsPaused(false);
-    onBack();
+    pendingSessionRef.current = { path: [...pathCoordsRef.current], stats: { ...sessionStatsRef.current } };
+    setShowMoodCheck(true);
   };
 
   const requestCheckIn = useCallback(async () => {
@@ -1312,6 +1329,72 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       narrationLoop();
     }
   };
+
+  // ══════════════════════════════════════════════
+  // RENDER: Post-session Mood Check
+  // ══════════════════════════════════════════════
+  if (showMoodCheck) {
+    const MOOD_OPTIONS = [
+      { value: 1, label: lang === 'es' ? 'Mucho peor' : 'Much worse', color: '#ef4444' },
+      { value: 2, label: lang === 'es' ? 'Algo peor' : 'Slightly worse', color: '#f97316' },
+      { value: 3, label: lang === 'es' ? 'Igual' : 'About the same', color: '#6b7280' },
+      { value: 4, label: lang === 'es' ? 'Mejor' : 'Better', color: '#22c55e' },
+      { value: 5, label: lang === 'es' ? 'Mucho mejor' : 'Much better', color: '#3b82f6' },
+    ];
+    const completeMoodCheck = (moodValue: number) => {
+      const record: SessionRecord = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: new Date().toISOString(),
+        mode,
+        sessionType,
+        durationSeconds: Math.round(pendingSessionRef.current?.stats.time ?? 0),
+        distanceMiles: pendingSessionRef.current?.stats.distance ?? 0,
+        moodAfter: moodValue,
+      };
+      saveSession(record);
+      if (pendingSessionRef.current) {
+        setFinalPath(pendingSessionRef.current.path);
+        setFinalStats(pendingSessionRef.current.stats);
+      }
+      setShowMoodCheck(false);
+      setShowSummary(true);
+    };
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 bg-[#0A0A0A] animate-in fade-in">
+        <div className="space-y-2 text-center mb-10">
+          <h2 className="text-3xl font-normal text-white font-display">
+            {lang === 'es' ? 'Revisa contigo' : 'Check in with yourself'}
+          </h2>
+          <p className="text-sm text-white/40 leading-snug">
+            {lang === 'es' ? 'Comparado con cuando empezaste, ¿cómo te sientes?' : 'Compared to when you started, how do you feel?'}
+          </p>
+        </div>
+        <div className="w-full grid grid-cols-5 gap-3 mb-10">
+          {MOOD_OPTIONS.map(m => (
+            <button
+              key={m.value}
+              onClick={() => completeMoodCheck(m.value)}
+              className="flex flex-col items-center gap-2 active:scale-95 transition-all"
+            >
+              <div
+                className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
+                style={{ borderColor: m.color, background: m.color + '22' }}
+              >
+                <span className="text-base font-bold" style={{ color: m.color }}>{m.value}</span>
+              </div>
+              <span className="text-[9px] font-medium text-white/35 text-center leading-tight uppercase tracking-wide">{m.label}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => completeMoodCheck(3)}
+          className="text-sm text-white/20 font-medium tracking-wide"
+        >
+          {lang === 'es' ? 'Saltar' : 'Skip'}
+        </button>
+      </div>
+    );
+  }
 
   // ══════════════════════════════════════════════
   // RENDER: Session Summary
@@ -1402,20 +1485,23 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const elapsed = sessionStats.time;
     const timeStr = `${Math.floor(elapsed / 60)}:${(Math.floor(elapsed) % 60).toString().padStart(2, '0')}`;
     const paceStr = sessionStats.pace === '0:00' ? `--'--"` : sessionStats.pace;
+    const modeColor = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
+    const modeName = MODES.find(m => m.id === mode)?.label ?? mode;
+    const phase = elapsed < 180 ? 'WARMUP' : elapsed < 600 ? 'ACTIVE' : 'PEAK';
+    const speedStr = displaySpeedMph !== null && displaySpeedMph > 0.1 ? displaySpeedMph.toFixed(1) : '--';
 
     return (
       <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] dark-map">
-        {/* Map */}
+        {/* Map — full screen background */}
         {sessionType === 'OUTDOOR' && <div ref={mapContainerRef} className="absolute inset-0 z-0" />}
+
+        {/* Indoor aura visualization */}
         {sessionType === 'INDOOR' && (() => {
-          const elapsed = sessionStats.time;
-          const auraColor = mode === 'HYPE' ? '#233DFF' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#4B70FF';
+          const auraColor = modeColor;
           const auraSpeed = indoorActivity === 'SWEAT' ? '0.85s' : indoorActivity === 'FLOW' ? '2.2s' : '3.8s';
           const auraScale = indoorActivity === 'SWEAT' ? 1.45 : indoorActivity === 'FLOW' ? 1.2 : 1.1;
-          const phase = elapsed < 180 ? 'WARMUP' : elapsed < 600 ? 'ACTIVE' : 'PEAK';
           const ringCount = phase === 'PEAK' ? 4 : phase === 'ACTIVE' ? 3 : 2;
           const ringSizes = [300, 230, 165, 110];
-          const activityLabel = indoorActivity === 'SWEAT' ? 'STRENGTH' : indoorActivity === 'FLOW' ? 'FLOW' : 'STRETCH';
           return (
             <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0A0A0A]">
               <style>{`
@@ -1438,24 +1524,35 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                   animationDelay: `${i * 0.28}s`,
                 }} />
               ))}
-              {/* Core */}
               <div style={{
                 width: 80, height: 80, borderRadius: '50%',
                 background: `radial-gradient(circle, ${auraColor}50 0%, ${auraColor}15 65%, transparent 100%)`,
                 animation: isPaused ? 'none' : `aura-core ${auraSpeed} ease-in-out infinite`,
                 boxShadow: `0 0 40px ${auraColor}30`,
               }} />
-              {/* Activity label */}
-              <span style={{
-                position: 'absolute', bottom: 120, fontSize: 10, letterSpacing: 6,
-                color: `${auraColor}60`, textTransform: 'uppercase', fontWeight: 600,
-              }}>{activityLabel}</span>
             </div>
           );
         })()}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/50 pointer-events-none z-[1]" />
 
-        {/* Finding location overlay — shown until first real GPS fix */}
+        {/* Heavy gradient at bottom so stat cards are always readable over map */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/95 pointer-events-none z-[1]" />
+
+        {/* LIVE badge — top left, outdoor only */}
+        {sessionType === 'OUTDOOR' && (
+          <div className="absolute top-5 left-5 z-20 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10 pointer-events-none">
+            <div className="w-2 h-2 rounded-full bg-[#233DFF] animate-pulse" />
+            <span className="text-[10px] font-semibold tracking-[0.2em] text-white/70 uppercase">Live</span>
+          </div>
+        )}
+
+        {/* Phase badge — indoor only, top center */}
+        {sessionType === 'INDOOR' && (
+          <div className="absolute top-5 left-0 right-0 z-20 flex justify-center pointer-events-none">
+            <span className="text-[10px] font-bold tracking-[0.35em] uppercase" style={{ color: modeColor + 'aa' }}>{phase}</span>
+          </div>
+        )}
+
+        {/* Finding location overlay */}
         {sessionType === 'OUTDOOR' && !sessionGpsAcquired && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="bg-black/75 backdrop-blur-xl rounded-3xl px-8 py-6 flex flex-col items-center gap-3 border border-white/10 mx-8">
@@ -1472,93 +1569,107 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
         )}
 
-        {/* Top HUD — distance card + stat pill stacked */}
-        <div className="absolute top-5 left-5 right-5 z-20 pointer-events-none flex flex-col gap-3">
-          {/* MILES — large card, outdoor only */}
-          {sessionType === 'OUTDOOR' && (
-            <div className="bg-black/55 backdrop-blur-xl rounded-[28px] px-8 py-7 flex flex-col items-center border border-white/5 shadow-2xl">
-              <span className="text-[80px] font-black text-white tabular-nums leading-none tracking-tighter">
-                {sessionStats.distance.toFixed(2)}
-              </span>
-              <span className="text-sm font-bold text-[#233DFF] uppercase tracking-[0.35em] mt-2">
-                {t.labels.miles}
-              </span>
-            </div>
-          )}
-          {/* TIME + PACE + SPEED pill */}
-          <div className="bg-black/55 backdrop-blur-xl rounded-full px-6 py-4 flex items-center justify-center gap-3 border border-white/5">
-            <Clock size={15} className="text-[#233DFF] flex-shrink-0" />
-            <span className="text-lg font-bold text-white tabular-nums">{timeStr}</span>
-            {sessionType === 'OUTDOOR' && (
-              <>
-                <div className="w-px h-4 bg-white/25 flex-shrink-0" />
-                <Zap size={15} className="text-[#233DFF] flex-shrink-0" fill="currentColor" />
-                <span className="text-lg font-bold text-white tabular-nums">{paceStr}</span>
-                {displaySpeedMph !== null && displaySpeedMph > 0.1 && (
-                  <>
-                    <div className="w-px h-4 bg-white/25 flex-shrink-0" />
-                    <span className="text-lg font-bold text-white/70 tabular-nums">{displaySpeedMph.toFixed(1)}</span>
-                    <span className="text-[10px] font-medium text-white/40 -ml-1.5">mph</span>
-                  </>
-                )}
-              </>
-            )}
-            {isBufferingAudio && (
-              <>
-                <div className="w-px h-4 bg-white/25 flex-shrink-0" />
-                <Loader2 size={13} className="text-[#233DFF] animate-spin flex-shrink-0" />
-              </>
-            )}
-          </div>
+        {/* BOTTOM PANEL — stat grid + coaching card + controls */}
+        <div
+          className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto"
+          style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 8px)' }}
+        >
+          <div className="mx-3 flex flex-col gap-2">
 
-          {/* Last spoken coaching text */}
-          {lastSpokenText ? (
-            <div className="bg-black/50 backdrop-blur-xl rounded-2xl px-4 py-3 border border-white/5">
-              <p className="text-white/65 text-[13px] font-normal italic leading-snug line-clamp-2">
-                "{lastSpokenText}"
+            {/* STAT CARDS — 4-col grid for outdoor, 2-col for indoor */}
+            {sessionType === 'OUTDOOR' ? (
+              <div className="grid grid-cols-4 gap-2">
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} className="text-[#3b82f6]" />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">Time</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{timeStr}</span>
+                </div>
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Navigation size={12} className="text-[#22c55e]" />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">Miles</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{sessionStats.distance.toFixed(2)}</span>
+                </div>
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Gauge size={12} className="text-[#f97316]" />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">Pace</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{paceStr}</span>
+                </div>
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Activity size={12} className="text-[#ef4444]" />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">MPH</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{speedStr}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} className="text-[#3b82f6]" />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">Time</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{timeStr}</span>
+                </div>
+                <div className="bg-black/55 backdrop-blur-xl rounded-[16px] p-2.5 flex flex-col gap-1 border border-white/5">
+                  <div className="flex items-center gap-1">
+                    <Activity size={12} style={{ color: modeColor }} />
+                    <span className="text-[8px] font-semibold tracking-[0.15em] text-white/35 uppercase">Phase</span>
+                  </div>
+                  <span className="text-[17px] font-black text-white tabular-nums leading-none">{phase}</span>
+                </div>
+              </div>
+            )}
+
+            {/* COACHING CARD — prominent, large italic text with persona watermark */}
+            <div className="bg-black/70 backdrop-blur-2xl rounded-[20px] px-4 pt-3 pb-3 border border-white/10 relative overflow-hidden">
+              <Volume2 size={96} className="absolute -right-3 -bottom-5 pointer-events-none select-none" style={{ color: modeColor, opacity: 0.07 }} />
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-green-400" />
+                  <span className="text-[9px] font-bold tracking-[0.25em] text-white/35 uppercase">{modeName}</span>
+                </div>
+                {isBufferingAudio && <Loader2 size={11} className="text-white/30 animate-spin flex-shrink-0" />}
+              </div>
+              <p className="text-white/90 text-[15px] font-normal italic leading-snug line-clamp-3 pr-2">
+                {lastSpokenText ? `"${lastSpokenText}"` : (lang === 'es' ? 'Preparando tu sesión...' : 'Preparing your session...')}
               </p>
             </div>
-          ) : null}
-        </div>
 
-        {/* Bottom Controls */}
-        <div
-          className="absolute bottom-0 left-0 right-0 px-3 z-20 pointer-events-auto"
-          style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 28px)', paddingTop: 16 }}
-        >
-          <div className="bg-black/60 backdrop-blur-xl rounded-[28px] py-4 px-5 flex items-center justify-between gap-4 border border-white/10">
-            <button
-              onClick={handleStop}
-              className="w-14 h-14 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex items-center justify-center active:scale-95 transition-all"
-            >
-              <X size={20} className="text-white/60" />
-            </button>
-            <button
-              onClick={togglePause}
-              className="w-20 h-20 flex-shrink-0 bg-[#233DFF] rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(35,61,255,0.6)] border border-[#233DFF]/30 active:scale-95 transition-all"
-            >
-              {isPaused ? <Play size={28} fill="currentColor" className="text-white ml-1" /> : <Pause size={28} fill="currentColor" className="text-white" />}
-            </button>
-            {(() => {
-              const color = mode === 'HYPE' ? '#ec4899' : mode === 'BREAKTHROUGH' ? '#f97316' : mode === 'STRATEGY' ? '#eab308' : '#233DFF';
-              return (
-                <button
-                  onClick={requestCheckIn}
-                  disabled={isCheckInLoading || isPaused}
-                  className="flex-shrink-0 w-14 h-14 bg-white/5 rounded-full border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-40"
-                >
-                  {isCheckInLoading
-                    ? <Loader2 size={15} className="animate-spin" style={{ color }} />
-                    : <>
-                        <Zap size={15} style={{ color }} fill="currentColor" />
-                        <span style={{ color, fontSize: 7 }} className="font-semibold tracking-wide uppercase leading-none">
-                          {MODES.find(m => m.id === mode)?.label}
-                        </span>
-                      </>
-                  }
-                </button>
-              );
-            })()}
+            {/* CONTROLS — X / play-pause (persona-colored) / check-in */}
+            <div className="bg-black/60 backdrop-blur-xl rounded-[24px] py-3 px-5 flex items-center justify-between gap-4 border border-white/10">
+              <button
+                onClick={handleStop}
+                className="w-12 h-12 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex items-center justify-center active:scale-95 transition-all"
+              >
+                <X size={18} className="text-white/60" />
+              </button>
+              <button
+                onClick={togglePause}
+                className="flex-shrink-0 rounded-full flex items-center justify-center active:scale-95 transition-all"
+                style={{ width: 72, height: 72, background: modeColor, boxShadow: `0 0 40px ${modeColor}50`, border: `1px solid ${modeColor}55` }}
+              >
+                {isPaused
+                  ? <Play size={26} fill="currentColor" className="text-white ml-1" />
+                  : <Pause size={26} fill="currentColor" className="text-white" />}
+              </button>
+              <button
+                onClick={requestCheckIn}
+                disabled={isCheckInLoading || isPaused}
+                className="w-12 h-12 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-40"
+              >
+                {isCheckInLoading
+                  ? <Loader2 size={14} className="animate-spin" style={{ color: modeColor }} />
+                  : <Zap size={14} style={{ color: modeColor }} fill="currentColor" />}
+              </button>
+            </div>
+
           </div>
         </div>
       </div>

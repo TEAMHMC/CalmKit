@@ -21,3 +21,13 @@ export interface JournalEntry {
   response: string;
   date: string;
 }
+
+export interface SessionRecord {
+  id: string;
+  date: string;
+  mode: EchoPersona;
+  sessionType: SessionType;
+  durationSeconds: number;
+  distanceMiles: number;
+  moodAfter?: number; // 1–5: 1=much worse, 3=same, 5=much better
+}
