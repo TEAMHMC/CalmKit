@@ -111,6 +111,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // retries every 2s instead of making duplicate per-segment API calls during that window.
   const narrativePendingRef = useRef(false);
   const preBufferTimeoutRef = useRef<any>(null);
+  const summaryMapContainerRef = useRef<HTMLDivElement>(null);
   const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
   const [finalPath, setFinalPath] = useState<[number, number][]>([]);
@@ -323,8 +324,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
             } else {
-              pathCoordsRef.current.push(newLoc);
-              lastPositionRef.current = newLoc;
+              // Only seed the path with the first GPS fix if it's very accurate (≤20m).
+              // A poor first fix (cached stale position) causes a phantom line on the summary.
+              if (accuracy <= 20) {
+                pathCoordsRef.current.push(newLoc);
+                lastPositionRef.current = newLoc;
+              }
             }
           }
         },
@@ -428,6 +433,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
           narrativeSegmentIndexRef.current = idx + 1;
           if (text.trim()) {
+            setLastSpokenText(text); // update coaching card so it shows current segment, not just the intro
+            if (text) { coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10); }
             const buffer = await speakText(text);
             if (buffer) audioBufferQueue.current.push(buffer);
           }
@@ -1137,8 +1144,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
     }, 1000);
 
-    // Ambient background fills the gap between coaching segments so silence isn't mistaken for a bug
-    createAmbience();
+    // Ambient sound disabled — brown noise sounds like static on mobile speakers
 
     // Fetch weather + air quality non-blocking (best-effort — if they fail, Echo still works)
     if (userLocation) {
@@ -1218,8 +1224,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
           if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
           sponsorPlayedRef.current = true;
-          // 8s TTS timeout: Gemini voice in ~3s, Web Speech fallback at 8s
-          const buf = await speakText(introText, 8000);
+          // 20s TTS timeout — gives Cloud Run time to respond even if slightly cold.
+          // Web Speech only fires if Gemini TTS genuinely fails after 20s.
+          const buf = await speakText(introText, 20000);
           isFetchingRef.current = false;
           if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
           setIsBufferingAudio(false);
@@ -1475,6 +1482,36 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     );
   }
 
+  // Initialize Google Map in session summary so users see real streets + their route
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!showSummary || sessionType !== 'OUTDOOR' || finalPath.length < 2) return;
+    let cancelled = false;
+    ensureGoogleMaps().then(() => {
+      if (cancelled || !summaryMapContainerRef.current) return;
+      const gm = (window as any).google.maps;
+      const map = new gm.Map(summaryMapContainerRef.current, {
+        zoom: 15,
+        mapTypeId: 'roadmap',
+        disableDefaultUI: true,
+        gestureHandling: 'greedy',
+        styles: DARK_MAP_STYLE,
+      });
+      const bounds = new gm.LatLngBounds();
+      const path = finalPath.map(([lat, lng]: [number, number]) => {
+        bounds.extend({ lat, lng });
+        return { lat, lng };
+      });
+      new gm.Polyline({ map, path, strokeColor: '#233DFF', strokeWeight: 5, strokeOpacity: 1,
+        icons: [{ icon: { path: gm.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: '#233DFF', fillOpacity: 0.7, strokeColor: '#fff', strokeWeight: 1 }, offset: '100%' }],
+      });
+      new gm.Marker({ map, position: path[0], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#233DFF', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 } });
+      new gm.Marker({ map, position: path[path.length - 1], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#233DFF', strokeWeight: 2 } });
+      map.fitBounds(bounds, { top: 32, right: 32, bottom: 32, left: 32 });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [showSummary, finalPath, sessionType]);
+
   // ══════════════════════════════════════════════
   // RENDER: Session Summary
   // ══════════════════════════════════════════════
@@ -1482,43 +1519,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const mins = Math.floor(finalStats.time / 60);
     const secs = Math.floor(finalStats.time % 60);
 
-    // Build SVG route from captured path coordinates
-    const routeSVG = (() => {
-      if (sessionType !== 'OUTDOOR' || finalPath.length < 2) return null;
-      const lats = finalPath.map(c => c[0]);
-      const lngs = finalPath.map(c => c[1]);
-      const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-      const latRange = maxLat - minLat || 0.001;
-      const lngRange = maxLng - minLng || 0.001;
-      const W = 320, H = 180, pad = 24;
-      const pts = finalPath.map(([lat, lng]) => {
-        const x = pad + ((lng - minLng) / lngRange) * (W - 2 * pad);
-        const y = pad + ((maxLat - lat) / latRange) * (H - 2 * pad);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      });
-      if (pts.length < 2) return null;
-      const [sx, sy] = pts[0].split(',');
-      const [ex, ey] = pts[pts.length - 1].split(',');
-      return (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-2xl" style={{ background: '#0A0A0A', display: 'block' }}>
-          <polyline points={pts.join(' ')} fill="none" stroke="#233DFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
-            style={{ filter: 'drop-shadow(0 0 6px #233DFF)' }} />
-          <circle cx={sx} cy={sy} r="6" fill="#233DFF" stroke="white" strokeWidth="2" />
-          <circle cx={ex} cy={ey} r="6" fill="white" stroke="#233DFF" strokeWidth="2" />
-        </svg>
-      );
-    })();
+    const hasRoute = sessionType === 'OUTDOOR' && finalPath.length >= 2;
 
     return (
       <div className="flex-1 flex flex-col items-center px-6 py-8 bg-white dark:bg-[#121212] animate-in fade-in text-center gap-6 overflow-y-auto">
         <div className="space-y-1 pt-2">
           <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.sessionSummary}</h2>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{routeSVG ? t.labels.sessionSummaryDesc : (lang === 'es' ? 'SESIÓN COMPLETADA' : 'SESSION COMPLETE')}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{hasRoute ? t.labels.sessionSummaryDesc : (lang === 'es' ? 'SESIÓN COMPLETADA' : 'SESSION COMPLETE')}</p>
         </div>
 
-        {routeSVG ? (
-          <div className="w-full">{routeSVG}</div>
+        {hasRoute ? (
+          <div ref={summaryMapContainerRef} className="w-full rounded-2xl overflow-hidden border border-white/5" style={{ height: 220 }} />
         ) : (
           <div className="w-24 h-24 bg-[#233DFF]/10 rounded-full flex items-center justify-center">
             <Activity size={40} className="text-[#233DFF]" />
