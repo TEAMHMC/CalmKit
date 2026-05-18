@@ -183,10 +183,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     return () => onImmersiveChange?.(false);
   }, [isPlaying, showSummary, onImmersiveChange]);
 
-  // Pre-warm: generate intro text AND pre-fetch TTS audio bytes on step 1.
-  // By GO time the audio is already decoded — coach plays in < 200ms.
+  // Pre-warm: generate intro text AND pre-fetch TTS audio bytes on step 0 and 1.
+  // Narrative API takes ~15s; starting on step 0 gives 15+ extra seconds so
+  // GO almost always hits the fast path (decoded audio, <200ms playback).
   useEffect(() => {
-    if (step !== 1) return;
+    if (step > 1) return; // fire on both step 0 and step 1
     const key = `${mode}-${lang}-${sessionType}-${indoorActivity}`;
     if (preloadKeyRef.current === key && preloadedIntroBase64Ref.current) return;
     preloadedIntroTextRef.current = null;
@@ -1174,28 +1175,29 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setIsBufferingAudio(false);
           narrationLoop();
         } else {
-          // Slow path: use pre-warmed text if available, otherwise generate AI-unique
-          // intro (proxyCall has a 10s timeout → local fallback on failure). TTS has
-          // 8s timeout so total worst-case is 18s, not 30s. Always AI first for uniqueness.
+          // Slow path: pre-warmed text if available (movement-narrative took ~15s to
+          // generate the full arc, text may be ready even if TTS audio isn't).
+          // If nothing is pre-warmed, use local intro (instant) so Gemini TTS voice
+          // starts within 3s while the full AI narrative loads in background.
+          // The local intro is a varied persona greeting (10+ options per persona),
+          // not the repetitive coaching body. All subsequent segments are AI-generated.
           const preloadedText = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current) ? preloadedIntroTextRef.current : null;
           preloadedIntroTextRef.current = null;
           preloadedIntroBase64Ref.current = null;
-          const introText = preloadedText ?? await genAndTrack({
-            mode,
-            activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-            lang, stats: sessionStatsRef.current,
-            isIntro: true, isFirstSegment: true, segmentNumber: 1,
-            destinationName: destinationNameRef.current || undefined,
+
+          const hour2 = new Date().getHours();
+          const tod2 = hour2 < 12 ? 'morning' : hour2 < 17 ? 'afternoon' : 'evening';
+          const introText = preloadedText ?? getLocalIntro({
+            mode, lang, timeOfDay: tod2,
             targetThought: targetThoughtRef.current || undefined,
-            indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-            userLat: userLocationRef.current?.[0], userLng: userLocationRef.current?.[1],
           });
-          if (preloadedText) {
-            coachingHistoryRef.current = [preloadedText];
-            setLastSpokenText(preloadedText);
+          if (introText) {
+            coachingHistoryRef.current = [introText];
+            setLastSpokenText(introText);
           }
           if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
           sponsorPlayedRef.current = true;
+          // 8s TTS timeout: Gemini voice in ~3s, Web Speech fallback at 8s
           const buf = await speakText(introText, 8000);
           isFetchingRef.current = false;
           if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
