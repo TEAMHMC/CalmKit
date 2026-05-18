@@ -107,6 +107,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
   const [showMoodCheck, setShowMoodCheck] = useState(false);
   const pendingSessionRef = useRef<{ path: [number, number][]; stats: { distance: number; time: number; pace: string } } | null>(null);
+  // True while the background movement-narrative fetch is in-flight — narrationLoop
+  // retries every 2s instead of making duplicate per-segment API calls during that window.
+  const narrativePendingRef = useRef(false);
   const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
   const [finalPath, setFinalPath] = useState<[number, number][]>([]);
@@ -438,6 +441,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           narrativeSegmentIndexRef.current = 9999;
         }
       } else {
+        // If the background full-narrative fetch is still in-flight, wait and retry —
+        // avoid making a redundant per-segment API call that also takes 15s.
+        if (narrativePendingRef.current) {
+          setTimeout(narrationLoop, 2000);
+          return;
+        }
         isFetchingRef.current = true;
         setIsBufferingAudio(true);
         segmentCounterRef.current++;
@@ -529,7 +538,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
 
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current) {
+      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current && !narrativePendingRef.current) {
         (async () => {
           const stats = sessionStatsRef.current;
           const seg = await genAndTrack({
@@ -1023,6 +1032,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     audioBufferQueue.current = [];
     narrativeDataRef.current = null;
     narrativeSegmentIndexRef.current = 0;
+    narrativePendingRef.current = false;
     segmentCounterRef.current = 0;
     sponsorPlayedRef.current = false;
     isFetchingRef.current = false;
@@ -1117,7 +1127,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
     }, 1000);
 
-    // No synthetic ambient noise — let the user's music or silence be the background
+    // Ambient background fills the gap between coaching segments so silence isn't mistaken for a bug
+    createAmbience();
 
     // Fetch weather + air quality non-blocking (best-effort — if they fail, Echo still works)
     if (userLocation) {
@@ -1210,6 +1221,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
     })();
 
+    // Mark narrative as pending so narrationLoop retries instead of making duplicate API calls
+    narrativePendingRef.current = true;
+
     // Fetch full 20-minute structured narrative in background (non-blocking)
     const hour = new Date().getHours();
     const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
@@ -1230,12 +1244,31 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }),
     }).then(async (res) => {
       const data = await res.json();
+      narrativePendingRef.current = false;
       if (data.success && data.segments && isNarratingRef.current && !narrativeDataRef.current) {
         narrativeDataRef.current = data;
-        narrativeSegmentIndexRef.current = 0;
-        // Don't queue preStartIntro — fallback already played a greeting
+        // Pre-warm TTS for the first narrative segment immediately so narrationLoop
+        // can play it ~3s later (no 15s duplicate API call in the gap).
+        if (data.segments[0] && isNarratingRef.current) {
+          const seg0 = data.segments[0];
+          const text = Array.isArray(seg0.scriptBeats) ? seg0.scriptBeats.filter(Boolean).join(' ') : String(seg0);
+          narrativeSegmentIndexRef.current = 1; // segment 0 is being fetched
+          speakText(text).then(buf => {
+            if (buf && isNarratingRef.current && audioBufferQueue.current.length < 3) {
+              audioBufferQueue.current.push(buf);
+              // Wake narrationLoop if nothing is currently playing or fetching
+              if (!isFetchingRef.current && !currentSourceRef.current) narrationLoop();
+            } else if (!buf) {
+              // TTS returned null (Web Speech handled it) — reset index so loop reads from 0
+              narrativeSegmentIndexRef.current = 0;
+            }
+          }).catch(() => { narrativeSegmentIndexRef.current = 0; });
+        } else {
+          narrativeSegmentIndexRef.current = 0;
+        }
       }
     }).catch(e => {
+      narrativePendingRef.current = false;
       console.warn('Failed to fetch narrative, using fallback loop:', e);
     });
   };
@@ -1253,8 +1286,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         if (mapDiv?.parentNode) mapDiv.parentNode.removeChild(mapDiv);
       } catch (_) {}
     }
-    // Set flags first so any in-flight async callbacks (speakText, speakWithWebSpeech) see the stopped state
+    // Set flags first so any in-flight async callbacks see the stopped state
     isNarratingRef.current = false;
+    narrativePendingRef.current = false;
     isPausedRef.current = false;
     isFetchingRef.current = false;
     audioBufferQueue.current = [];
