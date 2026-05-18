@@ -396,9 +396,10 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
             const now = fadCtx.currentTime;
             bgNodes.gain.gain.setValueAtTime(bgNodes.gain.gain.value, now);
             bgNodes.gain.gain.linearRampToValueAtTime(0, now + 3);
-            setTimeout(() => { cleanupBgSound(); setSessionComplete(true); }, 3500);
+            setTimeout(() => { cleanupBgSound(); setSessionComplete(true); const _gC = (window as any).gtag; if (_gC) _gC('event', 'calmkit_meditation_complete', { background_sound: bgSound, lang }); }, 3500);
           } else {
             setSessionComplete(true);
+            const _gC = (window as any).gtag; if (_gC) _gC('event', 'calmkit_meditation_complete', { background_sound: bgSound, lang });
           }
         }
       };
@@ -576,6 +577,9 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
     setError(false);
     setTtsUnavailable(false);
     setSessionComplete(false);
+    // Fire GA when meditation session starts
+    const _gStart = (window as any).gtag;
+    if (_gStart) _gStart('event', 'calmkit_meditation_start', { background_sound: bgSound, lang });
     await initAudio();
     try {
       const s = await withTimeout(generateMeditationScript(lang), 10000, 'Script generation');

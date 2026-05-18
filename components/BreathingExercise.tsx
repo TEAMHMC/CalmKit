@@ -283,6 +283,13 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     }
   }, [phase, isActive, audioEnabled, playTone, playPhaseAudio]);
 
+  // Fire GA at 3 and 6 cycles — tracks meaningful breathing session completion
+  useEffect(() => {
+    if (cycles !== 3 && cycles !== 6) return;
+    const _g = (window as any).gtag;
+    if (_g) _g('event', 'calmkit_breathing_milestone', { cycles, mode, lang });
+  }, [cycles]);
+
   // Reset phase/timer when switching modes
   const switchMode = (newMode: BreathingMode) => {
     setIsActive(false);

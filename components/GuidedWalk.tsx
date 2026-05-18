@@ -7,7 +7,7 @@ import {
   Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap, Volume2, Gauge
 } from 'lucide-react';
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio, updateMediaSessionMetadata } from '../audioManager';
-import { saveSession } from '../sessionHistory';
+import { saveSession, getStreak, getWeekStats } from '../sessionHistory';
 import type { SessionRecord } from '../types';
 
 declare const google: any;
@@ -1392,16 +1392,34 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       { value: 5, label: lang === 'es' ? 'Mucho mejor' : 'Much better', color: '#3b82f6' },
     ];
     const completeMoodCheck = (moodValue: number) => {
+      const durationSec = Math.round(pendingSessionRef.current?.stats.time ?? 0);
+      const distanceMi = pendingSessionRef.current?.stats.distance ?? 0;
       const record: SessionRecord = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         date: new Date().toISOString(),
         mode,
         sessionType,
-        durationSeconds: Math.round(pendingSessionRef.current?.stats.time ?? 0),
-        distanceMiles: pendingSessionRef.current?.stats.distance ?? 0,
+        durationSeconds: durationSec,
+        distanceMiles: distanceMi,
         moodAfter: moodValue,
       };
       saveSession(record);
+      // Fire GA event so improvement is trackable in analytics
+      const _g = (window as any).gtag;
+      if (_g) {
+        const streak = getStreak();
+        const week = getWeekStats();
+        _g('event', 'calmkit_mood_checkin', {
+          mood_rating: moodValue,
+          mode,
+          session_type: sessionType,
+          duration_seconds: durationSec,
+          distance_miles: parseFloat(distanceMi.toFixed(2)),
+          streak_days: streak,
+          sessions_this_week: week.count,
+          lang,
+        });
+      }
       if (pendingSessionRef.current) {
         setFinalPath(pendingSessionRef.current.path);
         setFinalStats(pendingSessionRef.current.stats);
