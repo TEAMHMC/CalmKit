@@ -331,6 +331,21 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }, 25000);
   };
 
+  // Warm up Cloud Run TTS and narrative endpoints on mount so first GO is fast.
+  useEffect(() => {
+    const base = 'https://volunteer.healthmatters.clinic/api/calmkit';
+    fetch(`${base}/tts`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'ready', lang, voice: 'Orus' }),
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => {});
+    fetch(`${base}/movement-narrative`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'HOPE', activity: 'WALK', lang, isIntro: true, isFirstSegment: true }),
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => {});
+  }, []);
+
   // Try to get location on mount with high accuracy — silently continue if it fails
   // On iOS Safari PWA, watchPosition on mount fails without a prior user gesture.
   // Check permission state first; only start immediately if already granted.
@@ -802,12 +817,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── TTS via server-side proxy — API key never in browser ──
   // Falls back to Web Speech API if Gemini TTS fails or times out (10s).
   // Returns an AudioBuffer for the buffer queue, or null if Web Speech fallback handled playback.
-  const speakText = async (text: string): Promise<AudioBuffer | null> => {
+  const speakText = async (text: string, timeoutMs = 22000): Promise<AudioBuffer | null> => {
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
 
     try {
       const controller = new AbortController();
-      const ttsTimeout = setTimeout(() => controller.abort(), 22000); // 22s — matches server-side 25s window
+      const ttsTimeout = setTimeout(() => controller.abort(), timeoutMs);
 
       let res: Response;
       try {
@@ -1159,44 +1174,33 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setIsBufferingAudio(false);
           narrationLoop();
         } else {
-          // Slow path: use instant local intro via Web Speech — coaching starts in <1s.
-          // TTS audio for subsequent segments is fetched in background.
+          // Slow path: use pre-warmed text if available, otherwise generate AI-unique
+          // intro (proxyCall has a 10s timeout → local fallback on failure). TTS has
+          // 8s timeout so total worst-case is 18s, not 30s. Always AI first for uniqueness.
           const preloadedText = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current) ? preloadedIntroTextRef.current : null;
           preloadedIntroTextRef.current = null;
           preloadedIntroBase64Ref.current = null;
-
-          const hour2 = new Date().getHours();
-          const tod2 = hour2 < 12 ? 'morning' : hour2 < 17 ? 'afternoon' : 'evening';
-          const introText = preloadedText ?? getLocalIntro({
-            mode, lang, timeOfDay: tod2,
+          const introText = preloadedText ?? await genAndTrack({
+            mode,
+            activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+            lang, stats: sessionStatsRef.current,
+            isIntro: true, isFirstSegment: true, segmentNumber: 1,
+            destinationName: destinationNameRef.current || undefined,
             targetThought: targetThoughtRef.current || undefined,
+            indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+            userLat: userLocationRef.current?.[0], userLng: userLocationRef.current?.[1],
           });
-          if (introText) {
-            coachingHistoryRef.current = [introText];
-            setLastSpokenText(introText);
+          if (preloadedText) {
+            coachingHistoryRef.current = [preloadedText];
+            setLastSpokenText(preloadedText);
           }
+          if (!isNarratingRef.current) { isFetchingRef.current = false; return; }
           sponsorPlayedRef.current = true;
+          const buf = await speakText(introText, 8000);
           isFetchingRef.current = false;
+          if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
           setIsBufferingAudio(false);
-          if (!isNarratingRef.current) return;
-          // Start Web Speech immediately — user hears coaching at once
-          speakWithWebSpeech(introText);
-          // Fetch TTS for the second segment in background while Web Speech plays
-          (async () => {
-            if (!isNarratingRef.current) return;
-            const seg2 = await genAndTrack({
-              mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-              lang, stats: sessionStatsRef.current,
-              isIntro: false, isFirstSegment: false, segmentNumber: 2,
-              destinationName: destinationNameRef.current || undefined,
-              targetThought: targetThoughtRef.current || undefined,
-              indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-              userLat: userLocationRef.current?.[0], userLng: userLocationRef.current?.[1],
-            });
-            if (!isNarratingRef.current) return;
-            const buf2 = await speakText(seg2);
-            if (buf2 && isNarratingRef.current) audioBufferQueue.current.push(buf2);
-          })();
+          narrationLoop();
         }
       } catch {
         isFetchingRef.current = false;
@@ -1360,7 +1364,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       setShowSummary(true);
     };
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 bg-[#0A0A0A] animate-in fade-in">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 bg-[#0A0A0A]">
         <div className="space-y-2 text-center mb-10">
           <h2 className="text-3xl font-normal text-white font-display">
             {lang === 'es' ? 'Revisa contigo' : 'Check in with yourself'}

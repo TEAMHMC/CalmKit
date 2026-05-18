@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8W3TXXHT9M"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-8W3TXXHT9M');</script>
   <meta charset="UTF-8" />
 
   <!-- LOCK MOBILE VIEWPORT -->
@@ -23,7 +26,10 @@
   <!-- PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="CalmKit" />
+  <meta name="apple-mobile-web-app-title" content="Your CalmKit" />
+
+  <!-- Ensure Maps API key HTTP-referrer checks pass in PWA/localhost contexts -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
 
   <meta name="theme-color" content="#233DFF" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
@@ -42,13 +48,6 @@
 
   <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@300;400;500;600;700;800&family=Lato:wght@400;700&display=swap"
         rel="stylesheet">
-
-  <!-- Leaflet -->
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          crossorigin=""></script>
 
   <!-- GLOBAL STYLES -->
   <style>
@@ -83,19 +82,6 @@
       color: #eee;
     }
 
-    /* MAP */
-    .leaflet-container {
-      background: #0a0a0a !important;
-    }
-
-    .dark-map .leaflet-tile-pane {
-      opacity: 0.9;
-    }
-
-    .leaflet-control-container {
-      display: none !important;
-    }
-
     /* SCROLLBARS */
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
@@ -125,12 +111,14 @@
     .zoom-in { animation-name: animate-in-zoom; }
     .bounce-in { animation-name: animate-in-bounce; }
   </style>
-  <script type="module" crossorigin src="/assets/index-CnFiVuHN.js"></script>
+  <script type="module" crossorigin src="/assets/index-YTgmKOvo.js"></script>
 </head>
 
 <body>
   <div id="root"></div>
 
+  <!-- Runtime config injected by nginx entrypoint (Cloud Run env vars) -->
+  <script src="/config.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

@@ -7,7 +7,9 @@ const PROXY_URL = (typeof window !== 'undefined' && (window as any).CALMKIT_PROX
 
 const proxyCall = async (endpoint: string, body: Record<string, any>): Promise<any> => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000); // 10s — fail fast, use local fallback
+  // 45s timeout — only catches truly dead servers. In practice the warm-up ping
+  // on mount keeps Cloud Run hot, so cold-start delays don't reach the user.
+  const timer = setTimeout(() => controller.abort(), 45000);
   try {
     const res = await fetch(`${PROXY_URL}/${endpoint}`, {
       method: 'POST',

@@ -32,6 +32,8 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+      - '--min-instances'
+      - '1'
       - '--set-env-vars'
       - 'GOOGLE_MAPS_API_KEY=$_GOOGLE_MAPS_API_KEY'
 
