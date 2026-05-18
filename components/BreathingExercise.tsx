@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { RotateCcw, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { RotateCcw, Play, Pause, Volume2, VolumeX, ChevronLeft } from 'lucide-react';
 import { startKeepAlive, stopKeepAlive, requestWakeLock, releaseWakeLock, getAudioContext } from '../audioManager';
 
 
@@ -430,9 +430,14 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
 
       {/* Upper Phase Indicator */}
       <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-gray-50 dark:border-white/5">
-        <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF] dark:text-blue-400">
-          {modeLabel}
-        </span>
+        <div className="flex items-center gap-1">
+          <button onClick={onBack} className="w-8 h-8 -ml-2 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
+            <ChevronLeft size={20} />
+          </button>
+          <span className="font-medium uppercase tracking-wide text-xs text-[#233DFF] dark:text-blue-400">
+            {modeLabel}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => {

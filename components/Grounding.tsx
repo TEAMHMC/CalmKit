@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { ArrowRight, Home } from 'lucide-react';
+import { ArrowRight, Home, ChevronLeft } from 'lucide-react';
 
 interface GroundingProps {
   onBack: () => void;
@@ -16,8 +16,16 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
   const steps = t.groundingSteps;
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#121212] px-6 pb-6 animate-in fade-in overflow-hidden">
-      <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0">
+    <div className="flex flex-col h-full bg-white dark:bg-[#121212] animate-in fade-in overflow-hidden">
+      {/* Back button — always visible so users can exit at any step */}
+      {!done && (
+        <div className="flex-shrink-0 px-4 pt-4">
+          <button onClick={onBack} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors rounded-full active:bg-gray-50 dark:active:bg-white/5">
+            <ChevronLeft size={22} />
+          </button>
+        </div>
+      )}
+      <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0 px-6 pb-6">
         {!done ? (
           <div key={step} className="w-full space-y-8 animate-in slide-in-from-right-4">
              <div className="space-y-2">
@@ -64,7 +72,7 @@ const Grounding: React.FC<GroundingProps> = ({ onBack, lang }) => {
         )}
       </div>
 
-      <div className="text-center pt-4 opacity-20 flex-shrink-0">
+      <div className="text-center pt-4 pb-2 opacity-20 flex-shrink-0 px-6">
         <span className="text-[11px] font-medium uppercase text-gray-300 tracking-wide">{t.labels.unstoppableGuide}</span>
       </div>
     </div>

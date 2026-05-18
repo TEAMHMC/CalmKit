@@ -110,6 +110,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // True while the background movement-narrative fetch is in-flight — narrationLoop
   // retries every 2s instead of making duplicate per-segment API calls during that window.
   const narrativePendingRef = useRef(false);
+  const preBufferTimeoutRef = useRef<any>(null);
   const sessionGpsAcquiredRef = useRef(false);
   const [finalStats, setFinalStats] = useState({ distance: 0, time: 0, pace: '0:00' });
   const [finalPath, setFinalPath] = useState<[number, number][]>([]);
@@ -381,6 +382,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (narrationTimeoutRef.current) clearTimeout(narrationTimeoutRef.current);
+      if (preBufferTimeoutRef.current) clearTimeout(preBufferTimeoutRef.current);
       isNarratingRef.current = false;
       audioBufferQueue.current = [];
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -507,7 +509,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           const delayMs = narrationFreqRef.current === 'INTERVAL_2' ? 120000 : 300000;
           const preBufferDelay = Math.max(delayMs - 25000, 5000);
 
-          setTimeout(async () => {
+          if (preBufferTimeoutRef.current) clearTimeout(preBufferTimeoutRef.current);
+          preBufferTimeoutRef.current = setTimeout(async () => {
+            preBufferTimeoutRef.current = null;
             if (!isNarratingRef.current) return;
             isReturningRef.current = true;
             const stats = sessionStatsRef.current;
@@ -524,7 +528,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
             });
             const buf = await speakText(seg);
-            if (buf) audioBufferQueue.current.push(buf);
+            if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
           }, preBufferDelay);
 
           narrationTimeoutRef.current = setTimeout(async () => {
@@ -562,7 +566,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     } else {
       setTimeout(narrationLoop, 1000);
     }
-  }, [mode, lang]);
+  }, [mode, lang, sessionType]);
 
   // Screen-lock recovery: when iOS resumes the AudioContext (via lock-screen play button
   // or visibilitychange), the playing AudioBufferSourceNode has died silently without
@@ -572,6 +576,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       clearSessionResumeCallback();
       return;
     }
+    clearSessionResumeCallback(); // always clear stale callback before registering new one
     setSessionResumeCallback(() => {
       if (!isNarratingRef.current || isPausedRef.current) return;
       // The old source node is dead — clear it so narrationLoop starts fresh
@@ -1109,8 +1114,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           pace: prev.distance > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00'
         };
       });
-      // Auto-stop after 10 min with no GPS movement (OUTDOOR only) — prevents runaway sessions
-      if (sessionType !== 'INDOOR' && !isPausedRef.current) {
+      // Auto-stop after 10 min with no GPS movement (OUTDOOR + GPS acquired only)
+      if (sessionType !== 'INDOOR' && !isPausedRef.current && sessionGpsAcquiredRef.current) {
         const idleSec = (Date.now() - lastGPSMovementRef.current) / 1000;
         if (idleSec > 600) {
           clearInterval(timerIntervalRef.current!);
@@ -1297,6 +1302,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       window.speechSynthesis.cancel();
     }
     if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
+    if (preBufferTimeoutRef.current) { clearTimeout(preBufferTimeoutRef.current); preBufferTimeoutRef.current = null; }
     if (currentSourceRef.current) {
       try { currentSourceRef.current.stop(); } catch(e) {}
       currentSourceRef.current = null;
@@ -1486,6 +1492,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         const y = pad + ((maxLat - lat) / latRange) * (H - 2 * pad);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       });
+      if (pts.length < 2) return null;
       const [sx, sy] = pts[0].split(',');
       const [ex, ey] = pts[pts.length - 1].split(',');
       return (
