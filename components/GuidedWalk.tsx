@@ -1241,6 +1241,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const handleStop = () => {
     const _g = (window as any).gtag;
     if (_g) _g('event', 'calmkit_walk_complete', { mode, elapsed_seconds: sessionStats.time, distance_miles: parseFloat(sessionStats.distance.toFixed(2)) });
+    // Destroy Google Maps instance immediately — prevents DOM leak where the map
+    // stays visible full-screen after the session ends.
+    if (mapRef.current) {
+      try {
+        const gm = (window as any).google?.maps;
+        if (gm?.event) gm.event.clearInstanceListeners(mapRef.current);
+        const mapDiv = (mapRef.current as any).getDiv?.();
+        if (mapDiv?.parentNode) mapDiv.parentNode.removeChild(mapDiv);
+      } catch (_) {}
+    }
     // Set flags first so any in-flight async callbacks (speakText, speakWithWebSpeech) see the stopped state
     isNarratingRef.current = false;
     isPausedRef.current = false;
