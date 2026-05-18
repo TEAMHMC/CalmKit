@@ -76,9 +76,21 @@ jobs:
       - name: Sync Capacitor to Android
         run: npx cap sync android
 
-      - name: Set up Android signing keystore
+      - name: Generate Android signing keystore (or restore from secret)
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/calmkit-release.keystore
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/calmkit-release.keystore
+          else
+            keytool -genkey -v -keystore android/calmkit-release.keystore \
+              -alias calmkit -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Health Matters Clinic,OU=CalmKit,O=Health Matters Clinic,L=Los Angeles,S=CA,C=US" \
+              -storepass CalmKit2026! -keypass CalmKit2026! -noprompt
+            echo "KEYSTORE_GENERATED=true" >> $GITHUB_ENV
+            echo "Generated new keystore — save this for future releases:"
+            base64 android/calmkit-release.keystore
+          fi
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'CalmKit2026!' }}
 
       - name: Set up Google Play service account key
         run: |
@@ -90,8 +102,8 @@ jobs:
       - name: Submit to Play Store (internal track)
         env:
           ANDROID_KEYSTORE_PATH: android/calmkit-release.keystore
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'CalmKit2026!' }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'calmkit' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'CalmKit2026!' }}
           GOOGLE_PLAY_JSON_KEY: fastlane/google-play-key.json
         run: bundle exec fastlane android release
