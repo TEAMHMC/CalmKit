@@ -309,8 +309,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
               const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
               const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              // 0.0005 mi ≈ 2.6 ft minimum movement; filter spikes > 0.05 mi (264 ft) as GPS noise
-              if (dist > 0.0005 && dist < 0.05) {
+              // 0.003 mi ≈ 5m minimum — filters GPS drift when stationary (±3-10m typical).
+              // Also require GPS receiver's own velocity > 0.2 mph when available,
+              // since the receiver's Doppler-based speed is more accurate than position deltas.
+              const gpsSpeedMph = pos.coords.speed !== null && pos.coords.speed >= 0
+                ? pos.coords.speed * 2.237 : null;
+              const isActuallyMoving = gpsSpeedMph === null || gpsSpeedMph > 0.2;
+              if (dist > 0.003 && dist < 0.05 && isActuallyMoving) {
                 pathCoordsRef.current.push(newLoc);
                 if (pathRef.current) pathRef.current.setPath(pathCoordsRef.current.map(([lat, lng]: [number, number]) => ({ lat, lng })));
                 lastPositionRef.current = newLoc;
