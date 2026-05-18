@@ -1,0 +1,26 @@
+{
+  "app_name": "CalmKit — Mental Wellness",
+  "subtitle": "Walk, Breathe & Ground Yourself",
+  "bundle_id": "com.healthmatters.calmkit",
+  "version": "1.0.0",
+  "build_number": "1",
+  "primary_category": "HEALTH_AND_FITNESS",
+  "secondary_category": "MEDICAL",
+  "age_rating": "12+",
+  "age_rating_notes": {
+    "infrequentMildAlcohol": false,
+    "infrequentMildCartoonViolence": false,
+    "matureSuggestiveThemes": false,
+    "gambling": false,
+    "unrestricted_web_access": false,
+    "medical_treatment_info": true
+  },
+  "keywords": "mental health,wellness,meditation,breathing,walk,calm,anxiety,stress,grounding,CBT,therapy,mindfulness,depression,mood,journal",
+  "privacy_policy_url": "https://healthmatters.clinic/privacy",
+  "support_url": "https://healthmatters.clinic/support",
+  "marketing_url": "https://calmkit.healthmatters.clinic",
+  "copyright": "2026 Health Matters Clinic. All rights reserved.",
+  "description": "CalmKit is your personal mental wellness companion from Health Matters Clinic — a trusted community health resource in Los Angeles.\n\nBuilt on evidence-based Cognitive Behavioral Therapy (CBT) principles, CalmKit helps you move through stress, anxiety, and difficult emotions with guided tools that actually work.\n\nWHAT YOU CAN DO\n\nGuided Walks — Step outside and walk with a personal wellness coach. Choose your coaching style: Hope (warm and affirming), Hype (energizing and motivating), Breakthrough (reflective and insightful), or Strategy (calm and problem-solving). Your coach adapts to your mood, destination, and the world around you.\n\nBreathing Exercises — The Physiological Sigh resets your nervous system in under two minutes. Box Breathing builds focus and calm. Audio-guided, with visual rhythm cues.\n\nMeditation — Personalized guided stillness sessions with ambient soundscapes. Rain, ocean, forest, or zen backgrounds. Tailored to what you need in the moment.\n\nJournal — Daily reflection prompts help you process thoughts and track your mental state over time.\n\nGrounding (5-4-3-2-1) — A quick, proven technique to anchor yourself in the present moment when anxiety spikes.\n\nYOUR PROGRESS\n\nCalmKit tracks your wellness journey privately on your device — no account required. See your streak, total sessions, and distance walked. After each session, check in with how you feel compared to when you started. Your growth is visible.\n\nFOR OUR COMMUNITY\n\nCalmKit is free and bilingual — English and Spanish. Designed with and for the communities of Los Angeles, in partnership with the LA County Department of Mental Health's Take Action LA campaign.\n\nIn crisis? Call or text 988 — the Suicide and Crisis Lifeline is always available.",
+  "whats_new": "Welcome to CalmKit 1.0. Guided walks with personal wellness coaching, breathing exercises, meditation, journaling, and grounding — all free, all bilingual.",
+  "promotional_text": "Your mental wellness companion. Walk, breathe, and ground yourself — free and bilingual."
+}

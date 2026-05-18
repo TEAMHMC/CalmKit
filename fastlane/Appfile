@@ -1,0 +1,12 @@
+app_identifier "com.healthmatters.calmkit"
+apple_id "erica@healthmatters.clinic"
+team_id ENV["APPLE_TEAM_ID"]
+
+for_platform :ios do
+  app_identifier "com.healthmatters.calmkit"
+end
+
+for_platform :android do
+  package_name "com.healthmatters.calmkit"
+  json_key_file ENV["GOOGLE_PLAY_JSON_KEY"]
+end

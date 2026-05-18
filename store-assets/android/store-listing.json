@@ -1,0 +1,16 @@
+{
+  "package_name": "com.healthmatters.calmkit",
+  "app_name": "CalmKit — Mental Wellness",
+  "short_description": "Guided walks, breathing & grounding for mental wellness. Free & bilingual.",
+  "full_description": "CalmKit is your personal mental wellness companion from Health Matters Clinic — a trusted community health resource in Los Angeles.\n\nBuilt on evidence-based Cognitive Behavioral Therapy (CBT) principles, CalmKit helps you move through stress, anxiety, and difficult emotions with guided tools that actually work.\n\n<b>GUIDED WALKS</b>\nStep outside and walk with a personal wellness coach. Choose your coaching style: Hope (warm and affirming), Hype (energizing and motivating), Breakthrough (reflective and insightful), or Strategy (calm and problem-solving). Your coach adapts to your mood, destination, and the world around you.\n\n<b>BREATHING EXERCISES</b>\nThe Physiological Sigh resets your nervous system in under two minutes. Box Breathing builds focus and calm. Audio-guided with visual rhythm cues.\n\n<b>MEDITATION</b>\nPersonalized guided stillness sessions with ambient soundscapes — rain, ocean, forest, or zen.\n\n<b>JOURNAL</b>\nDaily reflection prompts help you process thoughts and track your mental state over time.\n\n<b>GROUNDING (5-4-3-2-1)</b>\nA quick, proven technique to anchor yourself in the present moment when anxiety spikes.\n\n<b>YOUR PROGRESS</b>\nCalmKit tracks your wellness journey privately on your device — no account required. See your streak, total sessions, and distance walked. After each session, check in with how you feel. Your growth is visible.\n\n<b>FREE & BILINGUAL</b>\nAvailable in English and Spanish. Designed with and for the communities of Los Angeles, in partnership with the LA County Department of Mental Health's Take Action LA campaign.\n\nIn crisis? Call or text 988.",
+  "category": "HEALTH_AND_FITNESS",
+  "content_rating": "Everyone",
+  "contact_email": "support@healthmatters.clinic",
+  "contact_website": "https://healthmatters.clinic",
+  "privacy_policy_url": "https://healthmatters.clinic/privacy",
+  "developer_name": "Health Matters Clinic",
+  "default_language": "en-US",
+  "tags": ["mental health", "wellness", "meditation", "breathing", "walking", "CBT", "anxiety", "stress", "mindfulness", "calm"],
+  "target_sdk": 34,
+  "min_sdk": 24
+}

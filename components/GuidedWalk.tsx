@@ -1180,7 +1180,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           // If nothing is pre-warmed, use local intro (instant) so Gemini TTS voice
           // starts within 3s while the full AI narrative loads in background.
           // The local intro is a varied persona greeting (10+ options per persona),
-          // not the repetitive coaching body. All subsequent segments are AI-generated.
+          // not the repetitive coaching body. Subsequent segments use the full narrative.
           const preloadedText = (preloadKeyRef.current === preKey && preloadedIntroTextRef.current) ? preloadedIntroTextRef.current : null;
           preloadedIntroTextRef.current = null;
           preloadedIntroBase64Ref.current = null;

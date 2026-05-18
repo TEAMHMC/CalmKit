@@ -1,0 +1,97 @@
+default_platform(:ios)
+
+# ── SHARED ────────────────────────────────────────────────────
+desc "Build the web app and sync to native"
+lane :build_web do
+  sh("npm run build", chdir: "..")
+  sh("npx cap sync", chdir: "..")
+end
+
+# ── iOS ───────────────────────────────────────────────────────
+platform :ios do
+  desc "Submit to App Store"
+  lane :release do
+    build_web
+
+    # Install CocoaPods dependencies
+    cocoapods(podfile: "ios/App/Podfile")
+
+    # Sync signing certificates and provisioning profiles
+    sync_code_signing(
+      type: "appstore",
+      app_identifier: "com.healthmatters.calmkit",
+      git_url: ENV["MATCH_GIT_URL"],
+    )
+
+    # Build the iOS app
+    build_ios_app(
+      workspace: "ios/App/App.xcworkspace",
+      scheme: "App",
+      export_method: "app-store",
+      output_directory: "build/ios",
+      output_name: "CalmKit.ipa",
+    )
+
+    # Upload to App Store Connect
+    upload_to_app_store(
+      ipa: "build/ios/CalmKit.ipa",
+      app_identifier: "com.healthmatters.calmkit",
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      metadata_path: "store-assets/ios",
+      skip_screenshots: true,
+    )
+  end
+
+  desc "Upload metadata only (no build)"
+  lane :update_metadata do
+    deliver(
+      app_identifier: "com.healthmatters.calmkit",
+      metadata_path: "store-assets/ios",
+      skip_binary_upload: true,
+      skip_screenshots: true,
+    )
+  end
+end
+
+# ── ANDROID ───────────────────────────────────────────────────
+platform :android do
+  desc "Submit to Google Play Store"
+  lane :release do
+    build_web
+
+    # Build signed AAB
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android",
+      properties: {
+        "android.injected.signing.store.file" => ENV["ANDROID_KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"],
+      }
+    )
+
+    # Upload to Google Play
+    upload_to_play_store(
+      package_name: "com.healthmatters.calmkit",
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY"],
+      skip_upload_apk: true,
+      skip_upload_screenshots: true,
+    )
+  end
+
+  desc "Promote internal to production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      package_name: "com.healthmatters.calmkit",
+      track: "internal",
+      track_promote_to: "production",
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY"],
+    )
+  end
+end
