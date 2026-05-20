@@ -1398,6 +1398,35 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
   };
 
+  // Initialize Google Map in session summary so users see real streets + their route
+  useEffect(() => {
+    if (!showSummary || sessionType !== 'OUTDOOR' || finalPath.length < 2) return;
+    let cancelled = false;
+    ensureGoogleMaps().then(() => {
+      if (cancelled || !summaryMapContainerRef.current) return;
+      const gm = (window as any).google.maps;
+      const map = new gm.Map(summaryMapContainerRef.current, {
+        zoom: 15,
+        mapTypeId: 'roadmap',
+        disableDefaultUI: true,
+        gestureHandling: 'greedy',
+        styles: DARK_MAP_STYLE,
+      });
+      const bounds = new gm.LatLngBounds();
+      const path = finalPath.map(([lat, lng]: [number, number]) => {
+        bounds.extend({ lat, lng });
+        return { lat, lng };
+      });
+      new gm.Polyline({ map, path, strokeColor: '#233DFF', strokeWeight: 5, strokeOpacity: 1,
+        icons: [{ icon: { path: gm.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: '#233DFF', fillOpacity: 0.7, strokeColor: '#fff', strokeWeight: 1 }, offset: '100%' }],
+      });
+      new gm.Marker({ map, position: path[0], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#233DFF', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 } });
+      new gm.Marker({ map, position: path[path.length - 1], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#233DFF', strokeWeight: 2 } });
+      map.fitBounds(bounds, { top: 32, right: 32, bottom: 32, left: 32 });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [showSummary, finalPath, sessionType]);
+
   // ══════════════════════════════════════════════
   // RENDER: Post-session Mood Check
   // ══════════════════════════════════════════════
@@ -1481,36 +1510,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       </div>
     );
   }
-
-  // Initialize Google Map in session summary so users see real streets + their route
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (!showSummary || sessionType !== 'OUTDOOR' || finalPath.length < 2) return;
-    let cancelled = false;
-    ensureGoogleMaps().then(() => {
-      if (cancelled || !summaryMapContainerRef.current) return;
-      const gm = (window as any).google.maps;
-      const map = new gm.Map(summaryMapContainerRef.current, {
-        zoom: 15,
-        mapTypeId: 'roadmap',
-        disableDefaultUI: true,
-        gestureHandling: 'greedy',
-        styles: DARK_MAP_STYLE,
-      });
-      const bounds = new gm.LatLngBounds();
-      const path = finalPath.map(([lat, lng]: [number, number]) => {
-        bounds.extend({ lat, lng });
-        return { lat, lng };
-      });
-      new gm.Polyline({ map, path, strokeColor: '#233DFF', strokeWeight: 5, strokeOpacity: 1,
-        icons: [{ icon: { path: gm.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: '#233DFF', fillOpacity: 0.7, strokeColor: '#fff', strokeWeight: 1 }, offset: '100%' }],
-      });
-      new gm.Marker({ map, position: path[0], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#233DFF', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2 } });
-      new gm.Marker({ map, position: path[path.length - 1], icon: { path: gm.SymbolPath.CIRCLE, scale: 8, fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#233DFF', strokeWeight: 2 } });
-      map.fitBounds(bounds, { top: 32, right: 32, bottom: 32, left: 32 });
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [showSummary, finalPath, sessionType]);
 
   // ══════════════════════════════════════════════
   // RENDER: Session Summary
