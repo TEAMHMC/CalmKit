@@ -395,6 +395,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (preBufferTimeoutRef.current) clearTimeout(preBufferTimeoutRef.current);
       isNarratingRef.current = false;
       audioBufferQueue.current = [];
+      nextCueRef.current = null;
+      nextCueFetchingRef.current = false;
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
@@ -410,6 +412,103 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const isFetchingRef = useRef(false);
   const fallbackIntroPlayedRef = useRef(false);
   const closingPlayedRef = useRef(false);
+
+  // ── Look-ahead buffer: pre-fetch the NEXT cue while the CURRENT one plays ──
+  // Stores { text, buffer } for the next cue so it's ready the instant the
+  // current audio ends, eliminating the 10-25s silence in CONTINUOUS mode.
+  const nextCueRef = useRef<{ text: string; buffer: AudioBuffer | null } | null>(null);
+  // True while a background look-ahead fetch is in progress — prevents duplicate fetches.
+  const nextCueFetchingRef = useRef(false);
+  // Stable ref to narrationLoop — allows startLookAhead to call narrationLoop without
+  // a circular useCallback dependency (narrationLoop is assigned below).
+  const narrationLoopRef = useRef<() => Promise<void>>(async () => {});
+
+  // Helper: determine what the NEXT narrative cue text will be without advancing
+  // the segment index. Used to pre-fetch TTS while the current segment plays.
+  // Returns null if look-ahead isn't applicable (e.g. closing, exhausted, etc.).
+  const peekNextNarrativeCue = (): string | null => {
+    const narrative = narrativeDataRef.current;
+    if (!narrative?.segments) return null;
+    const nextIdx = narrativeSegmentIndexRef.current; // index is already advanced when current plays
+    if (nextIdx < narrative.segments.length) {
+      const seg = narrative.segments[nextIdx];
+      return Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
+    }
+    // Next up would be sponsor or closing — return their text for pre-fetch
+    if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
+      return narrative.spokenSponsorMoment;
+    }
+    if (narrative.closingTemplate && sponsorPlayedRef.current && !closingPlayedRef.current) {
+      return narrative.closingTemplate;
+    }
+    return null;
+  };
+
+  // Kick off a background look-ahead fetch for the next cue.
+  // Only runs in CONTINUOUS mode. No-ops if already fetching or already have a buffered cue.
+  // Uses narrationLoopRef to avoid a circular useCallback dependency.
+  const startLookAhead = useCallback(() => {
+    if (narrationFreqRef.current !== 'CONTINUOUS') return;
+    if (nextCueFetchingRef.current || nextCueRef.current) return;
+    if (!isNarratingRef.current) return;
+
+    nextCueFetchingRef.current = true;
+    (async () => {
+      try {
+        let text: string | null = null;
+
+        // Priority 1: next structured narrative segment (if narrative is loaded)
+        const nextNarrText = peekNextNarrativeCue();
+        if (nextNarrText) {
+          text = nextNarrText;
+          // Track in coaching history immediately so future cues stay fresh
+          coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10);
+        } else if (!narrativePendingRef.current && !narrativeDataRef.current) {
+          // Priority 2: dynamic genAndTrack (only when narrative is not pending/loaded)
+          text = await genAndTrack({
+            mode,
+            activity: (sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK') as any,
+            lang,
+            stats: sessionStatsRef.current,
+            isIntro: false,
+            isFirstSegment: false,
+            segmentNumber: segmentCounterRef.current + 1,
+            destinationName: destinationNameRef.current || undefined,
+            targetThought: targetThoughtRef.current || undefined,
+            indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+            userLat: userLocationRef.current?.[0],
+            userLng: userLocationRef.current?.[1],
+            ...envDataRef.current,
+            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+          });
+          // genAndTrack already adds to coachingHistoryRef internally
+        } else {
+          // Narrative pending or exhausted but no next text — nothing to pre-fetch
+          nextCueFetchingRef.current = false;
+          return;
+        }
+
+        if (!text || !isNarratingRef.current) { nextCueFetchingRef.current = false; return; }
+
+        // Pre-synthesize TTS so audio is ready to play immediately
+        const buf = await speakText(text);
+        if (!isNarratingRef.current) { nextCueFetchingRef.current = false; return; }
+
+        nextCueRef.current = { text, buffer: buf };
+        nextCueFetchingRef.current = false;
+
+        // If narrationLoop is idle waiting for us, wake it up via the stable ref
+        if (!currentSourceRef.current && !isFetchingRef.current && isNarratingRef.current && !isPausedRef.current) {
+          narrationLoopRef.current();
+        }
+      } catch {
+        nextCueFetchingRef.current = false;
+      }
+    })();
+  }, [mode, lang, sessionType, genAndTrack]);
+
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
     if (isFetchingRef.current || currentSourceRef.current) return;
@@ -419,82 +518,114 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
 
     if (audioBufferQueue.current.length === 0) {
-      const narrative = narrativeDataRef.current;
-      if (narrative && narrative.segments) {
-        const elapsed = sessionStatsRef.current.time || 0;
-        const currentMin = Math.floor(elapsed / 60);
-
-        const idx = narrativeSegmentIndexRef.current;
-        if (idx < narrative.segments.length) {
-          const seg = narrative.segments[idx];
-          // Play segments sequentially — no time-gating so audio stays continuous
-          isFetchingRef.current = true;
-          setIsBufferingAudio(true);
-          const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
-          narrativeSegmentIndexRef.current = idx + 1;
-          if (text.trim()) {
-            setLastSpokenText(text); // update coaching card so it shows current segment, not just the intro
-            if (text) { coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10); }
-            const buffer = await speakText(text);
-            if (buffer) audioBufferQueue.current.push(buffer);
-          }
-          isFetchingRef.current = false;
-          setIsBufferingAudio(false);
-        } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
-          isFetchingRef.current = true;
-          const buffer = await speakText(narrative.spokenSponsorMoment);
-          isFetchingRef.current = false;
-          if (buffer) audioBufferQueue.current.push(buffer);
-          sponsorPlayedRef.current = true;
-        } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length && !closingPlayedRef.current) {
-          isFetchingRef.current = true;
-          closingPlayedRef.current = true;
-          const buffer = await speakText(narrative.closingTemplate);
-          isFetchingRef.current = false;
-          if (buffer) audioBufferQueue.current.push(buffer);
-          narrativeSegmentIndexRef.current = 9999;
-        } else if (closingPlayedRef.current && idx >= narrative.segments.length) {
-          // Structured narrative fully exhausted (all segments + sponsor + closing played).
-          // Clear it so the session continues with dynamic genAndTrack cues indefinitely
-          // rather than going silent. Without this, narrationLoop would spin silently
-          // every second once closingPlayedRef is true and no branches produce audio.
-          narrativeDataRef.current = null;
+      // ── Fast path: consume the pre-fetched look-ahead cue ──────────────────
+      if (nextCueRef.current) {
+        const { text, buffer } = nextCueRef.current;
+        nextCueRef.current = null;
+        if (text) {
+          setLastSpokenText(text);
+          // Note: text was already added to coachingHistoryRef during look-ahead fetch
         }
-      } else {
-        // If the background full-narrative fetch is still in-flight, wait and retry —
-        // avoid making a redundant per-segment API call that also takes 15s.
-        if (narrativePendingRef.current) {
-          setTimeout(narrationLoop, 2000);
+        if (buffer) {
+          audioBufferQueue.current.push(buffer);
+        } else {
+          // TTS returned null — Web Speech already handled it; narrationLoop will
+          // be called again from the Web Speech onend handler, so we can return.
           return;
         }
-        isFetchingRef.current = true;
-        setIsBufferingAudio(true);
-        segmentCounterRef.current++;
-        const isIntro = !fallbackIntroPlayedRef.current;
-        fallbackIntroPlayedRef.current = true;
-        const segment = await genAndTrack({
-          mode,
-          activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
-          lang,
-          stats: sessionStatsRef.current,
-          isIntro,
-          isFirstSegment: !sponsorPlayedRef.current,
-          segmentNumber: segmentCounterRef.current,
-          destinationName: destinationNameRef.current || undefined,
-          targetThought: targetThoughtRef.current || undefined,
-          indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-          userLat: userLocation?.[0],
-          userLng: userLocation?.[1],
-          ...envDataRef.current,
-          ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-          ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-          ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-        });
-        if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
-        const buffer = await speakText(segment);
-        isFetchingRef.current = false;
-        if (buffer) audioBufferQueue.current.push(buffer);
-        setIsBufferingAudio(false);
+      } else if (nextCueFetchingRef.current) {
+        // Look-ahead is in progress — wait for it rather than starting a duplicate fetch.
+        // Check back in 500ms; the look-ahead will also call narrationLoop when done.
+        setTimeout(narrationLoop, 500);
+        return;
+      } else {
+        // ── No look-ahead available — fetch synchronously (cold start or recovery) ──
+        const narrative = narrativeDataRef.current;
+        if (narrative && narrative.segments) {
+          const idx = narrativeSegmentIndexRef.current;
+          if (idx < narrative.segments.length) {
+            const seg = narrative.segments[idx];
+            isFetchingRef.current = true;
+            setIsBufferingAudio(true);
+            const text = Array.isArray(seg.scriptBeats) ? seg.scriptBeats.filter(Boolean).join(' ') : String(seg);
+            narrativeSegmentIndexRef.current = idx + 1;
+            if (text.trim()) {
+              setLastSpokenText(text);
+              coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10);
+              const buffer = await speakText(text);
+              if (buffer) audioBufferQueue.current.push(buffer);
+            }
+            isFetchingRef.current = false;
+            setIsBufferingAudio(false);
+          } else if (!sponsorPlayedRef.current && narrative.spokenSponsorMoment) {
+            isFetchingRef.current = true;
+            const buffer = await speakText(narrative.spokenSponsorMoment);
+            isFetchingRef.current = false;
+            if (buffer) audioBufferQueue.current.push(buffer);
+            sponsorPlayedRef.current = true;
+          } else if (narrative.closingTemplate && sponsorPlayedRef.current && idx >= narrative.segments.length && !closingPlayedRef.current) {
+            isFetchingRef.current = true;
+            closingPlayedRef.current = true;
+            const buffer = await speakText(narrative.closingTemplate);
+            isFetchingRef.current = false;
+            if (buffer) audioBufferQueue.current.push(buffer);
+            narrativeSegmentIndexRef.current = 9999;
+          } else if (closingPlayedRef.current && idx >= narrative.segments.length) {
+            // Structured narrative fully exhausted — clear so dynamic cues take over.
+            narrativeDataRef.current = null;
+          }
+        } else {
+          // If the background full-narrative fetch is still in-flight, play a bridge cue
+          // from the local instant library rather than waiting silently for up to 15s.
+          if (narrativePendingRef.current) {
+            const hour = new Date().getHours();
+            const tod = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+            const bridgeText = getLocalIntro({ mode, lang, timeOfDay: tod, targetThought: targetThoughtRef.current || undefined });
+            if (bridgeText && isNarratingRef.current) {
+              isFetchingRef.current = true;
+              setIsBufferingAudio(true);
+              coachingHistoryRef.current = [...coachingHistoryRef.current, bridgeText].slice(-10);
+              setLastSpokenText(bridgeText);
+              const buf = await speakText(bridgeText);
+              isFetchingRef.current = false;
+              setIsBufferingAudio(false);
+              if (buf && isNarratingRef.current) audioBufferQueue.current.push(buf);
+              // After playing bridge, retry narrationLoop — narrative may be ready by then
+            } else {
+              setTimeout(narrationLoop, 2000);
+              return;
+            }
+          } else {
+            isFetchingRef.current = true;
+            setIsBufferingAudio(true);
+            segmentCounterRef.current++;
+            const isIntro = !fallbackIntroPlayedRef.current;
+            fallbackIntroPlayedRef.current = true;
+            const segment = await genAndTrack({
+              mode,
+              activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
+              lang,
+              stats: sessionStatsRef.current,
+              isIntro,
+              isFirstSegment: !sponsorPlayedRef.current,
+              segmentNumber: segmentCounterRef.current,
+              destinationName: destinationNameRef.current || undefined,
+              targetThought: targetThoughtRef.current || undefined,
+              indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
+              userLat: userLocationRef.current?.[0],
+              userLng: userLocationRef.current?.[1],
+              ...envDataRef.current,
+              ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
+              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+              ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
+            });
+            if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
+            const buffer = await speakText(segment);
+            isFetchingRef.current = false;
+            if (buffer) audioBufferQueue.current.push(buffer);
+            setIsBufferingAudio(false);
+          }
+        }
       }
     }
 
@@ -509,6 +640,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       currentSourceRef.current = source;
 
       if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
+
+      // As soon as this cue STARTS playing, kick off look-ahead for the next one.
+      // This gives the full duration of the current cue for pre-fetch + TTS synthesis,
+      // so the next cue is ready to play the instant this one ends (zero gap).
+      if (narrationFreqRef.current === 'CONTINUOUS') {
+        startLookAhead();
+      }
 
       let sourceEnded = false;
       source.onended = () => {
@@ -559,32 +697,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       };
       source.start(0);
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
-
-      if (narrationFreqRef.current === 'CONTINUOUS' && audioBufferQueue.current.length < 2 && isNarratingRef.current && !narrativeDataRef.current && !narrativePendingRef.current) {
-        (async () => {
-          const stats = sessionStatsRef.current;
-          const seg = await genAndTrack({
-            mode, activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK', lang, stats,
-            isIntro: false, isFirstSegment: false,
-            segmentNumber: segmentCounterRef.current,
-            indoorActivity: indoorActivityRef.current || undefined,
-            destinationName: destinationNameRef.current || undefined,
-            targetThought: targetThoughtRef.current || undefined,
-            ...envDataRef.current,
-            ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
-            ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
-          });
-          if (!isNarratingRef.current) return;
-          const buf = await speakText(seg);
-          if (!isNarratingRef.current) return;
-          if (buf) audioBufferQueue.current.push(buf);
-        })();
-      }
     } else {
       setTimeout(narrationLoop, 1000);
     }
-  }, [mode, lang, sessionType]);
+  }, [mode, lang, sessionType, startLookAhead]);
+
+  // Keep narrationLoopRef in sync so startLookAhead can call the latest version
+  // without creating a circular useCallback dependency.
+  narrationLoopRef.current = narrationLoop;
 
   // Screen-lock recovery: when iOS resumes the AudioContext (via lock-screen play button
   // or visibilitychange), the playing AudioBufferSourceNode has died silently without
@@ -1061,6 +1181,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     isFetchingRef.current = false;
     fallbackIntroPlayedRef.current = false;
     closingPlayedRef.current = false;
+    nextCueRef.current = null;
+    nextCueFetchingRef.current = false;
 
     startKeepAlive();
     updateMediaSessionMetadata(
@@ -1315,6 +1437,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     isPausedRef.current = false;
     isFetchingRef.current = false;
     audioBufferQueue.current = [];
+    nextCueRef.current = null;
+    nextCueFetchingRef.current = false;
     // Cancel Web Speech immediately — stops audio that came from the TTS fallback path
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -1389,6 +1513,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         currentSourceRef.current = null;
       }
       if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
+      // Discard any pre-fetched look-ahead — it may be stale after the pause ends.
+      // A fresh look-ahead will start when narration resumes.
+      nextCueRef.current = null;
+      nextCueFetchingRef.current = false;
       if (bgGainRef.current && audioCtxRef.current) {
         bgGainRef.current.gain.linearRampToValueAtTime(0.02, audioCtxRef.current.currentTime + 0.3);
       }
