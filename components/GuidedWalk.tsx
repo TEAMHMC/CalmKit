@@ -457,14 +457,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       try {
         let text: string | null = null;
 
-        // Priority 1: next structured narrative segment (if narrative is loaded)
-        const nextNarrText = peekNextNarrativeCue();
-        if (nextNarrText) {
-          text = nextNarrText;
-          // Track in coaching history immediately so future cues stay fresh
-          coachingHistoryRef.current = [...coachingHistoryRef.current, text].slice(-10);
-        } else if (!narrativePendingRef.current && !narrativeDataRef.current) {
-          // Priority 2: dynamic genAndTrack (only when narrative is not pending/loaded)
+        // Only pre-fetch dynamic cues — never peek at the structured narrative.
+        // The structured narrative plays itself in sequence; peeking double-plays segments.
+        // Look-ahead only activates once the narrative is fully exhausted and cleared.
+        if (!narrativePendingRef.current && !narrativeDataRef.current) {
           text = await genAndTrack({
             mode,
             activity: (sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK') as any,
@@ -483,9 +479,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
             ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
           });
-          // genAndTrack already adds to coachingHistoryRef internally
         } else {
-          // Narrative pending or exhausted but no next text — nothing to pre-fetch
+          // Narrative still active — nothing to pre-fetch
           nextCueFetchingRef.current = false;
           return;
         }
