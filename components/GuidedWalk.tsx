@@ -453,6 +453,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           isFetchingRef.current = false;
           if (buffer) audioBufferQueue.current.push(buffer);
           narrativeSegmentIndexRef.current = 9999;
+        } else if (closingPlayedRef.current && idx >= narrative.segments.length) {
+          // Structured narrative fully exhausted (all segments + sponsor + closing played).
+          // Clear it so the session continues with dynamic genAndTrack cues indefinitely
+          // rather than going silent. Without this, narrationLoop would spin silently
+          // every second once closingPlayedRef is true and no branches produce audio.
+          narrativeDataRef.current = null;
         }
       } else {
         // If the background full-narrative fetch is still in-flight, wait and retry —
