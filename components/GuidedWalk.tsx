@@ -1055,10 +1055,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => {
     if (!isPlaying || !mapContainerRef.current || mapRef.current) {
       if (!isPlaying && mapRef.current) {
-        // Clean up Google Maps resources
+        // Clean up Google Maps resources and remove DOM node to prevent map leaking into summary
         if (markerRef.current) { markerRef.current.setMap(null); markerRef.current = null; }
         if (destinationMarkerRef.current) { destinationMarkerRef.current.setMap(null); destinationMarkerRef.current = null; }
         if (pathRef.current) { pathRef.current.setMap(null); pathRef.current = null; }
+        try {
+          const mapDiv = (mapRef.current as any).getDiv?.();
+          if (mapDiv?.parentNode) mapDiv.parentNode.removeChild(mapDiv);
+        } catch (_) {}
         mapRef.current = null;
       }
       return;
