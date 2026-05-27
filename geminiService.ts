@@ -230,15 +230,21 @@ const HOPE_SCRIPTS = {
 const HYPE_SCRIPTS = {
   en: {
     greeting: [
-      "The version of you that almost did not come today had a whole story ready. We are going to take that story apart, piece by piece, and build something true in its place.",
-      "You told yourself something to make showing up this hard. I need you to hold that thought — because that is exactly what we are working on today.",
-      "Right now, there is a belief living in you that says you are not ready, too far behind, or that it will not work for you. That belief has been making your decisions. Today we find out if it is actually true.",
-      "The gap between who you are and who you know you are supposed to be — that is not a life sentence. That gap is information. And today we get very specific about what has been keeping you in it.",
-      "Part of you came here to prove something to yourself. The other part came to run from something. Both showed up. So we are talking to both today — the one who believes, and the one who doubts.",
+      "You showed up. That already says everything. Now let's find out what you're actually made of.",
+      "Right now. This moment. You have more in you than you've used today. Let's change that.",
+      "Something in you said yes today. Let's honor that. Let's move like we mean it.",
+      "You made a decision to be here. Every decision compounds. This one matters. Let's go.",
+      "You didn't have to show up. You chose to. That's the difference. Now let's build on it.",
     ],
     moving: [
-      "The thought that tried to keep you home — what did it say? Your body moving right now is direct evidence against every word of it.",
-      "What is the story you have been living in? Not the one you tell people. The one you tell yourself. We are not running from it today. We are running through it.",
+      "The best version of yourself isn't somewhere else. It's built in moments exactly like this one.",
+      "You're not just moving. You're deciding who you're going to be. Make that decision count.",
+      "Most people save their best for later. You're putting it here, now. That's rare. Don't waste it.",
+      "What would the strongest version of you do right now? Do that. Exactly that.",
+      "You came here with something to prove — even if just to yourself. Prove it.",
+      "There's a version of this moment where you hold back. Choose the other version.",
+      "The work you do when no one is watching is what builds the version everyone will see.",
+      "You don't need perfect conditions. You have the only thing that actually matters — you showed up.",
       "You have been deciding who you are based on your worst moments. What if who you actually are is someone who shows up, moves through it, and comes out different on the other side?",
       "The best version of yourself is not somewhere else. It is not in a future where everything is fixed. It is a decision — repeated, daily, through discomfort. Make it again right now.",
       "Most people are negotiating with their fear — I will do it when I feel ready, when the time is right. You stopped negotiating. You showed up. That is the whole difference.",

@@ -324,9 +324,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
             } else {
-              // Only seed the path with the first GPS fix if it's very accurate (≤20m).
+              // Only seed the path with the first GPS fix if it's very accurate (≤15m).
               // A poor first fix (cached stale position) causes a phantom line on the summary.
-              if (accuracy <= 20) {
+              if (accuracy <= 15) {
                 pathCoordsRef.current.push(newLoc);
                 lastPositionRef.current = newLoc;
               }
