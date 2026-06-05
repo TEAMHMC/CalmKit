@@ -1092,9 +1092,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     if (!isPlaying || !mapContainerRef.current || mapRef.current) {
       if (!isPlaying && mapRef.current) {
         // Clean up Google Maps resources and remove DOM node to prevent map leaking into summary
-        if (markerRef.current) { markerRef.current.setMap(null); markerRef.current = null; }
-        if (destinationMarkerRef.current) { destinationMarkerRef.current.setMap(null); destinationMarkerRef.current = null; }
-        if (pathRef.current) { pathRef.current.setMap(null); pathRef.current = null; }
+        // Wrap all .setMap(null) calls in try/catch — if the map was already partially
+        // destroyed (e.g. by handleStop), these will throw and must not propagate.
+        if (markerRef.current) { try { markerRef.current.setMap(null); } catch(_){} markerRef.current = null; }
+        if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(_){} destinationMarkerRef.current = null; }
+        if (pathRef.current) { try { pathRef.current.setMap(null); } catch(_){} pathRef.current = null; }
         try {
           const mapDiv = (mapRef.current as any).getDiv?.();
           if (mapDiv?.parentNode) mapDiv.parentNode.removeChild(mapDiv);
@@ -1318,6 +1320,24 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           timerIntervalRef.current = null;
           isNarratingRef.current = false;
           if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
+          // Null map refs BEFORE setIsPlaying(false) so the useEffect([isPlaying]) cleanup
+          // branch sees mapRef.current === null and skips, avoiding a redundant (and potentially
+          // unsafe) second pass over already-detached map objects.
+          if (markerRef.current) { try { markerRef.current.setMap(null); } catch(_){} markerRef.current = null; }
+          if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(_){} destinationMarkerRef.current = null; }
+          if (pathRef.current) { try { pathRef.current.setMap(null); } catch(_){} pathRef.current = null; }
+          if (mapRef.current) {
+            try {
+              const gm = (window as any).google?.maps;
+              if (gm?.event) gm.event.clearInstanceListeners(mapRef.current);
+              const mapDiv = (mapRef.current as any).getDiv?.();
+              if (mapDiv) {
+                mapDiv.style.cssText = 'display:none;position:static;width:0;height:0;overflow:hidden;';
+                if (mapDiv.parentNode) mapDiv.parentNode.removeChild(mapDiv);
+              }
+            } catch (_) {}
+            mapRef.current = null;
+          }
           setFinalPath([...pathCoordsRef.current]);
           setSessionStats(s => { setFinalStats({ ...s }); return s; });
           setIsPlaying(false);
