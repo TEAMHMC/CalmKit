@@ -218,8 +218,12 @@ export function startKeepAlive(): void {
   const el = document.createElement('audio');
   el.src = _keepAliveBlobUrl;
   el.loop = true;
-  el.volume = 0.001; // Near-silent but nonzero — iOS skips truly silent streams
+  // Near-silent but nonzero — iOS skips truly silent streams and won't hold the audio session.
+  // 0.01 is the minimum volume that reliably keeps AVAudioSession active on iOS 16+.
+  el.volume = 0.01;
   el.setAttribute('playsinline', '');
+  // x-webkit-airplay="allow" tells iOS WebKit this element participates in the audio session
+  el.setAttribute('x-webkit-airplay', 'allow');
   el.play().catch(() => {});
   _keepAliveEl = el;
 

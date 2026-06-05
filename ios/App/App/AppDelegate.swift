@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Configure AVAudioSession so CalmKit coaching audio ducks other apps (Music, Spotify, etc.)
+        // .playback keeps audio alive when the screen locks; .duckOthers lowers competing audio
+        // automatically when our AudioContext or keepalive element produces sound.
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .default,
+                options: [.duckOthers, .allowBluetooth, .allowAirPlay]
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("[CalmKit] AVAudioSession setup failed: \(error)")
+        }
         return true
     }
 

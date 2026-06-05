@@ -168,6 +168,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const lastGPSMovementRef = useRef<number>(Date.now());
   const coachingHistoryRef = useRef<string[]>([]);
   const isCheckInLoadingRef = useRef(false);
+  // Rolling window of recent GPS samples: [{distMi, timestampMs}] for pace calculation.
+  // Using a 60-second window gives a smooth, responsive pace that reflects current speed
+  // rather than the whole-session average (which reads wrong at the start and end).
+  const recentGpsSamplesRef = useRef<{ distMi: number; ts: number }[]>([]);
 
   const t = translations[lang];
 
@@ -310,23 +314,28 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               const dLon = (newLoc[1] - last[1]) * Math.PI / 180;
               const a = Math.sin(dLat/2)**2 + Math.cos(last[0]*Math.PI/180)*Math.cos(newLoc[0]*Math.PI/180)*Math.sin(dLon/2)**2;
               const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              // 0.003 mi ≈ 5m minimum — filters GPS drift when stationary (±3-10m typical).
               // Also require GPS receiver's own velocity > 0.2 mph when available,
               // since the receiver's Doppler-based speed is more accurate than position deltas.
               const gpsSpeedMph = pos.coords.speed !== null && pos.coords.speed >= 0
                 ? pos.coords.speed * 2.237 : null;
               const isActuallyMoving = gpsSpeedMph === null || gpsSpeedMph > 0.2;
-              if (dist > 0.003 && dist < 0.05 && isActuallyMoving) {
+              // Min 0.003mi (~5m) filters stationary drift. Max 0.15mi (~240m) tolerates
+              // slow GPS poll intervals without rejecting real movement between fixes.
+              if (dist > 0.003 && dist < 0.15 && isActuallyMoving) {
                 pathCoordsRef.current.push(newLoc);
                 if (pathRef.current) pathRef.current.setPath(pathCoordsRef.current.map(([lat, lng]: [number, number]) => ({ lat, lng })));
                 lastPositionRef.current = newLoc;
                 lastGPSMovementRef.current = Date.now();
+                // Record this sample for rolling pace window
+                recentGpsSamplesRef.current.push({ distMi: dist, ts: Date.now() });
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
             } else {
-              // Only seed the path with the first GPS fix if it's very accurate (≤15m).
+              // Only seed the path with the first GPS fix if it's reasonably accurate (≤40m).
+              // 40m is the practical ceiling for a real GPS fix on mobile (vs. cell-tower at 500m+).
+              // ≤15m was too aggressive — a good outdoor fix under tree cover is often 20-35m.
               // A poor first fix (cached stale position) causes a phantom line on the summary.
-              if (accuracy <= 15) {
+              if (accuracy <= 40) {
                 pathCoordsRef.current.push(newLoc);
                 lastPositionRef.current = newLoc;
               }
@@ -528,13 +537,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           // be called again from the Web Speech onend handler, so we can return.
           return;
         }
-      } else if (nextCueFetchingRef.current) {
-        // Look-ahead is in progress — wait for it rather than starting a duplicate fetch.
-        // Check back in 500ms; the look-ahead will also call narrationLoop when done.
+      } else if (nextCueFetchingRef.current && !narrativeDataRef.current && !narrativePendingRef.current) {
+        // Look-ahead is in progress and there is nothing else to play right now —
+        // wait for it rather than starting a duplicate fetch. The look-ahead will also
+        // call narrationLoop when it completes, so no cue will be lost.
+        // If the narrative has already arrived (narrativeDataRef) or a bridge is
+        // available (narrativePendingRef), fall through to cold start immediately.
         setTimeout(narrationLoop, 500);
         return;
       } else {
-        // ── No look-ahead available — fetch synchronously (cold start or recovery) ──
+        // ── No look-ahead available (or narrative/bridge already ready) — cold start ──
         const narrative = narrativeDataRef.current;
         if (narrative && narrative.segments) {
           const idx = narrativeSegmentIndexRef.current;
@@ -723,6 +735,30 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     });
     return () => clearSessionResumeCallback();
   }, [isPlaying, narrationLoop]);
+
+  // GPS screen-sleep recovery: on iOS/Android PWA, watchPosition stops delivering
+  // updates when the screen sleeps. When the user returns (visibilitychange → visible),
+  // clear the dead watch and start a fresh one so tracking resumes immediately.
+  // This effect is only active during an outdoor walk (isPlaying + OUTDOOR).
+  useEffect(() => {
+    if (!isPlaying || sessionType !== 'OUTDOOR') return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.geolocation) {
+        // Clear the old watch — it may have silently stopped delivering updates.
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        // Restart the watch so we get fresh GPS fixes immediately.
+        startGpsWatch();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, sessionType]);
 
   // Request GPS on user gesture (mobile Safari requires this)
   // If permission was already denied, skip re-requesting and return false immediately.
@@ -1169,6 +1205,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Reset all session state so a second session starts clean
     setSessionStats({ distance: 0, time: 0, pace: '0:00' });
     coachingHistoryRef.current = [];
+    recentGpsSamplesRef.current = [];
     setLastSpokenText('');
     setDisplaySpeedMph(null);
     audioBufferQueue.current = [];
@@ -1244,13 +1281,33 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (isPausedRef.current) return;
       setSessionStats(prev => {
         const elapsed = (Date.now() - now - pausedDurationRef.current) / 1000;
-        const paceRaw = prev.distance > 0 ? (elapsed / 60) / prev.distance : 0;
+
+        // Rolling pace: use the last 60 seconds of GPS samples for a responsive reading.
+        // Falls back to whole-session average when insufficient recent data.
+        let paceRaw = 0;
+        const windowMs = 60000;
+        const cutoff = Date.now() - windowMs;
+        // Purge samples older than the window
+        recentGpsSamplesRef.current = recentGpsSamplesRef.current.filter(s => s.ts >= cutoff);
+        const recentSamples = recentGpsSamplesRef.current;
+        if (recentSamples.length >= 2) {
+          const windowDistMi = recentSamples.reduce((sum, s) => sum + s.distMi, 0);
+          const windowSec = (recentSamples[recentSamples.length - 1].ts - recentSamples[0].ts) / 1000;
+          if (windowDistMi > 0.01 && windowSec > 5) {
+            paceRaw = (windowSec / 60) / windowDistMi;
+          }
+        } else if (prev.distance > 0.01) {
+          // Not enough rolling data yet — use whole-session average
+          paceRaw = (elapsed / 60) / prev.distance;
+        }
+
         const mins = Math.floor(paceRaw);
         const secs = Math.floor((paceRaw - mins) * 60);
+        const paceStr = paceRaw > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00';
         return {
           ...prev,
           time: elapsed,
-          pace: prev.distance > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : '0:00'
+          pace: paceStr,
         };
       });
       // Auto-stop after 10 min with no GPS movement (OUTDOOR + GPS acquired only)
@@ -1294,6 +1351,14 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     // Show buffering indicator immediately while AI voice is being generated
     setIsBufferingAudio(true);
+
+    // Mark narrative as pending BEFORE starting the intro IIFE so that startLookAhead
+    // (triggered by narrationLoop when the intro starts playing) correctly sees the
+    // narrative is in-flight and does not fire a redundant genAndTrack call.
+    // Must be set here rather than after the IIFE because the fast path (preloaded audio)
+    // runs synchronously — narrationLoop is called BEFORE execution returns to the lines
+    // after the IIFE, meaning the check fires with narrativePendingRef = false otherwise.
+    narrativePendingRef.current = true;
 
     // Block narrationLoop re-entry while we fetch the first AI segment.
     // If intro text was pre-warmed on step 1, skip generation and go straight to TTS (~3s).
@@ -1365,10 +1430,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       }
     })();
 
-    // Mark narrative as pending so narrationLoop retries instead of making duplicate API calls
-    narrativePendingRef.current = true;
-
     // Fetch full 20-minute structured narrative in background (non-blocking)
+    // (narrativePendingRef.current = true was already set above, before the intro IIFE)
     const hour = new Date().getHours();
     const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
     fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
@@ -1422,13 +1485,24 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     if (_g) _g('event', 'calmkit_walk_complete', { mode, elapsed_seconds: sessionStats.time, distance_miles: parseFloat(sessionStats.distance.toFixed(2)) });
     // Destroy Google Maps instance immediately — prevents DOM leak where the map
     // stays visible full-screen after the session ends.
+    // IMPORTANT: markers/path must be detached BEFORE the map div is removed, and
+    // the DOM removal must happen HERE — mapRef.current will already be null by the
+    // time the useEffect([isPlaying]) cleanup branch re-runs after setIsPlaying(false).
+    if (markerRef.current) { try { markerRef.current.setMap(null); } catch(e) {} markerRef.current = null; }
+    if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(e) {} destinationMarkerRef.current = null; }
+    if (pathRef.current) { try { pathRef.current.setMap(null); } catch(e) {} pathRef.current = null; }
     if (mapRef.current) {
       try {
         const gm = (window as any).google?.maps;
         if (gm?.event) gm.event.clearInstanceListeners(mapRef.current);
         const mapDiv = (mapRef.current as any).getDiv?.();
-        if (mapDiv?.parentNode) mapDiv.parentNode.removeChild(mapDiv);
+        if (mapDiv) {
+          // Collapse immediately to prevent any flash of the full-screen map
+          mapDiv.style.cssText = 'display:none;position:static;width:0;height:0;overflow:hidden;';
+          if (mapDiv.parentNode) mapDiv.parentNode.removeChild(mapDiv);
+        }
       } catch (_) {}
+      mapRef.current = null;
     }
     // Set flags first so any in-flight async callbacks see the stopped state
     isNarratingRef.current = false;
@@ -1451,11 +1525,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     stopAmbience();
     if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    // Clean up Google Maps before showing summary
-    if (markerRef.current) { try { markerRef.current.setMap(null); } catch(e) {} markerRef.current = null; }
-    if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(e) {} destinationMarkerRef.current = null; }
-    if (pathRef.current) { try { pathRef.current.setMap(null); } catch(e) {} pathRef.current = null; }
-    mapRef.current = null;
     startMarkerRef.current = null;
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
