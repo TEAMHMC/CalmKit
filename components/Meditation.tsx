@@ -740,7 +740,7 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
               onClick={() => playMeditationAudio(script)}
               className="px-5 py-2.5 bg-amber-50 dark:bg-amber-500/10 rounded-full text-xs font-medium text-amber-700 dark:text-amber-400 active:scale-95 transition-all"
             >
-              {lang === 'es' ? 'Audio no disponible — reintentar' : 'Audio unavailable — tap to retry'}
+              {lang === 'es' ? 'Audio no disponible. Toca para reintentar.' : 'Audio unavailable. Tap to retry.'}
             </button>
           </div>
         ) : (

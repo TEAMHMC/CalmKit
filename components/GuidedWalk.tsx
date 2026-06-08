@@ -1874,7 +1874,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               </p>
               <p className="text-white/40 text-xs text-center">
                 {gpsAccuracy !== null && gpsAccuracy > 100
-                  ? (lang === 'es' ? 'Poca precisión — sal al exterior para mejor seguimiento' : 'Low accuracy — move outdoors for better tracking')
+                  ? (lang === 'es' ? 'Poca precisión. Sal al exterior para mejor seguimiento.' : 'Low accuracy. Move outdoors for better tracking.')
                   : (lang === 'es' ? 'Tu sesión ya comenzó' : 'Your session has started')}
               </p>
             </div>
@@ -2041,7 +2041,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               }}
               className="w-full py-3 text-sm font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
-              {lang === 'es' ? 'Saltar — solo quiero moverme' : 'Skip — just let me move'}
+              {lang === 'es' ? 'Saltar. Solo quiero moverme.' : 'Skip. Just let me move.'}
             </button>
           </div>
         </div>
