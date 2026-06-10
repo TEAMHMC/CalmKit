@@ -54,11 +54,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>location</string>
 	</array>
-	<!-- Microphone — Web Speech API fallback -->
-	<key>NSMicrophoneUsageDescription</key>
-	<string>CalmKit may use the microphone for voice coaching features.</string>
 	<!-- App Store metadata -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>

@@ -212,7 +212,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       destinationName: destinationName || undefined,
       targetThought: targetThought || undefined,
       indoorActivity: sessionType === 'INDOOR' ? (indoorActivity || undefined) : undefined,
-      userLat: userLocation?.[0], userLng: userLocation?.[1],
+      userLat: userLocation?.[0] != null ? Math.round(userLocation[0] * 100) / 100 : undefined,
+      userLng: userLocation?.[1] != null ? Math.round(userLocation[1] * 100) / 100 : undefined,
     }).then(async text => {
       if (cancelled || preloadKeyRef.current !== key) return;
       preloadedIntroTextRef.current = text;
@@ -481,8 +482,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             destinationName: destinationNameRef.current || undefined,
             targetThought: targetThoughtRef.current || undefined,
             indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-            userLat: userLocationRef.current?.[0],
-            userLng: userLocationRef.current?.[1],
+            userLat: userLocationRef.current?.[0] != null ? Math.round(userLocationRef.current[0] * 100) / 100 : undefined,
+            userLng: userLocationRef.current?.[1] != null ? Math.round(userLocationRef.current[1] * 100) / 100 : undefined,
             ...envDataRef.current,
             ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
             ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
@@ -619,8 +620,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               destinationName: destinationNameRef.current || undefined,
               targetThought: targetThoughtRef.current || undefined,
               indoorActivity: sessionType === 'INDOOR' ? (indoorActivityRef.current || undefined) : undefined,
-              userLat: userLocationRef.current?.[0],
-              userLng: userLocationRef.current?.[1],
+              userLat: userLocationRef.current?.[0] != null ? Math.round(userLocationRef.current[0] * 100) / 100 : undefined,
+              userLng: userLocationRef.current?.[1] != null ? Math.round(userLocationRef.current[1] * 100) / 100 : undefined,
               ...envDataRef.current,
               ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
               ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
