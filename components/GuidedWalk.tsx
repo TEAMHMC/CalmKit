@@ -141,6 +141,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const bgGainRef = useRef<GainNode | null>(null);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const isPausedRef = useRef(false);
+  // Mirrors isPlaying synchronously (set at every setIsPlaying call site) so the map
+  // effect cleanup can tell a real session-end teardown apart from a benign re-run.
+  const isPlayingRef = useRef(false);
   const debounceRef = useRef<any>(null);
   const narrationTimeoutRef = useRef<any>(null);
   const narrationFreqRef = useRef<NarrationFrequency>('CONTINUOUS');
@@ -420,6 +423,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrativeDataRef = useRef<any>(null);
   const narrativeSegmentIndexRef = useRef(0);
   const isFetchingRef = useRef(false);
+  // Synchronous re-entrancy lock for narrationLoop. narrationLoop is async and has multiple
+  // await points before it sets currentSourceRef; without this lock two concurrent callers
+  // (check-in, look-ahead wake-up, onended, resume callback, togglePause) can both clear the
+  // entry guard and start two AudioBufferSourceNodes at once — the cause of overlapping voice
+  // cues. Claimed atomically at the top of narrationLoop before any await; released on every
+  // exit path and once playback ownership transfers to currentSourceRef.
+  const narrationLoopActiveRef = useRef(false);
   const fallbackIntroPlayedRef = useRef(false);
   const closingPlayedRef = useRef(false);
 
@@ -497,8 +507,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
         if (!text || !isNarratingRef.current) { nextCueFetchingRef.current = false; return; }
 
-        // Pre-synthesize TTS so audio is ready to play immediately
-        const buf = await speakText(text);
+        // Pre-synthesize TTS so audio is ready to play immediately.
+        // prefetch=true: if TTS fails, do NOT start Web Speech now (would overlap the
+        // currently playing cue) — return null and let narrationLoop handle the gap.
+        const buf = await speakText(text, 22000, true);
         if (!isNarratingRef.current) { nextCueFetchingRef.current = false; return; }
 
         nextCueRef.current = { text, buffer: buf };
@@ -517,6 +529,12 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const narrationLoop = useCallback(async () => {
     if (!isNarratingRef.current || isPausedRef.current) return;
     if (isFetchingRef.current || currentSourceRef.current) return;
+    // Claim the synchronous lock BEFORE the first await so no second invocation can slip
+    // past the guards above while this one is mid-await (prevents two cues playing at once).
+    if (narrationLoopActiveRef.current) return;
+    narrationLoopActiveRef.current = true;
+
+    try {
 
     if (audioCtxRef.current?.state === 'suspended') {
       await audioCtxRef.current.resume();
@@ -534,8 +552,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         if (buffer) {
           audioBufferQueue.current.push(buffer);
         } else {
-          // TTS returned null — Web Speech already handled it; narrationLoop will
-          // be called again from the Web Speech onend handler, so we can return.
+          // Pre-fetch TTS failed (prefetch mode suppresses Web Speech to avoid overlap), so
+          // there is no audio to play and nothing is currently speaking. Retry shortly — the
+          // cold-start path below will generate a fresh dynamic cue. Release the lock first.
+          narrationLoopActiveRef.current = false;
+          setTimeout(() => narrationLoopRef.current(), 800);
           return;
         }
       } else if (nextCueFetchingRef.current && !narrativeDataRef.current && !narrativePendingRef.current) {
@@ -707,6 +728,13 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       if (startTimeRef.current === null) startTimeRef.current = Date.now();
     } else {
       setTimeout(narrationLoop, 1000);
+    }
+
+    } finally {
+      // Release the lock. Once playback has started, currentSourceRef.current is the guard
+      // that blocks re-entry until onended fires; on every early/return path the lock is
+      // freed here so the next legitimate narrationLoop call can proceed.
+      narrationLoopActiveRef.current = false;
     }
   }, [mode, lang, sessionType, startLookAhead]);
 
@@ -1002,7 +1030,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   // ── TTS via server-side proxy — API key never in browser ──
   // Falls back to Web Speech API if Gemini TTS fails or times out (10s).
   // Returns an AudioBuffer for the buffer queue, or null if Web Speech fallback handled playback.
-  const speakText = async (text: string, timeoutMs = 22000): Promise<AudioBuffer | null> => {
+  // prefetch=true is used by look-ahead / narrative pre-warm: on TTS failure it must NOT
+  // start Web Speech immediately (that would speak over the currently playing cue). It
+  // returns null instead, leaving playback to the narrationLoop when the cue's turn comes.
+  const speakText = async (text: string, timeoutMs = 22000, prefetch = false): Promise<AudioBuffer | null> => {
     const voice = MODES.find(m => m.id === mode)?.voice || 'Kore';
 
     try {
@@ -1038,8 +1069,10 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       return buffer;
     } catch (err) {
       console.warn('[CalmKit TTS] Gemini TTS failed, using Web Speech fallback:', (err as Error).message);
-      // Guard: session may have ended while the TTS fetch was in-flight
-      if (isNarratingRef.current) speakWithWebSpeech(text);
+      // Guard: session may have ended while the TTS fetch was in-flight.
+      // In prefetch mode, never start Web Speech here — it would talk over the cue that is
+      // currently playing. Return null so the caller skips this cue rather than overlapping.
+      if (!prefetch && isNarratingRef.current) speakWithWebSpeech(text);
       return null;
     }
   };
@@ -1107,7 +1140,6 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       return;
     }
 
-    const container = mapContainerRef.current;
     const hasLocation = !!userLocation;
     const initialCenter = hasLocation
       ? { lat: userLocation![0], lng: userLocation![1] }
@@ -1118,8 +1150,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     let cancelled = false;
 
     ensureGoogleMaps().then(() => {
+      // Re-read the live container ref rather than a value captured at effect-setup time.
+      // On a session restart the container div is a fresh DOM node; using the captured
+      // reference could render the map into a detached/stale node (blank dark container).
+      const container = mapContainerRef.current;
       if (cancelled || !container || mapRef.current) return;
       const gm = (window as any).google.maps;
+
+      // Defensive: clear any leftover child nodes from a prior session's map so the new
+      // gm.Map instance initializes into a clean container and is guaranteed to render.
+      try { while (container.firstChild) container.removeChild(container.firstChild); } catch (_) {}
 
       mapRef.current = new gm.Map(container, {
         center: initialCenter,
@@ -1188,12 +1228,21 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     return () => {
       cancelled = true;
-      if (markerRef.current) { markerRef.current.setMap(null); markerRef.current = null; }
-      if (destinationMarkerRef.current) { destinationMarkerRef.current.setMap(null); destinationMarkerRef.current = null; }
-      if (pathRef.current) { pathRef.current.setMap(null); pathRef.current = null; }
+      // Only tear down the live map when the session is actually ending (unmount or
+      // isPlaying → false). On a benign userLocation re-run while still playing, leave the
+      // existing map and markers intact — destroying them here would blank the live map on
+      // every GPS fix. The next effect run's top guard no-ops because mapRef.current is set.
+      if (isPlayingRef.current && mapRef.current) return;
+      if (markerRef.current) { try { markerRef.current.setMap(null); } catch(_){} markerRef.current = null; }
+      if (destinationMarkerRef.current) { try { destinationMarkerRef.current.setMap(null); } catch(_){} destinationMarkerRef.current = null; }
+      if (pathRef.current) { try { pathRef.current.setMap(null); } catch(_){} pathRef.current = null; }
       mapRef.current = null;
     };
-  }, [isPlaying]);
+  // userLocation is included so that if the map failed to instantiate on the isPlaying
+  // transition (e.g. the Maps API was still loading, or the container was momentarily
+  // unavailable), the next GPS fix re-runs this effect and recovers — the top guard
+  // early-returns once mapRef.current is set, so this is a clean no-op once the map is up.
+  }, [isPlaying, userLocation]);
 
   // ── Handlers ──
   const handleStart = async () => {
@@ -1265,6 +1314,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
 
     isNarratingRef.current = true;
+    isPlayingRef.current = true;
     setIsPlaying(true);
     const _g = (window as any).gtag;
     if (_g) _g('event', 'calmkit_walk_start', { mode, session_type: effectiveSessionType, destination: destinationName || 'none', lang });
@@ -1341,6 +1391,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           }
           setFinalPath([...pathCoordsRef.current]);
           setSessionStats(s => { setFinalStats({ ...s }); return s; });
+          isPlayingRef.current = false;
           setIsPlaying(false);
           setIsPaused(false);
           fullCleanup();
@@ -1481,13 +1532,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           const seg0 = data.segments[0];
           const text = Array.isArray(seg0.scriptBeats) ? seg0.scriptBeats.filter(Boolean).join(' ') : String(seg0);
           narrativeSegmentIndexRef.current = 1; // segment 0 is being fetched
-          speakText(text).then(buf => {
+          // prefetch=true: this pre-warm runs while the intro cue may still be playing, so a
+          // TTS failure must not start Web Speech here (would overlap). On null, reset the
+          // index so narrationLoop re-reads segment 0 and plays it in proper sequence.
+          speakText(text, 22000, true).then(buf => {
             if (buf && isNarratingRef.current && audioBufferQueue.current.length < 3) {
               audioBufferQueue.current.push(buf);
               // Wake narrationLoop if nothing is currently playing or fetching
               if (!isFetchingRef.current && !currentSourceRef.current) narrationLoop();
             } else if (!buf) {
-              // TTS returned null (Web Speech handled it) — reset index so loop reads from 0
+              // TTS returned null — reset index so loop reads segment 0 and plays in order
               narrativeSegmentIndexRef.current = 0;
             }
           }).catch(() => { narrativeSegmentIndexRef.current = 0; });
@@ -1550,6 +1604,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Close shared AudioContext to prevent audio bleed into other views
     fullCleanup();
     audioCtxRef.current = null;
+    isPlayingRef.current = false;
     setIsPlaying(false);
     setIsPaused(false);
     pendingSessionRef.current = { path: [...pathCoordsRef.current], stats: { ...sessionStatsRef.current } };
@@ -1561,9 +1616,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     isCheckInLoadingRef.current = true;
     setIsCheckInLoading(true);
     try {
-      if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch (_) {} currentSourceRef.current = null; }
       if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
-      audioBufferQueue.current = [];
       segmentCounterRef.current++;
       const text = await genAndTrack({
         mode,
@@ -1580,8 +1633,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
         ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
       });
-      const buf = await speakText(text);
+      // prefetch=true: synthesize the check-in cue WITHOUT starting Web Speech mid-fetch.
+      // We then interrupt the current cue and play the check-in buffer ourselves, so the
+      // interrupt is atomic and cannot overlap whatever started during the await above.
+      const buf = await speakText(text, 22000, true);
       if (buf && isNarratingRef.current && !isPausedRef.current) {
+        // Atomically interrupt anything that may have started playing during the awaits.
+        if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch (_) {} currentSourceRef.current = null; }
+        if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+        // Drop any buffered/look-ahead cues so the check-in plays next with nothing queued behind it.
+        nextCueRef.current = null;
+        nextCueFetchingRef.current = false;
         audioBufferQueue.current = [buf];
         narrationLoop();
       }
