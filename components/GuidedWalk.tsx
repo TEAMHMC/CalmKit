@@ -106,6 +106,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [displaySpeedMph, setDisplaySpeedMph] = useState<number | null>(null);
   const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
   const [showMoodCheck, setShowMoodCheck] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const pendingSessionRef = useRef<{ path: [number, number][]; stats: { distance: number; time: number; pace: string } } | null>(null);
   // True while the background movement-narrative fetch is in-flight — narrationLoop
   // retries every 2s instead of making duplicate per-segment API calls during that window.
@@ -171,6 +172,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const lastGPSMovementRef = useRef<number>(Date.now());
   const coachingHistoryRef = useRef<string[]>([]);
   const isCheckInLoadingRef = useRef(false);
+  // Track all in-flight TTS AbortControllers so we can cancel them on unmount,
+  // preventing audio from playing after the component is gone.
+  const activeTtsControllersRef = useRef<Set<AbortController>>(new Set());
   // Rolling window of recent GPS samples: [{distMi, timestampMs}] for pace calculation.
   // Using a 60-second window gives a smooth, responsive pace that reflects current speed
   // rather than the whole-session average (which reads wrong at the start and end).
@@ -340,7 +344,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               // Min 0.003mi (~5m) filters stationary drift. Max 0.15mi (~240m) tolerates
               // slow GPS poll intervals without rejecting real movement between fixes.
               if (dist > 0.003 && dist < 0.15 && isActuallyMoving) {
-                pathCoordsRef.current.push(newLoc);
+                // Cap path at 10,000 points (~30 hours continuous walking) to prevent
+                // memory pressure and slow polyline redraws on very long sessions.
+                if (pathCoordsRef.current.length < 10000) {
+                  pathCoordsRef.current.push(newLoc);
+                }
                 if (pathRef.current) pathRef.current.setPath(pathCoordsRef.current.map(([lat, lng]: [number, number]) => ({ lat, lng })));
                 lastPositionRef.current = newLoc;
                 lastGPSMovementRef.current = Date.now();
@@ -424,6 +432,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       audioBufferQueue.current = [];
       nextCueRef.current = null;
       nextCueFetchingRef.current = false;
+      // Cancel all in-flight TTS fetches so audio does not play after unmount
+      activeTtsControllersRef.current.forEach(c => { try { c.abort(); } catch (_) {} });
+      activeTtsControllersRef.current.clear();
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
       if (currentSourceRef.current) { try { currentSourceRef.current.stop(); } catch(e) {} }
       bgNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
@@ -1052,6 +1063,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     try {
       const controller = new AbortController();
+      // Register controller so unmount cleanup can abort this fetch if component is destroyed
+      activeTtsControllersRef.current.add(controller);
       const ttsTimeout = setTimeout(() => controller.abort(), timeoutMs);
 
       let res: Response;
@@ -1064,6 +1077,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         });
       } finally {
         clearTimeout(ttsTimeout);
+        activeTtsControllersRef.current.delete(controller);
       }
 
       if (!res!.ok) throw new Error(`TTS ${res!.status}`);
@@ -1981,6 +1995,34 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
         )}
 
+        {/* End-session confirmation overlay — prevents accidental tap on X */}
+        {showEndConfirm && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#161616] border border-white/10 rounded-3xl px-7 py-7 mx-6 flex flex-col items-center gap-5">
+              <p className="text-white text-base font-medium text-center leading-snug">
+                {lang === 'es' ? 'Terminar esta sesión?' : 'End this session?'}
+              </p>
+              <p className="text-white/40 text-xs text-center leading-relaxed">
+                {lang === 'es' ? 'Tu progreso se guardará.' : 'Your progress will be saved.'}
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setShowEndConfirm(false)}
+                  className="flex-1 h-12 rounded-full bg-white/10 border border-white/15 text-white/70 text-sm font-medium active:scale-95 transition-all"
+                >
+                  {lang === 'es' ? 'Seguir' : 'Keep going'}
+                </button>
+                <button
+                  onClick={() => { setShowEndConfirm(false); handleStop(); }}
+                  className="flex-1 h-12 rounded-full bg-white text-black text-sm font-medium active:scale-95 transition-all"
+                >
+                  {lang === 'es' ? 'Terminar' : 'End walk'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* BOTTOM PANEL — stat grid + coaching card + controls */}
         <div
           className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto"
@@ -2057,8 +2099,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             {/* CONTROLS — X / play-pause (persona-colored) / check-in */}
             <div className="bg-black/60 backdrop-blur-xl rounded-[24px] py-3 px-5 flex items-center justify-between gap-4 border border-white/10">
               <button
-                onClick={handleStop}
+                onClick={() => setShowEndConfirm(true)}
                 className="w-12 h-12 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex items-center justify-center active:scale-95 transition-all"
+                aria-label={lang === 'es' ? 'Terminar sesión' : 'End session'}
               >
                 <X size={18} className="text-white/60" />
               </button>

@@ -142,6 +142,9 @@ const WEATHER_MID = {
 
 // ─────────────────────────────────────────────────────────────
 // HOPE, Positive reframing, abundance mindset, new season declarations.
+// Persona inspiration: Joel Osteen energy — warm, unwavering belief in a
+// better future; favor, blessing, and forward momentum. Never prosperity-
+// gospel cliches; grounded in real community struggle.
 // Voice: Warm, unwavering, declarative. Forward-facing, never dwelling.
 // CBT: Positive reframing, future-self visualization, gratitude activation.
 // ─────────────────────────────────────────────────────────────
@@ -226,6 +229,9 @@ const HOPE_SCRIPTS = {
 
 // ─────────────────────────────────────────────────────────────
 // HYPE, Activation, momentum, culturally grounded LA fire.
+// Persona inspiration: Lisa Nichols energy — high-energy, no-excuses,
+// "you have greatness in you" activation. Culturally rooted, calls out
+// complacency directly, celebrates showing up unapologetically.
 // Voice: Staccato, preacher energy, high activation.
 // CBT: Behavioral activation, identity reinforcement, momentum.
 // ─────────────────────────────────────────────────────────────
@@ -316,6 +322,9 @@ const HYPE_SCRIPTS = {
 
 // ─────────────────────────────────────────────────────────────
 // BREAKTHROUGH, Insight, pattern interruption, reframing.
+// Persona inspiration: Iyanla Vanzant energy — emotionally intelligent,
+// calls people into accountability with love; names what the wound is;
+// sits with complexity rather than rushing to solutions.
 // Voice: Resonant, questioning, emotionally intelligent.
 // CBT: Cognitive restructuring, schema challenges, perspective shifts.
 // ─────────────────────────────────────────────────────────────
@@ -400,6 +409,9 @@ const BREAKTHROUGH_SCRIPTS = {
 
 // ─────────────────────────────────────────────────────────────
 // STRATEGY, Structured direction, CBT-adjacent, practical.
+// Persona inspiration: Eric Thomas energy — high-urgency, no-excuses,
+// "how bad do you want it" drive; 5-4-3-2-1 activation; confronts
+// hesitation head-on; hunger over comfort; systems thinking grounded.
 // Voice: Decisive, activating, grounded.
 // CBT: Problem-solving, behavioral planning, activation energy.
 // ─────────────────────────────────────────────────────────────

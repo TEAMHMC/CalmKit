@@ -1,12 +1,22 @@
-const CACHE = 'calmkit-v1';
+// Cache version — increment this string whenever the app shell changes so
+// users get fresh assets on next install instead of serving stale content.
+// Format: calmkit-vYYYYMMDD — update date on each production deploy.
+const CACHE = 'calmkit-v20260711';
 const PRECACHE = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
-// API origins we never cache
+// Requests matching these substrings are always fetched from the network —
+// never served from the SW cache. API responses, dynamic data, and CDN fonts
+// must stay fresh; caching them causes stale coaching content or broken TTS.
 const SKIP_CACHE = [
   'generativelanguage.googleapis.com',
   'openweathermap.org',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
+  // CalmKit backend (TTS, narrative, weather, air quality)
+  'volunteer.healthmatters.clinic/api/calmkit',
+  // Google Maps JS API and tile requests
+  'maps.googleapis.com',
+  'maps.gstatic.com',
 ];
 
 self.addEventListener('install', e => {
