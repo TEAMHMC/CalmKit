@@ -35,8 +35,9 @@ const ensureGoogleMaps = (): Promise<void> => {
   if ((window as any).google?.maps?.Map) return Promise.resolve();
   if (_mapsApiPromise) return _mapsApiPromise;
   _mapsApiPromise = new Promise((resolve, reject) => {
-    // Prefer runtime key injected by nginx (Cloud Run env var) over build-time bake-in
-    const key = (window as any).GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
+    // Key is injected at runtime by nginx via public/config.js (Cloud Run env var).
+    // On GitHub Pages, config.js is empty — map shows watermark; coaching audio still works.
+    const key = (window as any).GOOGLE_MAPS_API_KEY || '';
     if (!key) console.warn('[CalmKit] GOOGLE_MAPS_API_KEY is not set — map will show watermark');
     // Reuse existing script tag if already injected (e.g. hot reload)
     const existing = document.getElementById('gm-script');
@@ -2107,6 +2108,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               </button>
               <button
                 onClick={togglePause}
+                aria-label={isPaused
+                  ? (lang === 'es' ? 'Reanudar sesión' : 'Resume session')
+                  : (lang === 'es' ? 'Pausar sesión' : 'Pause session')}
                 className="flex-shrink-0 rounded-full flex items-center justify-center active:scale-95 transition-all"
                 style={{ width: 72, height: 72, background: modeColor, boxShadow: `0 0 40px ${modeColor}50`, border: `1px solid ${modeColor}55` }}
               >
@@ -2117,6 +2121,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               <button
                 onClick={requestCheckIn}
                 disabled={isCheckInLoading || isPaused}
+                aria-label={lang === 'es' ? 'Pedir coaching ahora' : 'Request coaching check-in'}
                 className="w-12 h-12 flex-shrink-0 bg-white/5 rounded-full border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-40"
               >
                 {isCheckInLoading

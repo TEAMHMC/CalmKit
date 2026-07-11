@@ -20,8 +20,13 @@ const Journal: React.FC<JournalProps> = ({ onBack, lang }) => {
   const t = translations[lang];
 
   useEffect(() => {
-    const saved = localStorage.getItem('hmc_calm_kit_journal');
-    if (saved) setEntries(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('hmc_calm_kit_journal');
+      if (saved) setEntries(JSON.parse(saved));
+    } catch {
+      // Corrupt journal data — start fresh rather than crashing
+      try { localStorage.removeItem('hmc_calm_kit_journal'); } catch {}
+    }
   }, []);
 
   const fetchPrompt = async () => {

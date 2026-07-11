@@ -1,9 +1,8 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
     return {
       base: '/',
       server: {
@@ -11,11 +10,11 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GOOGLE_MAPS_API_KEY': JSON.stringify(env.GOOGLE_MAPS_API_KEY)
-      },
+      // Do NOT bake API keys into the client bundle here. All AI calls go through
+      // the Cloud Run proxy at /api/calmkit. Google Maps key is injected at runtime
+      // by nginx via public/config.js (Cloud Run) or left empty for GitHub Pages
+      // (map shows watermark; coaching audio still works). No secrets in the bundle.
+      define: {},
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

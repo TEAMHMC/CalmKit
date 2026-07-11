@@ -53,12 +53,14 @@ const App: React.FC = () => {
   const [showInstall, setShowInstall] = useState(false);
 
   const [prefs, setPrefs] = useState<UserPreferences>(() => {
-    const saved = localStorage.getItem('hmc_calmkit_prefs');
-    return saved ? JSON.parse(saved) : {
-      lang: 'en',
-      darkMode: false,
-      hasSeenOnboarding: false
-    };
+    try {
+      const saved = localStorage.getItem('hmc_calmkit_prefs');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // Corrupt localStorage — reset to defaults
+      try { localStorage.removeItem('hmc_calmkit_prefs'); } catch {}
+    }
+    return { lang: 'en', darkMode: false, hasSeenOnboarding: false };
   });
 
   /* ------------------------------
