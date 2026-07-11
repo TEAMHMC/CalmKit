@@ -43,13 +43,15 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 // Played once per session, naturally integrated.
 const SPONSOR_LINES = {
   en: [
-    "This session is part of the Los Angeles County Department of Mental Health's Take Action LA campaign, in partnership with Health Matters Clinic. Three free wellness events in LA this May, MOVE, HEAL, TRANSFORM. Visit healthmatters.clinic.",
+    "This session is part of the Los Angeles County Department of Mental Health's Take Action LA campaign, in partnership with Health Matters Clinic. Free wellness programming, open to everyone in LA. Visit healthmatters.clinic.",
     "This walk is brought to you through the Los Angeles County Department of Mental Health's Take Action LA campaign, in partnership with Health Matters Clinic. Wellness like this is free and open to everyone.",
     "A note from your host, this moment is part of Unstoppable Season 2026, supported by the Los Angeles County Department of Mental Health's Take Action LA campaign and Health Matters Clinic. You belong here. healthmatters.clinic.",
+    "This session is powered by Health Matters Clinic and the Los Angeles County Department of Mental Health's Take Action LA campaign. Free community wellness programs are available this summer. Learn more at healthmatters.clinic.",
   ],
   es: [
-    "Esta sesión es parte de la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles, en asociación con Health Matters Clinic. Tres eventos gratuitos en LA este mayo, MOVE, HEAL, TRANSFORM. Visita healthmatters.clinic.",
+    "Esta sesión es parte de la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles, en asociación con Health Matters Clinic. Programas gratuitos de bienestar, abiertos a todos en Los Ángeles. Visita healthmatters.clinic.",
     "Esta caminata es presentada a través de la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles, en asociación con Health Matters Clinic. El bienestar como este es gratuito para todos.",
+    "Este momento es parte del Unstoppable Season 2026, apoyado por la campaña Take Action LA del Departamento de Salud Mental del Condado de Los Ángeles y Health Matters Clinic. Perteneces aquí. healthmatters.clinic.",
   ],
 };
 
