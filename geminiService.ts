@@ -1,5 +1,5 @@
 
-import { Language, EchoPersona, ActivityType } from "./types";
+import { Language, EchoPersona, ActivityType, IndoorActivity } from "./types";
 
 // Backend proxy, used when available; rich local library is always the fallback
 const PROXY_URL = (typeof window !== 'undefined' && (window as any).CALMKIT_PROXY_URL)
@@ -715,7 +715,7 @@ export const getLocalIntro = (params: {
 
 export const generateSegmentNarrative = async (params: {
   mode: EchoPersona;
-  activity: ActivityType;
+  activity: ActivityType | IndoorActivity;
   lang: Language;
   stats: { distance: number; time: number; pace: string };
   isIntro: boolean;
