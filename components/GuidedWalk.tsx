@@ -278,15 +278,27 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setGpsLoading(false);
           if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
 
-          // Capture altitude for uphill/downhill detection
+          // Capture altitude for uphill/downhill detection.
+          // GPS altitude on mobile is noisy (3-10 m per reading). Only track meaningful
+          // changes: require a 3 m delta before updating elevationDelta, and only send
+          // incline cues to the coach when the cumulative change exceeds 10 m (prevents
+          // flat-walk false positives from noisy barometric/GPS altitude data).
           if (pos.coords.altitude !== null) {
             const alt = pos.coords.altitude;
             if (lastElevationRef.current !== null) {
               const delta = alt - lastElevationRef.current;
-              elevationDeltaRef.current = delta;
-              if (delta > 0.5) elevationGainRef.current += delta; // only count meaningful climbs
+              // Only record a delta when the change is large enough to be real movement,
+              // not GPS noise. 3 m is the practical floor for consumer GPS altitude accuracy.
+              if (Math.abs(delta) >= 3) {
+                elevationDeltaRef.current = delta;
+                if (delta > 3) elevationGainRef.current += delta; // only count meaningful climbs
+                lastElevationRef.current = alt;
+              }
+              // If the change is below threshold, do not update lastElevationRef so that
+              // small drifts don't accumulate and trigger false incline readings.
+            } else {
+              lastElevationRef.current = alt;
             }
-            lastElevationRef.current = alt;
           }
           // Capture speed (m/s → mph)
           if (pos.coords.speed !== null && pos.coords.speed >= 0) {
@@ -308,9 +320,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             markerRef.current.setMap(mapRef.current);
             if (!isPausedRef.current) mapRef.current.panTo(gmPos);
           }
-          // Track path only with accurate GPS (≤100m) — cell-tower fixes (500m+) corrupt the
-          // route because the spike filter then rejects every real GPS update as too far.
-          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 50) {
+          // Track path only with accurate GPS (<=30m) — cell-tower fixes (500m+) corrupt the
+          // route and produce wildly wrong pace readings. 30m is the practical ceiling for a
+          // reliable outdoor GPS fix; fixes in the 30-50m range are marginal (urban canyon,
+          // dense tree cover) and add noise to both route polyline and pace calculations.
+          if (isNarratingRef.current && !isPausedRef.current && accuracy <= 30) {
             const last = pathCoordsRef.current[pathCoordsRef.current.length - 1];
             if (last) {
               const R = 3958.8;
@@ -335,11 +349,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                 setSessionStats(prev => ({ ...prev, distance: prev.distance + dist }));
               }
             } else {
-              // Only seed the path with the first GPS fix if it's reasonably accurate (≤40m).
-              // 40m is the practical ceiling for a real GPS fix on mobile (vs. cell-tower at 500m+).
-              // ≤15m was too aggressive — a good outdoor fix under tree cover is often 20-35m.
-              // A poor first fix (cached stale position) causes a phantom line on the summary.
-              if (accuracy <= 40) {
+              // Only seed the path with the first GPS fix if it's reasonably accurate (<=30m).
+              // This matches the ongoing tracking threshold so the seed fix is always of the
+              // same quality as subsequent fixes — prevents phantom lines caused by a coarse
+              // first fix followed by a large jump when the real GPS signal arrives.
+              if (accuracy <= 30) {
                 pathCoordsRef.current.push(newLoc);
                 lastPositionRef.current = newLoc;
               }
@@ -496,7 +510,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             userLng: userLocationRef.current?.[1] != null ? Math.round(userLocationRef.current[1] * 100) / 100 : undefined,
             ...envDataRef.current,
             ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-            ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+            ...(elevationDeltaRef.current !== null && Math.abs(elevationDeltaRef.current) >= 10 && { elevationDelta: elevationDeltaRef.current }),
             ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
           });
         } else {
@@ -645,7 +659,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               userLng: userLocationRef.current?.[1] != null ? Math.round(userLocationRef.current[1] * 100) / 100 : undefined,
               ...envDataRef.current,
               ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+              ...(elevationDeltaRef.current !== null && Math.abs(elevationDeltaRef.current) >= 10 && { elevationDelta: elevationDeltaRef.current }),
               ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
             });
             if (!sponsorPlayedRef.current) sponsorPlayedRef.current = true;
@@ -709,7 +723,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               targetThought: targetThoughtRef.current || undefined,
               ...envDataRef.current,
               ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-              ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+              ...(elevationDeltaRef.current !== null && Math.abs(elevationDeltaRef.current) >= 10 && { elevationDelta: elevationDeltaRef.current }),
               ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
             });
             const buf = await speakText(seg);
@@ -1343,14 +1357,17 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         // Purge samples older than the window
         recentGpsSamplesRef.current = recentGpsSamplesRef.current.filter(s => s.ts >= cutoff);
         const recentSamples = recentGpsSamplesRef.current;
-        if (recentSamples.length >= 2) {
+        // Require at least 3 samples so a single noisy fix cannot skew the reading.
+        // 2-sample pace is volatile because one bad fix can double or halve the result.
+        if (recentSamples.length >= 3) {
           const windowDistMi = recentSamples.reduce((sum, s) => sum + s.distMi, 0);
           const windowSec = (recentSamples[recentSamples.length - 1].ts - recentSamples[0].ts) / 1000;
-          if (windowDistMi > 0.01 && windowSec > 5) {
+          if (windowDistMi > 0.01 && windowSec > 10) {
             paceRaw = (windowSec / 60) / windowDistMi;
           }
-        } else if (prev.distance > 0.01) {
-          // Not enough rolling data yet — use whole-session average
+        } else if (prev.distance > 0.02) {
+          // Not enough rolling data yet — use whole-session average (only above 0.02 mi
+          // so the very first few seconds of movement don't produce a wild pace reading).
           paceRaw = (elapsed / 60) / prev.distance;
         }
 
@@ -1630,7 +1647,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         targetThought: targetThoughtRef.current || undefined,
         ...envDataRef.current,
         ...(elevationGainRef.current > 0 && { elevationGain: elevationGainRef.current }),
-        ...(elevationDeltaRef.current !== null && { elevationDelta: elevationDeltaRef.current }),
+        ...(elevationDeltaRef.current !== null && Math.abs(elevationDeltaRef.current) >= 10 && { elevationDelta: elevationDeltaRef.current }),
         ...(currentSpeedRef.current !== null && { speed: currentSpeedRef.current }),
       });
       // prefetch=true: synthesize the check-in cue WITHOUT starting Web Speech mid-fetch.
@@ -1659,15 +1676,22 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     isPausedRef.current = newPaused;
     if (newPaused) {
       pauseStartRef.current = Date.now();
+      // Stop the active audio source immediately
       if (currentSourceRef.current) {
         try { currentSourceRef.current.stop(); } catch(e) {}
         currentSourceRef.current = null;
       }
       if (narrationTimeoutRef.current) { clearTimeout(narrationTimeoutRef.current); narrationTimeoutRef.current = null; }
-      // Discard any pre-fetched look-ahead — it may be stale after the pause ends.
-      // A fresh look-ahead will start when narration resumes.
+      // Clear the narration loop lock so it is not stuck after the source was force-stopped.
+      // Any in-flight TTS fetch will find isPausedRef.current === true and bail before playing.
+      narrationLoopActiveRef.current = false;
+      // Discard any pre-fetched look-ahead and the audio buffer queue so that data from a
+      // fetch that completes while paused does not trigger an extra playback on resume.
       nextCueRef.current = null;
       nextCueFetchingRef.current = false;
+      audioBufferQueue.current = [];
+      // Mark fetching as done — any in-flight fetch will see isPausedRef and not enqueue
+      isFetchingRef.current = false;
       if (bgGainRef.current && audioCtxRef.current) {
         bgGainRef.current.gain.linearRampToValueAtTime(0.02, audioCtxRef.current.currentTime + 0.3);
       }
@@ -1677,9 +1701,22 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         pausedDurationRef.current += Date.now() - pauseStartRef.current;
         pauseStartRef.current = null;
       }
-      audioCtxRef.current?.resume();
-      if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
-      narrationLoop();
+      // Wait for the AudioContext to fully resume before starting narration, to avoid
+      // the narrationLoop seeing a suspended context and bailing immediately.
+      const ctx = audioCtxRef.current;
+      if (ctx) {
+        ctx.resume().then(() => {
+          if (!isPausedRef.current && isNarratingRef.current) {
+            if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
+            narrationLoop();
+          }
+        }).catch(() => {
+          if (!isPausedRef.current && isNarratingRef.current) narrationLoop();
+        });
+      } else {
+        if (narrationFreqRef.current === 'CONTINUOUS') raiseAmbience();
+        narrationLoop();
+      }
     }
   };
 
