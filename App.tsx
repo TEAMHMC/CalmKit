@@ -40,6 +40,7 @@ import Journal from './components/Journal';
 import Grounding from './components/Grounding';
 import Meditation from './components/Meditation';
 import Onboarding from './components/Onboarding';
+import CrisisButton from './components/CrisisButton';
 import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download } from 'lucide-react';
 import { fullCleanup, destroyAudioContext } from './audioManager';
 import NoSleep from "nosleep.js";
@@ -213,7 +214,7 @@ const App: React.FC = () => {
       {/* 100svh = viewport minus browser chrome (Safari URL bar) — prevents nav from hiding behind iOS Safari toolbar */}
       <div className="fixed top-0 left-0 right-0 flex justify-center items-start sm:items-center bg-[#e8e8e8] dark:bg-[#0a0a0a]" style={{ height: '100svh' }}>
         <div
-          className="flex flex-col overflow-hidden bg-white dark:bg-[#121212] w-full h-full sm:h-[844px] sm:max-h-[90vh] sm:rounded-[40px] sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.35)] dark:sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.7)]"
+          className="relative flex flex-col overflow-hidden bg-white dark:bg-[#121212] w-full h-full sm:h-[844px] sm:max-h-[90vh] sm:rounded-[40px] sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.35)] dark:sm:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.7)]"
           style={{ maxWidth: 430 }}
         >
 
@@ -280,6 +281,10 @@ const App: React.FC = () => {
               ))}
             </nav>
           )}
+
+          {/* Persistent crisis support — reachable from every view, including
+              immersive sessions. See components/CrisisButton.tsx. */}
+          <CrisisButton lang={prefs.lang} immersive={immersive} />
 
         </div>
       </div>
