@@ -35,9 +35,11 @@ const ensureGoogleMaps = (): Promise<void> => {
   if ((window as any).google?.maps?.Map) return Promise.resolve();
   if (_mapsApiPromise) return _mapsApiPromise;
   _mapsApiPromise = new Promise((resolve, reject) => {
-    // Key is injected at runtime by nginx via public/config.js (Cloud Run env var).
-    // On GitHub Pages, config.js is empty — map shows watermark; coaching audio still works.
-    const key = (window as any).GOOGLE_MAPS_API_KEY || '';
+    // Cloud Run injects the key at runtime via nginx envsubst into public/config.js.
+    // GitHub Pages has no nginx, so fall back to the value baked in at build time
+    // from the GOOGLE_MAPS_API_KEY secret. Without this fallback Maps loads unkeyed
+    // and Google shows the "development purposes only" watermark over the map.
+    const key = (window as any).GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
     if (!key) console.warn('[CalmKit] GOOGLE_MAPS_API_KEY is not set — map will show watermark');
     // Reuse existing script tag if already injected (e.g. hot reload)
     const existing = document.getElementById('gm-script');
@@ -2017,7 +2019,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
                   onClick={() => { setShowEndConfirm(false); handleStop(); }}
                   className="flex-1 h-12 rounded-full bg-white text-black text-sm font-medium active:scale-95 transition-all"
                 >
-                  {lang === 'es' ? 'Terminar' : 'End walk'}
+                  {/* Indoor sessions are stretch/mobility, not a walk — the label has to follow
+                      the session type or it reads as the wrong activity. */}
+                  {lang === 'es'
+                    ? (sessionType === 'INDOOR' ? 'Terminar sesión' : 'Terminar caminata')
+                    : (sessionType === 'INDOOR' ? 'End session' : 'End walk')}
                 </button>
               </div>
             </div>

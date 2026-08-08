@@ -41,6 +41,13 @@
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // The Play CDN defaults to darkMode:'media', so dark: utilities would follow the
+    // OS setting while the in-app toggle only drives the .dark class. That split made
+    // `.dark body { color:#eee }` fire without `dark:bg-*`, painting near-white text
+    // onto still-white surfaces. Bind dark: to the class the toggle actually sets.
+    tailwind.config = { darkMode: 'class' };
+  </script>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
