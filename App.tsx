@@ -13,7 +13,7 @@ class ErrorBoundary extends Component<
       return (
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 bg-white dark:bg-[#121212] gap-6 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">⚠️</span>
+            <AlertTriangle size={26} className="text-red-500" aria-hidden="true" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-stone-800 dark:text-white mb-2">Something went wrong</h2>
@@ -40,7 +40,7 @@ import Journal from './components/Journal';
 import Grounding from './components/Grounding';
 import Meditation from './components/Meditation';
 import Onboarding from './components/Onboarding';
-import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download } from 'lucide-react';
+import { Home as HomeIcon, Wind, BookOpen, Move, Moon, Sun, Zap, Sparkles, Info, Download, AlertTriangle } from 'lucide-react';
 import { fullCleanup, destroyAudioContext } from './audioManager';
 import NoSleep from "nosleep.js";
 
@@ -175,6 +175,17 @@ const App: React.FC = () => {
               <p className="text-base leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                 {t.aboutCopy}
               </p>
+              {/* Back-navigation for anyone who landed on calmkit.healthmatters.clinic
+                  directly. It sits in About beside the existing privacy link rather
+                  than in a top bar, so a Webflow embed of CalmKit never shows a
+                  second set of site chrome. */}
+              <a
+                href="https://www.healthmatters.clinic"
+                target="_top"
+                className="text-sm text-[#233DFF] underline"
+              >
+                {prefs.lang === 'es' ? 'Ir a Health Matters Clinic' : 'Go to Health Matters Clinic'}
+              </a>
               <a
                 href="https://healthmatters.clinic/privacy-policy"
                 target="_blank"

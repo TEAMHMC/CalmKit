@@ -391,11 +391,11 @@ const BreathingExercise: React.FC<BreathingExerciseProps> = ({ onBack, lang }) =
     : t.labels.boxBreathingPhase;
 
   const physioDesc = lang === 'es'
-    ? 'Doble inhalación + exhale largo — calma tu cuerpo en segundos'
-    : 'Double inhale + long exhale — calms your body fast';
+    ? 'Doble inhalación y exhale largo. Calma tu cuerpo en segundos'
+    : 'Double inhale, long exhale. Calms your body fast';
   const boxDesc = lang === 'es'
-    ? 'Respira lento y en ciclos — ayuda a sentirte más tranquilo'
-    : 'Slow, steady cycles — helps you feel calm and in control';
+    ? 'Respira lento y en ciclos. Ayuda a sentirte más tranquilo'
+    : 'Slow, steady cycles. Helps you feel calm and in control';
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#121212] animate-in fade-in w-full overflow-hidden">

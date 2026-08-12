@@ -11,44 +11,52 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
   // Instant defaults — never show a blank or loading state
-  const DEFAULT_AFFIRMATIONS = {
+  /**
+   * Each entry is the affirmation text plus an optional attribution.
+   *
+   * The attribution used to be glued onto the text with an em dash, which HMC copy
+   * standards do not allow anywhere user-facing. Keeping it as its own field lets
+   * the card render it on a separate line, and lets the unattributed lines carry
+   * no dangling "Unknown" credit at all.
+   */
+  const DEFAULT_AFFIRMATIONS: Record<Language, { text: string; author?: string }[]> = {
     en: [
       // Unstoppable Season originals
-      "You are unstoppable.",
-      "You showed up today — that takes courage.",
-      "Your presence is your power.",
-      "You were built for this season.",
-      "Every step forward is proof of your strength.",
-      // Universal quotes — secular, non-gendered, broadly inspiring
-      '"You have been assigned this mountain to show others it can be moved." — Unknown',
-      '"The comeback is always stronger than the setback." — Unknown',
-      '"It always seems impossible until it\'s done." — Nelson Mandela',
-      '"Our greatest glory is not in never falling, but in rising every time we fall." — Confucius',
-      '"I am not what happened to me. I am what I choose to become." — Carl Jung',
-      '"The struggle you\'re in today is developing the strength you need tomorrow." — Unknown',
-      '"You can\'t go back and change the beginning, but you can start where you are and change the ending." — C.S. Lewis',
-      '"In the middle of difficulty lies opportunity." — Albert Einstein',
-      '"You have power over your mind, not outside events. Realize this, and you will find strength." — Marcus Aurelius',
-      '"Do not judge me by my successes, judge me by how many times I fell down and got back up again." — Nelson Mandela',
-      '"The most courageous act is still to think for yourself. Aloud." — Coco Chanel',
-      '"If you don\'t like the road you\'re walking, start paving another one." — Dolly Parton',
-      '"The only way out is through." — Robert Frost',
-      '"You deserve to be here. You deserve to take up space." — Unknown',
+      { text: 'You are unstoppable.' },
+      { text: 'You showed up today. That takes courage.' },
+      { text: 'Your presence is your power.' },
+      { text: 'You were built for this season.' },
+      { text: 'Every step forward is proof of your strength.' },
+      // Universal quotes, secular, non-gendered, broadly inspiring
+      { text: 'You have been assigned this mountain to show others it can be moved.' },
+      { text: 'The comeback is always stronger than the setback.' },
+      { text: 'It always seems impossible until it\'s done.', author: 'Nelson Mandela' },
+      { text: 'Our greatest glory is not in never falling, but in rising every time we fall.', author: 'Confucius' },
+      { text: 'I am not what happened to me. I am what I choose to become.', author: 'Carl Jung' },
+      { text: 'The struggle you\'re in today is developing the strength you need tomorrow.' },
+      { text: 'You can\'t go back and change the beginning, but you can start where you are and change the ending.', author: 'C.S. Lewis' },
+      { text: 'In the middle of difficulty lies opportunity.', author: 'Albert Einstein' },
+      { text: 'You have power over your mind, not outside events. Realize this, and you will find strength.', author: 'Marcus Aurelius' },
+      { text: 'Do not judge me by my successes, judge me by how many times I fell down and got back up again.', author: 'Nelson Mandela' },
+      { text: 'The most courageous act is still to think for yourself. Aloud.', author: 'Coco Chanel' },
+      { text: 'If you don\'t like the road you\'re walking, start paving another one.', author: 'Dolly Parton' },
+      { text: 'The only way out is through.', author: 'Robert Frost' },
+      { text: 'You deserve to be here. You deserve to take up space.' },
     ],
     es: [
-      "Eres imparable.",
-      "Te presentaste hoy — eso requiere valentía.",
-      "Tu presencia es tu poder.",
-      "Fuiste hecho para esta temporada.",
-      "Cada paso adelante es prueba de tu fortaleza.",
-      '"Te han asignado esta montaña para mostrarle a otros que se puede mover." — Desconocido',
-      '"La recuperación siempre es más fuerte que la caída." — Desconocido',
-      '"Siempre parece imposible hasta que se hace." — Nelson Mandela',
-      '"Nuestra mayor gloria no está en nunca caer, sino en levantarnos cada vez que caemos." — Confucio',
-      '"No soy lo que me pasó. Soy lo que elijo ser." — Carl Jung',
-      '"La lucha en la que estás hoy está desarrollando la fortaleza que necesitas mañana." — Desconocido',
-      '"No puedes volver y cambiar el principio, pero puedes empezar donde estás y cambiar el final." — C.S. Lewis',
-      '"En medio de la dificultad se encuentra la oportunidad." — Albert Einstein',
+      { text: 'Eres imparable.' },
+      { text: 'Te presentaste hoy. Eso requiere valentía.' },
+      { text: 'Tu presencia es tu poder.' },
+      { text: 'Fuiste hecho para esta temporada.' },
+      { text: 'Cada paso adelante es prueba de tu fortaleza.' },
+      { text: 'Te han asignado esta montaña para mostrarle a otros que se puede mover.' },
+      { text: 'La recuperación siempre es más fuerte que la caída.' },
+      { text: 'Siempre parece imposible hasta que se hace.', author: 'Nelson Mandela' },
+      { text: 'Nuestra mayor gloria no está en nunca caer, sino en levantarnos cada vez que caemos.', author: 'Confucio' },
+      { text: 'No soy lo que me pasó. Soy lo que elijo ser.', author: 'Carl Jung' },
+      { text: 'La lucha en la que estás hoy está desarrollando la fortaleza que necesitas mañana.' },
+      { text: 'No puedes volver y cambiar el principio, pero puedes empezar donde estás y cambiar el final.', author: 'C.S. Lewis' },
+      { text: 'En medio de la dificultad se encuentra la oportunidad.', author: 'Albert Einstein' },
     ],
   };
 
@@ -76,7 +84,7 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
     // Pick from the local pool instantly — guaranteed unique from the last one shown
     let next = getRandomDefault(lang);
     let attempts = 0;
-    while (next === lastAffirmationRef.current && attempts < 10) {
+    while (next.text === lastAffirmationRef.current.text && attempts < 10) {
       next = getRandomDefault(lang);
       attempts++;
     }
@@ -141,8 +149,13 @@ const Home: React.FC<HomeProps> = ({ onSelectView, lang }) => {
         </div>
 
         <p className="text-base font-bold italic text-black leading-snug font-display">
-          {affirmation.startsWith('"') ? affirmation : `"${affirmation}"`}
+          {`"${affirmation.text}"`}
         </p>
+        {affirmation.author && (
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-black/40 mt-1">
+            {affirmation.author}
+          </p>
+        )}
       </button>
 
       {/* ACTION GRID — fills remaining space on mobile; capped on tablet/desktop so cards don't become tall rectangles */}

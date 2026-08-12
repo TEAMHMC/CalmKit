@@ -206,8 +206,8 @@ function createZen(ctx: AudioContext): BgSoundNodes {
 }
 
 const GREETING = {
-  en: "Welcome. I'm glad you're here. Take a moment to settle in — wherever you are right now is exactly the right place. Gently close your eyes if that feels comfortable, and let's begin.",
-  es: "Bienvenido. Me alegra que estés aquí. Tómate un momento para acomodarte — donde estés ahora mismo es exactamente el lugar correcto. Cierra suavemente los ojos si te sientes cómodo, y comencemos.",
+  en: "Welcome. I'm glad you're here. Take a moment to settle in. Wherever you are right now is exactly the right place. Gently close your eyes if that feels comfortable, and let's begin.",
+  es: "Bienvenido. Me alegra que estés aquí. Tómate un momento para acomodarte. Donde estés ahora mismo es exactamente el lugar correcto. Cierra suavemente los ojos si te sientes cómodo, y comencemos.",
 };
 
 const CLOSING = {

@@ -1305,7 +1305,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     startKeepAlive();
     updateMediaSessionMetadata(
-      `CalmKit — ${MODES.find(m => m.id === mode)?.label || 'Guided Session'}`,
+      `CalmKit ${MODES.find(m => m.id === mode)?.label || 'Guided Session'}`,
       sessionType === 'INDOOR'
         ? (indoorActivity === 'SWEAT' ? 'Strength Session' : indoorActivity === 'FLOW' ? 'Flow Session' : 'Stretch Session')
         : 'Guided Walk'
@@ -2162,8 +2162,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
             <h2 className="text-3xl font-normal tracking-normal dark:text-white font-display">{t.labels.checkIn}</h2>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 leading-snug">
               {lang === 'es'
-                ? 'Cuéntanos cómo te sientes — tu guía adaptará la sesión a lo que necesitas ahora mismo.'
-                : 'Tell us what\'s on your mind — your guide will tailor the session to what you need right now.'}
+                ? 'Cuéntanos cómo te sientes. Tu guía adaptará la sesión a lo que necesitas ahora mismo.'
+                : 'Tell us what\'s on your mind. Your guide will tailor the session to what you need right now.'}
             </p>
           </div>
           <div className="flex-1 min-h-0 my-3">
