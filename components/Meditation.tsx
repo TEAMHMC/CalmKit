@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { calmKitHeaders } from '../services/session';
 import { Sparkles, RefreshCcw, Volume2, Loader2, Pause, Play, Square } from 'lucide-react';
 import { Language, BackgroundSound } from '../types';
 import { translations } from '../translations';
@@ -504,11 +505,11 @@ const Meditation: React.FC<MeditationProps> = ({ onBack, lang }) => {
       }
 
       // TTS via server-side proxy — API key never touches the browser
-      const ttsPromise = fetch(TTS_PROXY_URL, {
+      const ttsPromise = calmKitHeaders({ 'Content-Type': 'application/json' }).then(headers => fetch(TTS_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ text, lang, voice: 'Kore', calm: true }),
-      }).then(r => { if (!r.ok) throw new Error('TTS proxy failed'); return r.json(); });
+      })).then(r => { if (!r.ok) throw new Error('TTS proxy failed'); return r.json(); });
 
       const response = await withTimeout(ttsPromise, 30000, 'TTS');
 

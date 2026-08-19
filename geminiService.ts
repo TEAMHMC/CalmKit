@@ -1,5 +1,6 @@
 
 import { Language, EchoPersona, ActivityType, IndoorActivity } from "./types";
+import { calmKitHeaders } from "./services/session";
 
 // Backend proxy, used when available; rich local library is always the fallback
 const PROXY_URL = (typeof window !== 'undefined' && (window as any).CALMKIT_PROXY_URL)
@@ -13,7 +14,7 @@ const proxyCall = async (endpoint: string, body: Record<string, any>): Promise<a
   try {
     const res = await fetch(`${PROXY_URL}/${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await calmKitHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       signal: controller.signal,
     });

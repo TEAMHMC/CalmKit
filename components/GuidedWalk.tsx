@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { calmKitHeaders } from '../services/session';
 import { Language, EchoPersona, NarrationFrequency, SessionType, IndoorActivity } from '../types';
 import { translations } from '../translations';
 import { generateSegmentNarrative, getLocalIntro } from '../geminiService';
@@ -232,7 +233,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       try {
         const res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await calmKitHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ text, lang, voice }),
         });
         if (cancelled || preloadKeyRef.current !== key) return;
@@ -385,18 +386,25 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   };
 
   // Warm up Cloud Run TTS and narrative endpoints on mount so first GO is fast.
+  // This also mints the session token, so the first real call never waits on it.
   useEffect(() => {
-    const base = 'https://volunteer.healthmatters.clinic/api/calmkit';
-    fetch(`${base}/tts`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'ready', lang, voice: 'Orus' }),
-      signal: AbortSignal.timeout(8000),
-    }).catch(() => {});
-    fetch(`${base}/movement-narrative`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'HOPE', activity: 'WALK', lang, isIntro: true, isFirstSegment: true }),
-      signal: AbortSignal.timeout(8000),
-    }).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      const base = 'https://volunteer.healthmatters.clinic/api/calmkit';
+      const headers = await calmKitHeaders({ 'Content-Type': 'application/json' });
+      if (cancelled) return;
+      fetch(`${base}/tts`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ text: 'ready', lang, voice: 'Orus' }),
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => {});
+      fetch(`${base}/movement-narrative`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ mode: 'HOPE', activity: 'WALK', lang, isIntro: true, isFirstSegment: true }),
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => {});
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Try to get location on mount with high accuracy — silently continue if it fails
@@ -1074,7 +1082,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       try {
         res = await fetch('https://volunteer.healthmatters.clinic/api/calmkit/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await calmKitHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ text, lang, voice }),
           signal: controller.signal,
         });
@@ -1441,8 +1449,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       const [lat, lng] = userLocation;
       const base = 'https://volunteer.healthmatters.clinic/api/calmkit';
       Promise.all([
-        fetch(`${base}/weather?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${base}/airquality?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        calmKitHeaders().then(h => fetch(`${base}/weather?lat=${lat}&lng=${lng}`, { headers: h })).then(r => r.ok ? r.json() : null).catch(() => null),
+        calmKitHeaders().then(h => fetch(`${base}/airquality?lat=${lat}&lng=${lng}`, { headers: h })).then(r => r.ok ? r.json() : null).catch(() => null),
       ]).then(([weather, air]) => {
         const update: typeof envData = {};
         if (weather?.condition) update.weatherCondition = weather.condition;
@@ -1542,7 +1550,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
     fetch('https://volunteer.healthmatters.clinic/api/calmkit/movement-narrative', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await calmKitHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         mode,
         activity: sessionType === 'INDOOR' ? (indoorActivityRef.current || 'STRETCH') : 'WALK',
