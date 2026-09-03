@@ -8,7 +8,7 @@ import {
   Pause, X, Play, ChevronLeft, Search, Activity, Navigation, Clock, Send, MapPin, Loader2, Zap, Volume2, Gauge
 } from 'lucide-react';
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio, updateMediaSessionMetadata } from '../audioManager';
-import { saveSession, getStreak, getWeekStats } from '../sessionHistory';
+import { saveSession, getStreak, getWeekStats, reportOutcome } from '../sessionHistory';
 import type { SessionRecord } from '../types';
 
 declare const google: any;
@@ -1798,6 +1798,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         moodAfter: moodValue,
       };
       saveSession(record);
+      // De-identified effectiveness report to HMC. Fire and forget.
+      void reportOutcome(record, lang);
       // Fire GA event so improvement is trackable in analytics
       const _g = (window as any).gtag;
       if (_g) {

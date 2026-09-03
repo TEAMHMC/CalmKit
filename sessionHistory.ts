@@ -36,3 +36,54 @@ export const getWeekStats = () => {
   const totalMiles = parseFloat(recent.reduce((a, s) => a + s.distanceMiles, 0).toFixed(1));
   return { count: recent.length, totalMinutes, totalMiles };
 };
+
+/**
+ * Anonymous, per-install identifier. Generated locally, never sent anywhere in
+ * raw form: the outcome endpoint HMACs it server-side so distinct devices can be
+ * counted once without anything being traceable back to a person. Nothing about
+ * this value is derived from the device or the user.
+ */
+const ANON_KEY = 'calmkit_anon_id';
+
+export const getAnonId = (): string => {
+  try {
+    let id = localStorage.getItem(ANON_KEY);
+    if (!id) {
+      id = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/-/g, '');
+      localStorage.setItem(ANON_KEY, id);
+    }
+    return id;
+  } catch {
+    // Private mode: still send something valid so the session is counted, it
+    // just will not dedupe across reloads.
+    return `eph${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+  }
+};
+
+/**
+ * Reports one completed session to HMC so effectiveness can be measured beyond
+ * GA4. De-identified and best effort: a failure here never surfaces to the user
+ * and never blocks the summary screen.
+ */
+export const reportOutcome = async (record: SessionRecord, lang: string): Promise<void> => {
+  if (record.moodAfter === undefined) return;
+  try {
+    const { calmKitHeaders } = await import('./services/session');
+    await fetch('https://volunteer.healthmatters.clinic/api/calmkit/outcome', {
+      method: 'POST',
+      headers: await calmKitHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        anonId: getAnonId(),
+        moodAfter: record.moodAfter,
+        mode: record.mode,
+        sessionType: record.sessionType,
+        durationSeconds: Math.round(record.durationSeconds),
+        distanceMiles: record.distanceMiles,
+        lang,
+      }),
+      keepalive: true,
+    });
+  } catch {
+    /* best effort */
+  }
+};
