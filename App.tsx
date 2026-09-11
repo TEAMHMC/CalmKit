@@ -100,6 +100,9 @@ const App: React.FC = () => {
     localStorage.setItem('hmc_calmkit_prefs', JSON.stringify(prefs));
     if (prefs.darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
+    // Keep <html lang> honest. index.html ships lang="en"; without this a screen
+    // reader narrates the Spanish UI with an English voice engine.
+    document.documentElement.lang = prefs.lang;
   }, [prefs]);
 
   /* ------------------------------
