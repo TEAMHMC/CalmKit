@@ -1,0 +1,28 @@
+PODS:
+  - CalmkitNative (1.0.0):
+    - Capacitor
+  - Capacitor (6.2.1):
+    - CapacitorCordova
+  - CapacitorCordova (6.2.1)
+
+DEPENDENCIES:
+  - CalmkitNative (from `../../native-plugins/calmkit-native`)
+  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+
+EXTERNAL SOURCES:
+  CalmkitNative:
+    :path: "../../native-plugins/calmkit-native"
+  Capacitor:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorCordova:
+    :path: "../../node_modules/@capacitor/ios"
+
+SPEC CHECKSUMS:
+  CalmkitNative: c4ba707456fba591a94c4410e3c1df34ebb604c3
+  Capacitor: c95400d761e376be9da6be5a05f226c0e865cebf
+  CapacitorCordova: 8d93e14982f440181be7304aa9559ca631d77fff
+
+PODFILE CHECKSUM: 02abb2be16a87aeace4efd6691e867405a966ce4
+
+COCOAPODS: 1.17.0
