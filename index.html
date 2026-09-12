@@ -136,7 +136,21 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
+          // Check for a newer worker on every launch, not just on install.
+          reg.update().catch(() => {});
+        }).catch(() => {});
+
+        // When a new service worker takes control, the page in front of the user
+        // is still the previous build. Reload once so they are never left looking
+        // at old code. Guarded on an existing controller so the very first
+        // install (controller === null) does not trigger a reload loop.
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!navigator.serviceWorker.controller || reloading) return;
+          reloading = true;
+          window.location.reload();
+        });
       });
     }
   </script>
