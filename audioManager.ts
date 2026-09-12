@@ -10,6 +10,8 @@
  * 5. Periodic AudioContext health check (every 5s) to catch OS suspension
  */
 
+import { isNative } from './services/native';
+
 let _ctx: AudioContext | null = null;
 let _keepAliveEl: HTMLAudioElement | null = null;
 let _keepAliveBlobUrl: string | null = null;
@@ -210,6 +212,12 @@ export function destroyAudioContext(): void {
  */
 export function startKeepAlive(): void {
   if (_keepAliveEl) return; // Already running
+
+  // On native, the `location` background mode keeps the app alive between cues
+  // and a real AVAudioSession handles playback. This silent stream is precisely
+  // what claims the iOS audio session and stops the user's music, so it must not
+  // run there. The web build still needs it.
+  if (isNative()) return;
 
   // Generate the silent WAV blob and create a blob URL
   const blob = generateSilentWavBlob(10, 44100);

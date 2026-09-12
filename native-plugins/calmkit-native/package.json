@@ -1,0 +1,25 @@
+{
+  "name": "calmkit-native",
+  "version": "1.0.0",
+  "description": "CalmKit native audio session and background location for Capacitor.",
+  "main": "dist/plugin.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "ios/Plugin/",
+    "CalmkitNative.podspec"
+  ],
+  "capacitor": {
+    "ios": { "src": "ios" },
+    "android": { "src": "android" }
+  },
+  "devDependencies": {
+    "@capacitor/core": "^6.2.1"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

@@ -10,6 +10,10 @@ import {
 import { getAudioContext, destroyAudioContext, startKeepAlive, stopKeepAlive, requestWakeLock as sharedRequestWakeLock, releaseWakeLock as sharedReleaseWakeLock, fullCleanup, setSessionResumeCallback, clearSessionResumeCallback, pauseKeepAliveAudio, resumeKeepAliveAudio, updateMediaSessionMetadata } from '../audioManager';
 import { saveSession, getStreak, getWeekStats, reportOutcome } from '../sessionHistory';
 import type { SessionRecord } from '../types';
+import {
+  hasNativeLocation, startNativeLocation, stopNativeLocation,
+  configureAudioSession, duckOtherAudio, unduckOtherAudio, resetDucking,
+} from '../services/native';
 
 declare const google: any;
 
@@ -134,6 +138,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const pathRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  // True while the native CLLocationManager is the source of fixes instead of
+  // the in-webview watch. They are mutually exclusive.
+  const nativeWatchRef = useRef(false);
   const lastPositionRef = useRef<[number, number] | null>(null);
   const pathCoordsRef = useRef<[number, number][]>([]);
   const audioBufferQueue = useRef<AudioBuffer[]>([]);
@@ -264,10 +271,16 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
   // GPS watch callback — shared by mount watch and requestGpsPermission
   const startGpsWatch = () => {
-    if (watchIdRef.current !== null) return; // already watching
+    if (watchIdRef.current !== null || nativeWatchRef.current) return; // already watching
     setGpsLoading(true);
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
+
+    // Shared position handler. The browser supplies a GeolocationPosition; the
+    // native plugin supplies a flat object adapted to the same shape below, so
+    // every filter, pace calculation and path update here is identical either way.
+    const handleGeoPosition = (pos: {
+      coords: { latitude: number; longitude: number; accuracy: number; altitude: number | null; speed: number | null };
+      timestamp: number;
+    }) => {
           // Reject only truly stale cached positions (hours old, e.g. from a different city).
           // 5-min threshold allows normal GPS cold-start (30-60s) without blocking tracking.
           const ageMs = Date.now() - pos.timestamp;
@@ -371,13 +384,47 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
               }
             }
           }
-        },
-        (err) => {
-          console.warn('GPS error:', err.message);
-          setGpsLoading(false);
-        },
+    };
+
+    const handleGeoError = (message: string) => {
+      console.warn('GPS error:', message);
+      setGpsLoading(false);
+    };
+
+    const startBrowserWatch = () => {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        handleGeoPosition,
+        (err) => handleGeoError(err.message),
         { enableHighAccuracy: true, maximumAge: 5000 }
       );
+    };
+
+    // Native first. A CLLocationManager keeps delivering fixes with the screen
+    // locked, which the in-webview watch cannot do: that is what left locked-phone
+    // runs with holes in the route. Falls back to the browser watch if the native
+    // side is unavailable or the user denied permission.
+    if (hasNativeLocation()) {
+      nativeWatchRef.current = true;
+      void startNativeLocation(
+        (np) => handleGeoPosition({
+          coords: {
+            latitude: np.latitude,
+            longitude: np.longitude,
+            accuracy: np.accuracy,
+            altitude: np.altitude,
+            speed: np.speed,
+          },
+          timestamp: np.timestamp,
+        }),
+        handleGeoError
+      ).then((started) => {
+        if (started) return;
+        nativeWatchRef.current = false;
+        startBrowserWatch();
+      });
+    } else {
+      startBrowserWatch();
+    }
       // Fallback: if GPS hasn't resolved in 25s, unblock GO anyway
       gpsTimeoutRef.current = setTimeout(() => {
         setGpsLoading(false);
@@ -427,6 +474,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
 
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (nativeWatchRef.current) { nativeWatchRef.current = false; void stopNativeLocation(); }
       if (gpsTimeoutRef.current) { clearTimeout(gpsTimeoutRef.current); gpsTimeoutRef.current = null; }
     };
   }, []);
@@ -435,6 +483,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (nativeWatchRef.current) { nativeWatchRef.current = false; void stopNativeLocation(); }
+      void resetDucking();
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (narrationTimeoutRef.current) clearTimeout(narrationTimeoutRef.current);
@@ -705,6 +755,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
       currentSourceRef.current = source;
 
       if (narrationFreqRef.current === 'CONTINUOUS') duckAmbience();
+      // Dip the user's own music (Apple Music, Spotify, a podcast) for this cue.
+      // No-op on web, where no API can do this.
+      void duckOtherAudio();
 
       // As soon as this cue STARTS playing, kick off look-ahead for the next one.
       // This gives the full duration of the current cue for pre-fetch + TTS synthesis,
@@ -718,6 +771,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         if (sourceEnded) return;
         sourceEnded = true;
         currentSourceRef.current = null;
+        // Music returns to full volume.
+        void unduckOtherAudio();
 
         if (narrationFreqRef.current === 'CONTINUOUS') {
           raiseAmbience();
@@ -1311,6 +1366,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     nextCueRef.current = null;
     nextCueFetchingRef.current = false;
 
+    // Claim a mixable, ducking audio session so coaching plays over the user's
+    // music rather than stopping it. No-op on web.
+    void configureAudioSession();
     startKeepAlive();
     updateMediaSessionMetadata(
       `CalmKit ${MODES.find(m => m.id === mode)?.label || 'Guided Session'}`,
@@ -1641,6 +1699,9 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     }
     stopAmbience();
     if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+    if (nativeWatchRef.current) { nativeWatchRef.current = false; void stopNativeLocation(); }
+    // Never leave the user's music ducked after the walk ends.
+    void resetDucking();
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     startMarkerRef.current = null;
     // Close shared AudioContext to prevent audio bleed into other views
