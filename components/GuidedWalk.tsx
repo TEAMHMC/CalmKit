@@ -113,6 +113,11 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
   const [isCheckInLoading, setIsCheckInLoading] = useState(false);
   const [displaySpeedMph, setDisplaySpeedMph] = useState<number | null>(null);
   const [sessionGpsAcquired, setSessionGpsAcquired] = useState(false);
+  // Why location is unavailable, so a blocked or failed request is explained instead of
+  // sitting on "Finding your location" until the 30s safety net. null = no known problem.
+  const [gpsIssue, setGpsIssue] = useState<'denied' | 'failed' | null>(null);
+  // True once the user chooses to continue the walk without location.
+  const [gpsIssueAck, setGpsIssueAck] = useState(false);
   const [showMoodCheck, setShowMoodCheck] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const pendingSessionRef = useRef<{ path: [number, number][]; stats: { distance: number; time: number; pace: string } } | null>(null);
@@ -886,6 +891,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     return new Promise(async (resolve) => {
       if (!navigator.geolocation) {
         setGpsLoading(false);
+        setGpsIssue('failed');
         resolve(false);
         return;
       }
@@ -896,6 +902,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           if (status.state === 'denied') {
             console.warn('GPS permission previously denied, skipping re-request');
             setGpsLoading(false);
+            setGpsIssue('denied');
             resolve(false);
             return;
           }
@@ -911,6 +918,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           setUserLocation(loc);
           setGpsAccuracy(pos.coords.accuracy);
           setGpsLoading(false);
+          setGpsIssue(null);
           // Permission now granted — start continuous watch if not already running
           startGpsWatch();
           resolve(true);
@@ -918,6 +926,8 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
         (err) => {
           console.warn('GPS permission request failed:', err.code, err.message);
           setGpsLoading(false);
+          // code 1 = the browser or the user said no; anything else = no signal or timed out
+          setGpsIssue(err.code === 1 ? 'denied' : 'failed');
           resolve(false);
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -1381,6 +1391,7 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
     // Reset per-session GPS state
     sessionGpsAcquiredRef.current = false;
     setSessionGpsAcquired(false);
+    setGpsIssueAck(false);
 
     // For outdoor: request location on the GO gesture — this is what triggers the iOS
     // native permission prompt. If already granted, resolves instantly.
@@ -2052,8 +2063,49 @@ const GuidedWalk: React.FC<MovementProps> = ({ onBack, lang, onImmersiveChange }
           </div>
         )}
 
+        {/* Location is off or failed: say why and give a way forward (the browser will not
+            re-prompt once a site is blocked, so asking again alone would do nothing). */}
+        {sessionType === 'OUTDOOR' && !sessionGpsAcquired && gpsIssue && !gpsIssueAck && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center">
+            <div className="bg-black/85 backdrop-blur-xl rounded-3xl px-7 py-6 flex flex-col items-center gap-3 border border-white/10 mx-6">
+              <p className="text-white font-medium text-sm text-center">
+                {gpsIssue === 'denied'
+                  ? (lang === 'es' ? 'La ubicación está desactivada' : 'Location is off for Calm Kit')
+                  : (lang === 'es' ? 'No pudimos encontrar tu ubicación' : 'We could not find your location')}
+              </p>
+              <p className="text-white/55 text-xs text-center leading-relaxed">
+                {gpsIssue === 'denied'
+                  ? (lang === 'es'
+                      ? 'Activa la ubicación para este sitio en la configuración de tu navegador, luego toca Intentar de nuevo. Tu sesión sigue en marcha.'
+                      : 'Turn on location for this site in your browser settings, then tap Try again. Your session keeps going.')
+                  : (lang === 'es'
+                      ? 'Sal al exterior o revisa los servicios de ubicación, luego toca Intentar de nuevo. Tu sesión sigue en marcha.'
+                      : 'Move outdoors or check Location Services, then tap Try again. Your session keeps going.')}
+              </p>
+              <div className="flex flex-col gap-2 w-full mt-1">
+                <button
+                  onClick={() => { void requestGpsPermission(); }}
+                  className="w-full h-11 bg-[#233DFF] text-white rounded-full text-sm font-semibold active:scale-95 transition-all"
+                >
+                  {lang === 'es' ? 'Intentar de nuevo' : 'Try again'}
+                </button>
+                <button
+                  onClick={() => {
+                    setGpsIssueAck(true);
+                    sessionGpsAcquiredRef.current = true;
+                    setSessionGpsAcquired(true);
+                  }}
+                  className="w-full h-11 bg-white/10 text-white rounded-full text-sm font-medium active:scale-95 transition-all"
+                >
+                  {lang === 'es' ? 'Continuar sin ubicación' : 'Continue without location'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Finding location overlay */}
-        {sessionType === 'OUTDOOR' && !sessionGpsAcquired && (
+        {sessionType === 'OUTDOOR' && !sessionGpsAcquired && !gpsIssue && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="bg-black/75 backdrop-blur-xl rounded-3xl px-8 py-6 flex flex-col items-center gap-3 border border-white/10 mx-8">
               <Loader2 size={28} className="text-[#233DFF] animate-spin" />
